@@ -24,7 +24,8 @@
 
 1. Clone the repo
    \`\`\`bash
-   git clone https://github.com/Codewithpabitra/HoneyChain_Backend.git
+   git clone git clone https://github.com/Codewithpabitra/HoneyChain_Backend.git honeychain-backend
+
    cd honeychain-backend
    \`\`\`
 
@@ -52,6 +53,7 @@
    Should return: `{ "success": true, "message": "HoneyChain backend is running 🐝" }`
 
 ## Scripts
+
 | Command | What it does |
 |---|---|
 | `npm run dev` | Starts dev server via nodemon + tsx, auto-restarts on file change |
