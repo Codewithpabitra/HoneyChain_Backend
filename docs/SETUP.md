@@ -24,7 +24,7 @@
 
 1. Clone the repo
    \`\`\`bash
-   git clone git clone https://github.com/Codewithpabitra/HoneyChain_Backend.git honeychain-backend
+   git clone https://github.com/Codewithpabitra/HoneyChain_Backend.git honeychain-backend
 
    cd honeychain-backend
    \`\`\`
