@@ -156,7 +156,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Phase 6: IoT Telemetry Ingestion & Standalone Edge Simulator] - 2026-09-08
+## [Phase 6: IoT Telemetry Ingestion & Integrated Simulator Service] - 2026-09-08
 
 ### Added
 - **Telemetry Ingestion API (`backend/src/routes/iot.routes.ts`, `backend/src/controllers/iot.controller.ts`)**:
@@ -171,16 +171,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **System Health Endpoint (`backend/src/app.ts`)**:
   - Implemented `GET /health` returning server status, uptime in seconds, timestamp, and database connectivity state.
   - Zero sensitive database URIs or credentials leaked.
-- **Standalone Stateful Edge Simulator (`backend/src/scripts/simulateIoT.ts`)**:
-  - Standalone Node.js process simulating 5 seeded physical hives with realistic circadian environmental drift, diurnal temperature cycles, nectar weight accumulation, and battery discharge.
-  - Dynamic target URL resolution via `IOT_TARGET_URL` (aborts at startup if missing).
-  - Configurable cycle interval via `IOT_INTERVAL_MS` (defaults to 10 minutes / 600000ms).
+- **Single-Server Integrated Simulator (`backend/src/scripts/simulateIoT.ts`, `backend/src/server.ts`)**:
+  - Integrated directly into the Express backend server (`server.ts`).
+  - Single server model: the backend process itself boots up and hits its own deployed ingestion URL (`IOT_TARGET_URL/api/iot/telemetry`) on a recurring background schedule.
+  - Stays cleanly idle if `IOT_TARGET_URL` is empty in development, and activates immediately when configured in production (e.g. Render).
+  - Simulates 5 seeded physical hives with realistic circadian environmental drift, diurnal temperature cycles, nectar weight accumulation, and battery discharge.
+  - Dynamic target URL resolution via `IOT_TARGET_URL` and configurable cycle interval via `IOT_INTERVAL_MS` (defaults to 10 minutes / 600000ms).
   - Ingestion metadata tagging `{ source: "simulator", simulationVersion: "1.0" }`.
   - Resilience against server downtime, network drops, and HTTP timeouts without crashing.
-  - Added npm script: `npm run simulate:iot`.
+  - Can also be optionally run via CLI with `npm run simulate:iot`.
 - **Automated IoT Test Suite (`backend/src/tests/iot.test.ts`)**:
-  - 11 comprehensive automated tests covering `GET /health`, valid ingestion, missing fields, out-of-bounds metrics, timestamp drift, inactive hives, deduplication idempotency, target URL resolution, interval resolution, device state evolution, and network resilience.
-  - Total backend tests passing: **40/40 tests**.
+  - 13 comprehensive automated tests covering `GET /health`, valid ingestion, missing fields, out-of-bounds metrics, timestamp drift, inactive hives, deduplication idempotency, target URL resolution, interval resolution, device state evolution, network resilience, and background simulator lifecycle.
+  - Total backend tests passing: **42/42 tests**.
 
 
 

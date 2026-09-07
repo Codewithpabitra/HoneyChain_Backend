@@ -180,32 +180,42 @@ HoneyChain implements regular Mongoose collections paired with compound B-tree i
 
 ---
 
-## 7. IoT Telemetry Ingestion & Edge Simulation Architecture
+## 7. IoT Telemetry Ingestion & Integrated Simulator Architecture
 
-### 7.1 Telemetry Ingestion Pipeline (`POST /api/iot/telemetry`)
-Edge hardware (ESP32 nodes/gateways) or the standalone edge simulator transmit sensor readings via HTTP POST to the backend API:
+### 7.1 Single-Server Architecture & Self-Ingestion Flow
+HoneyChain operates on a unified, single-server architecture. The backend service itself hosts both the Express REST ingestion API and the integrated IoT simulation loop:
 
 ```text
-┌───────────────────────────────┐
-│     ESP32 Node / Gateway      │
-│  OR Standalone Edge Simulator │
-└───────────────┬───────────────┘
-                │ HTTP POST /api/iot/telemetry
-                │ Payload: { deviceId, hiveId, timestamp, metrics: {...}, metadata: {...} }
-                ▼
-┌───────────────────────────────┐
-│       Express API Server      │
-│   - Schema & Bounds Checking  │
-│   - Hive Status Verification  │
-│   - Idempotent Deduplication  │
-└───────────────┬───────────────┘
-                ├── Updates Hive (lastPingAt, latestReadingAt, batteryLevelPct)
-                └── Writes SensorReading Document (Indexed by { hiveId, timestamp }, { deviceId, timestamp })
-                ▼
-┌───────────────────────────────┐
-│       MongoDB Database        │
-└───────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│               Single Deployed Server (Express Backend)                 │
+│                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │               Integrated IoT Simulator Service                   │  │
+│  │  - Runs as background timer within backend process               │  │
+│  │  - Stateful circadian drift across 5 seeded hives                │  │
+│  │  - Reads IOT_TARGET_URL (e.g. deployed Render URL or localhost) │  │
+│  └──────────────────────────────┬───────────────────────────────────┘  │
+│                                 │                                      │
+│                                 │ HTTP POST ${IOT_TARGET_URL}/api/iot/telemetry
+│                                 ▼                                      │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │                    Ingestion REST Controller                     │  │
+│  │  - Schema & realistic physical bounds checking                   │  │
+│  │  - Clock drift bounds verification (<= 10 mins)                  │  │
+│  │  - Active hive status verification                               │  │
+│  │  - Idempotent deduplication on { deviceId, timestamp }           │  │
+│  └──────────────────────────────┬───────────────────────────────────┘  │
+│                                 │                                      │
+└─────────────────────────────────┼──────────────────────────────────────┘
+                                  ├── Updates Hive (lastPingAt, latestReadingAt, batteryLevelPct)
+                                  └── Writes SensorReading Document
+                                  ▼
+                    ┌───────────────────────────┐
+                    │      MongoDB Database     │
+                    └───────────────────────────┘
 ```
+
+> **Key Architectural Principle**: The backend hits its own public/deployed URL via HTTP POST rather than directly mutating database records. This guarantees that the entire ingestion pipeline (network serialization, routing, middleware, validation, deduplication, and database persistence) is executed identically for simulated traffic and future physical ESP32/LoRa hardware.
 
 ### 7.2 Strict Input Validation & Sanity Bounds
 To maintain data integrity and protect the AI engine from sensor noise or compromised edge devices, incoming telemetry is validated against realistic physical bounds:
@@ -225,10 +235,10 @@ Network drops and LoRa retransmissions often cause duplicate packets. The databa
 ```
 If an edge gateway retransmits an identical reading, the API responds with `HTTP 200 OK` and `{ success: true, duplicate: true }`, ensuring gateway operations proceed without error while preserving database hygiene.
 
-### 7.4 Edge Simulator to Physical Hardware Transition
-Prior to physical ESP32 and LoRa node deployment, the HoneyChain IoT layer is powered by a standalone stateful simulator (`backend/src/scripts/simulateIoT.ts`):
-1. **Identical Protocol**: The simulator communicates strictly through the external HTTP ingestion endpoint (`POST /api/iot/telemetry`), exactly mimicking physical ESP32 gateway firmware.
-2. **Environment-Driven Target**: The simulator consumes `IOT_TARGET_URL` from its environment, ensuring complete decoupling from backend code.
-3. **Drop-In Hardware Replacement**: When physical ESP32/LoRa hardware is powered on and provisioned with the backend URL, the simulator can simply be halted. No backend code modifications or database migrations are required.
+### 7.4 Transition from Integrated Simulator to Physical Edge Hardware
+1. **Identical Contract**: Both the integrated simulator and physical ESP32 gateways communicate exclusively via `POST /api/iot/telemetry`.
+2. **Decoupled Configuration**: Leaving `IOT_TARGET_URL` unconfigured keeps the integrated simulator idle. When the deployed backend URL is populated, the backend immediately begins self-ingesting simulated telemetry.
+3. **Drop-In Hardware Replacement**: When physical ESP32/LoRa hardware is ready, setting `IOT_TARGET_URL=""` halts the internal simulator while physical gateways take over sending to the exact same endpoint.
+
 
 

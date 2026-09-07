@@ -84,7 +84,7 @@ export async function disconnectDB(): Promise<void> {
 /**
  * Configures graceful process termination handlers.
  */
-export function setupGracefulShutdown(server?: any): void {
+export function setupGracefulShutdown(server?: any, cleanup?: () => Promise<void> | void): void {
   const shutdown = async (signal: string) => {
     console.log(`\n[Process] Received ${signal}. Commencing graceful shutdown...`);
 
@@ -92,6 +92,14 @@ export function setupGracefulShutdown(server?: any): void {
       server.close(() => {
         console.log("[Server] HTTP server stopped accepting new requests");
       });
+    }
+
+    if (typeof cleanup === "function") {
+      try {
+        await cleanup();
+      } catch (err: any) {
+        console.warn("[Process] Warning during custom cleanup:", err.message);
+      }
     }
 
     try {

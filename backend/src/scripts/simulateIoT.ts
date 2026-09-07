@@ -210,8 +210,102 @@ export async function sendTelemetry(
   }
 }
 
+let backgroundTimer: NodeJS.Timeout | null = null;
+let initialStartupTimer: NodeJS.Timeout | null = null;
+let isBackgroundRunning = false;
+
 /**
- * Main simulation runner loop.
+ * Starts the integrated IoT telemetry background service inside the Express backend.
+ * The backend itself periodically issues HTTP POST requests to its own ingestion URL.
+ * If targetUrl is not provided or empty, it logs an informational note and remains idle.
+ */
+export function startBackgroundSimulator(targetUrl?: string, intervalMsInput?: number | string): boolean {
+  const rawUrl = targetUrl || process.env.IOT_TARGET_URL;
+
+  if (!rawUrl || !rawUrl.trim()) {
+    console.log("[HoneyChain IoT Simulator] IOT_TARGET_URL not configured. Integrated simulator service is idle (awaiting IOT_TARGET_URL environment variable).");
+    return false;
+  }
+
+  let endpointUrl: string;
+  try {
+    endpointUrl = resolveTargetEndpoint(rawUrl);
+  } catch (err: any) {
+    console.warn(`[HoneyChain IoT Simulator] Failed to resolve target URL: ${err.message}`);
+    return false;
+  }
+
+  const intervalMs = typeof intervalMsInput === "number"
+    ? intervalMsInput
+    : resolveIntervalMs(typeof intervalMsInput === "string" ? intervalMsInput : process.env.IOT_INTERVAL_MS);
+
+  if (isBackgroundRunning) {
+    console.log("[HoneyChain IoT Simulator] Background simulator is already running.");
+    return true;
+  }
+
+  isBackgroundRunning = true;
+  console.log(`[HoneyChain IoT Simulator] Integrated background service active.`);
+  console.log(`[HoneyChain IoT Simulator] Target endpoint: ${endpointUrl}`);
+  console.log(`[HoneyChain IoT Simulator] Cycle interval: ${intervalMs} ms (${(intervalMs / 1000).toFixed(1)}s)`);
+
+  let cycleIndex = 0;
+
+  const executeCycle = async () => {
+    if (!isBackgroundRunning) return;
+    cycleIndex += 1;
+    console.log(`[HoneyChain IoT Simulator] Cycle #${cycleIndex} - Sending telemetry for ${simulatedDevices.length} hives...`);
+
+    for (const device of simulatedDevices) {
+      if (!isBackgroundRunning) break;
+      const payload = evolveDeviceState(device);
+      const result = await sendTelemetry(endpointUrl, payload);
+      if (result.success) {
+        console.log(
+          `  [IoT Sim ✓] ${device.deviceId} (${device.hiveId}): ${payload.temperature}°C, ${payload.humidity}%, ${payload.weightKg}kg -> ${result.message}`
+        );
+      } else {
+        console.warn(
+          `  [IoT Sim ✗] ${device.deviceId} (${device.hiveId}): Failed -> [${result.status || "ERR"}] ${result.message}`
+        );
+      }
+    }
+  };
+
+  // Schedule first cycle after 5 seconds to let the server complete startup/listen
+  initialStartupTimer = setTimeout(() => {
+    if (isBackgroundRunning) {
+      executeCycle().catch((err) => console.error("[HoneyChain IoT Simulator] Error during cycle:", err.message));
+    }
+  }, 5000);
+
+  backgroundTimer = setInterval(() => {
+    if (isBackgroundRunning) {
+      executeCycle().catch((err) => console.error("[HoneyChain IoT Simulator] Error during cycle:", err.message));
+    }
+  }, intervalMs);
+
+  return true;
+}
+
+/**
+ * Stops the integrated background simulation loop.
+ */
+export function stopBackgroundSimulator(): void {
+  if (initialStartupTimer) {
+    clearTimeout(initialStartupTimer);
+    initialStartupTimer = null;
+  }
+  if (backgroundTimer) {
+    clearInterval(backgroundTimer);
+    backgroundTimer = null;
+  }
+  isBackgroundRunning = false;
+  console.log("[HoneyChain IoT Simulator] Integrated background service stopped.");
+}
+
+/**
+ * Main simulation runner loop for standalone CLI execution.
  */
 async function runSimulator() {
   console.log("\n=======================================================");
@@ -277,3 +371,4 @@ async function runSimulator() {
 if (process.argv[1]?.endsWith("simulateIoT.ts") || process.argv[1]?.endsWith("simulateIoT.js")) {
   runSimulator();
 }
+

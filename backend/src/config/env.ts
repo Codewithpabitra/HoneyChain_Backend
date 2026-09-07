@@ -25,6 +25,10 @@ const envSchema = z.object({
   PROCESSOR_PRIVATE_KEY: z.string().optional(),
   DISTRIBUTOR_PRIVATE_KEY: z.string().optional(),
   AUDITOR_PRIVATE_KEY: z.string().optional(),
+
+  // IoT Telemetry Simulation (hits backend itself over HTTP)
+  IOT_TARGET_URL: z.string().optional(),
+  IOT_INTERVAL_MS: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

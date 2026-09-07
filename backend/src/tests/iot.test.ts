@@ -9,6 +9,8 @@ import {
   resolveIntervalMs,
   evolveDeviceState,
   sendTelemetry,
+  startBackgroundSimulator,
+  stopBackgroundSimulator,
 } from "../scripts/simulateIoT.js";
 
 describe("HoneyChain IoT Telemetry Ingestion & Simulator Test Suite", function () {
@@ -411,5 +413,24 @@ describe("HoneyChain IoT Telemetry Ingestion & Simulator Test Suite", function (
         global.fetch = originalFetch;
       }
     });
+
+    it("startBackgroundSimulator stays idle and returns false when IOT_TARGET_URL is unset", function () {
+      const started = startBackgroundSimulator("", 60000);
+      expect(started).to.be.false;
+      stopBackgroundSimulator();
+    });
+
+    it("startBackgroundSimulator activates and stops cleanly when IOT_TARGET_URL is provided", function () {
+      const started = startBackgroundSimulator("http://localhost:5000", 60000);
+      expect(started).to.be.true;
+
+      // Starting again returns true without recreating
+      const secondCall = startBackgroundSimulator("http://localhost:5000", 60000);
+      expect(secondCall).to.be.true;
+
+      // Clean shutdown
+      stopBackgroundSimulator();
+    });
   });
 });
+
