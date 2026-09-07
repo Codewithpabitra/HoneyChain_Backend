@@ -83,6 +83,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Successfully deployed `HoneyChainRegistry.sol` to **Ethereum Sepolia** at address `0x65afF3B44441FfF68171a9a0AA28063BC83C208d`.
   - Transaction hash: `0x59d3d3f5cd1cc37984c17358ae0e071226cafd5b7c423739d5f2a3bf9243dde2` (Block: `11655688`, Gas used: `1,118,315`).
   - Saved deployment artifact containing ABI, address, chain ID, and receipt data.
+- **On-Chain Stakeholder Role Assignments**:
+  - Generated dedicated testnet keypairs for all five stakeholder roles in `blockchain/.env` with `chmod 600` permissions.
+  - Granted and verified on-chain roles via `HoneyChainRegistry`:
+    - `BEEKEEPER_ROLE`: `0x111748e2D54D3f151746Af8B508CE8AD626d7A93` (tx: `0xde96e9b83796d57746895479e7c4880d74fdc0f2a48fb5f4f0febfeff9c4fce9`)
+    - `LABORATORY_ROLE`: `0x88bcE6325a09Fb4943d61A48eA5282EBeEb7744c` (tx: `0x96d8ac1517b6a3eb2da9cc9ee749677e30547b9b69f9a4d94d51c2f4a0007fa9`)
+    - `PROCESSOR_ROLE`: `0x8D34e7768603473001aEDc1b5eD82C05CbaF6C34` (tx: `0x27b494f4c1f8faf5f8798e99c6cd30151c16b13b4b66ea63aa4bb6bba3a3626c`)
+    - `DISTRIBUTOR_ROLE`: `0x3003D5104621e8DD31c8c70DFFAa59816400D2D9` (tx: `0x51c6fb33e01dc0d6d870fe47c16eaf833ebc96c9edbb5ea720789b73af048a18`)
+    - `AUDITOR_ROLE`: `0x09C1d432f79fB1Dad516bf688930aAB81aA0978a` (tx: `0xd7e162e7fbae0b240913b89524ac7b2eb735461993125c8aae8f2f8fe998a394`)
+  - All roles verified on-chain as `true` via direct view calls to `hasRole(...)`.
+
 
 
 

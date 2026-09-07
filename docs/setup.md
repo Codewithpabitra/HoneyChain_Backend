@@ -100,17 +100,20 @@ Key variables configured:
 - **Deployer / Admin Address**: `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`
 - **Deployment Artifact**: `blockchain/deployments/sepolia/HoneyChainRegistry.json`
 
-### 6.2 Required Role Wallets
-For multi-actor staging, dedicated testnet wallets should be configured in `blockchain/.env`:
-- **`Admin`**: Granted `DEFAULT_ADMIN_ROLE` at deployment (`0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`).
-- **`Beekeeper` (`BEEKEEPER_ADDRESS`)**: Authorized to call `registerBatch`.
-- **`Laboratory` (`LABORATORY_ADDRESS`)**: Authorized to call `certifyBatch`.
-- **`Processor` (`PROCESSOR_ADDRESS`)**: Authorized to accept and forward batch custody.
-- **`Distributor` (`DISTRIBUTOR_ADDRESS`)**: Authorized to receive custody and distribute to retail.
-- **`Auditor` (`AUDITOR_ADDRESS`)**: Authorized to inspect and execute safety recalls.
+### 6.2 Stakeholder Role Wallets & Assignment Verification
+Dedicated testnet wallets have been generated and authorized on-chain:
 
-### 6.3 Next Step: Role Assignment Command
-Once the desired role addresses are placed into `blockchain/.env`:
+| Role | Public Address | Assignment Tx Hash | Status |
+|---|---|---|---|
+| **Admin** | `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08` | (Contract Constructor) | Confirmed |
+| **Beekeeper** | `0x111748e2D54D3f151746Af8B508CE8AD626d7A93` | [`0xde96e9b83796d57746895479e7c4880d74fdc0f2a48fb5f4f0febfeff9c4fce9`](https://sepolia.etherscan.io/tx/0xde96e9b83796d57746895479e7c4880d74fdc0f2a48fb5f4f0febfeff9c4fce9) | Confirmed |
+| **Laboratory** | `0x88bcE6325a09Fb4943d61A48eA5282EBeEb7744c` | [`0x96d8ac1517b6a3eb2da9cc9ee749677e30547b9b69f9a4d94d51c2f4a0007fa9`](https://sepolia.etherscan.io/tx/0x96d8ac1517b6a3eb2da9cc9ee749677e30547b9b69f9a4d94d51c2f4a0007fa9) | Confirmed |
+| **Processor** | `0x8D34e7768603473001aEDc1b5eD82C05CbaF6C34` | [`0x27b494f4c1f8faf5f8798e99c6cd30151c16b13b4b66ea63aa4bb6bba3a3626c`](https://sepolia.etherscan.io/tx/0x27b494f4c1f8faf5f8798e99c6cd30151c16b13b4b66ea63aa4bb6bba3a3626c) | Confirmed |
+| **Distributor** | `0x3003D5104621e8DD31c8c70DFFAa59816400D2D9` | [`0x51c6fb33e01dc0d6d870fe47c16eaf833ebc96c9edbb5ea720789b73af048a18`](https://sepolia.etherscan.io/tx/0x51c6fb33e01dc0d6d870fe47c16eaf833ebc96c9edbb5ea720789b73af048a18) | Confirmed |
+| **Auditor** | `0x09C1d432f79fB1Dad516bf688930aAB81aA0978a` | [`0xd7e162e7fbae0b240913b89524ac7b2eb735461993125c8aae8f2f8fe998a394`](https://sepolia.etherscan.io/tx/0xd7e162e7fbae0b240913b89524ac7b2eb735461993125c8aae8f2f8fe998a394) | Confirmed |
+
+### 6.3 Operational Commands
+To re-run or inspect role assignments:
 
 ```bash
 cd blockchain
