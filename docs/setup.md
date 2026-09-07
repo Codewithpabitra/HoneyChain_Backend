@@ -100,24 +100,27 @@ Key variables configured:
 - **Deployer / Admin Address**: `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`
 - **Deployment Artifact**: `blockchain/deployments/sepolia/HoneyChainRegistry.json`
 
-### 6.2 Stakeholder Role Wallets & Assignment Verification
-Dedicated testnet wallets have been generated and authorized on-chain:
+### 6.2 Stakeholder Role Wallets & Funding Status
+Dedicated testnet wallets have been generated, authorized on-chain, and funded for demo execution:
 
-| Role | Public Address | Assignment Tx Hash | Status |
-|---|---|---|---|
-| **Admin** | `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08` | (Contract Constructor) | Confirmed |
-| **Beekeeper** | `0x111748e2D54D3f151746Af8B508CE8AD626d7A93` | [`0xde96e9b83796d57746895479e7c4880d74fdc0f2a48fb5f4f0febfeff9c4fce9`](https://sepolia.etherscan.io/tx/0xde96e9b83796d57746895479e7c4880d74fdc0f2a48fb5f4f0febfeff9c4fce9) | Confirmed |
-| **Laboratory** | `0x88bcE6325a09Fb4943d61A48eA5282EBeEb7744c` | [`0x96d8ac1517b6a3eb2da9cc9ee749677e30547b9b69f9a4d94d51c2f4a0007fa9`](https://sepolia.etherscan.io/tx/0x96d8ac1517b6a3eb2da9cc9ee749677e30547b9b69f9a4d94d51c2f4a0007fa9) | Confirmed |
-| **Processor** | `0x8D34e7768603473001aEDc1b5eD82C05CbaF6C34` | [`0x27b494f4c1f8faf5f8798e99c6cd30151c16b13b4b66ea63aa4bb6bba3a3626c`](https://sepolia.etherscan.io/tx/0x27b494f4c1f8faf5f8798e99c6cd30151c16b13b4b66ea63aa4bb6bba3a3626c) | Confirmed |
-| **Distributor** | `0x3003D5104621e8DD31c8c70DFFAa59816400D2D9` | [`0x51c6fb33e01dc0d6d870fe47c16eaf833ebc96c9edbb5ea720789b73af048a18`](https://sepolia.etherscan.io/tx/0x51c6fb33e01dc0d6d870fe47c16eaf833ebc96c9edbb5ea720789b73af048a18) | Confirmed |
-| **Auditor** | `0x09C1d432f79fB1Dad516bf688930aAB81aA0978a` | [`0xd7e162e7fbae0b240913b89524ac7b2eb735461993125c8aae8f2f8fe998a394`](https://sepolia.etherscan.io/tx/0xd7e162e7fbae0b240913b89524ac7b2eb735461993125c8aae8f2f8fe998a394) | Confirmed |
+| Role | Public Address | Assignment Tx | Funding Tx (0.003 ETH) | Balance |
+|---|---|---|---|---|
+| **Admin** | `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08` | (Contract Constructor) | (Faucet Funded) | `0.03337 ETH` |
+| **Beekeeper** | `0x111748e2D54D3f151746Af8B508CE8AD626d7A93` | [`0xde96...`](https://sepolia.etherscan.io/tx/0xde96e9b83796d57746895479e7c4880d74fdc0f2a48fb5f4f0febfeff9c4fce9) | [`0x6a2d...`](https://sepolia.etherscan.io/tx/0x6a2d5f274919d1b7701a2d8d223a1de230347a1ce71d086d053ae6fe35dbe563) | `0.00300 ETH` |
+| **Laboratory** | `0x88bcE6325a09Fb4943d61A48eA5282EBeEb7744c` | [`0x96d8...`](https://sepolia.etherscan.io/tx/0x96d8ac1517b6a3eb2da9cc9ee749677e30547b9b69f9a4d94d51c2f4a0007fa9) | [`0xc890...`](https://sepolia.etherscan.io/tx/0xc890ea91c6c8c4ac471d0757e5269e868c848fe3c5053b307580337f6e11870c) | `0.00300 ETH` |
+| **Processor** | `0x8D34e7768603473001aEDc1b5eD82C05CbaF6C34` | [`0x27b4...`](https://sepolia.etherscan.io/tx/0x27b494f4c1f8faf5f8798e99c6cd30151c16b13b4b66ea63aa4bb6bba3a3626c) | [`0x5b46...`](https://sepolia.etherscan.io/tx/0x5b46bb02bc4bd2640295d2d7d74ffab3c4c7ada4345a4ca9b476163dfb9a057d) | `0.00300 ETH` |
+| **Distributor** | `0x3003D5104621e8DD31c8c70DFFAa59816400D2D9` | [`0x51c6...`](https://sepolia.etherscan.io/tx/0x51c6fb33e01dc0d6d870fe47c16eaf833ebc96c9edbb5ea720789b73af048a18) | [`0x0b35...`](https://sepolia.etherscan.io/tx/0x0b35bfcb6b910ddfd2d4c2e6c3193608a0059940f5fc88d3f75bdb345aa0413b) | `0.00300 ETH` |
+| **Auditor** | `0x09C1d432f79fB1Dad516bf688930aAB81aA0978a` | [`0xd7e1...`](https://sepolia.etherscan.io/tx/0xd7e162e7fbae0b240913b89524ac7b2eb735461993125c8aae8f2f8fe998a394) | [`0x86c9...`](https://sepolia.etherscan.io/tx/0x86c9afeb099868d8de4f949c9bb06d52ba72dcf929b889d56dfa92849ca707be) | `0.00300 ETH` |
 
 ### 6.3 Operational Commands
-To re-run or inspect role assignments:
-
 ```bash
 cd blockchain
+
+# Re-run role verification/assignment
 npm run roles:sepolia
+
+# Fund stakeholder wallets from deployer
+npm run fund:stakeholders
 ```
 
 

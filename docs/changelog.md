@@ -92,6 +92,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - `DISTRIBUTOR_ROLE`: `0x3003D5104621e8DD31c8c70DFFAa59816400D2D9` (tx: `0x51c6fb33e01dc0d6d870fe47c16eaf833ebc96c9edbb5ea720789b73af048a18`)
     - `AUDITOR_ROLE`: `0x09C1d432f79fB1Dad516bf688930aAB81aA0978a` (tx: `0xd7e162e7fbae0b240913b89524ac7b2eb735461993125c8aae8f2f8fe998a394`)
   - All roles verified on-chain as `true` via direct view calls to `hasRole(...)`.
+- **Stakeholder Testnet Wallet Funding**:
+  - Funded each stakeholder wallet with `0.003 Sepolia ETH` from deployer `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`:
+    - Beekeeper: `0x6a2d5f274919d1b7701a2d8d223a1de230347a1ce71d086d053ae6fe35dbe563`
+    - Laboratory: `0xc890ea91c6c8c4ac471d0757e5269e868c848fe3c5053b307580337f6e11870c`
+    - Processor: `0x5b46bb02bc4bd2640295d2d7d74ffab3c4c7ada4345a4ca9b476163dfb9a057d`
+    - Distributor: `0x0b35bfcb6b910ddfd2d4c2e6c3193608a0059940f5fc88d3f75bdb345aa0413b`
+    - Auditor: `0x86c9afeb099868d8de4f949c9bb06d52ba72dcf929b889d56dfa92849ca707be`
+  - Verified final balances: `0.003 ETH` per stakeholder; `0.03337 ETH` deployer reserve.
+
 
 
 
