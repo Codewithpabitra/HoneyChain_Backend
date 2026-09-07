@@ -101,6 +101,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Auditor: `0x86c9afeb099868d8de4f949c9bb06d52ba72dcf929b889d56dfa92849ca707be`
   - Verified final balances: `0.003 ETH` per stakeholder; `0.03337 ETH` deployer reserve.
 
+---
+
+## [Phase 4: Blockchain & Backend Ethers.js Integration] - 2026-09-08
+
+### Added
+- **Blockchain Service (`backend/src/services/blockchain.service.ts`)**:
+  - Bound ethers.js v6 to deployed contract `0x65afF3B44441FfF68171a9a0AA28063BC83C208d` on Sepolia.
+  - Implemented role signers for Beekeeper, Laboratory, Processor, Distributor, and Auditor.
+  - Implemented custom error decoder mapping Solidity custom reverts to friendly HTTP errors.
+  - Implemented `getBatchHistory` querying indexed event filters (`BatchRegistered`, `BatchCertified`, `CustodyTransferred`, `BatchRecalled`).
+  - Added deterministic SHA-256 canonical hashing utility.
+- **REST API Endpoints & Controllers**:
+  - `POST /api/batches`: Beekeeper harvest registration.
+  - `POST /api/batches/:batchId/quality`: Lab quality certification.
+  - `POST /api/batches/:batchId/transfer`: Supply chain custody transfer.
+  - `POST /api/batches/:batchId/recall`: Batch recall by authorized roles.
+  - `GET /api/verify/:batchId`: Consumer provenance verification with tamper detection.
+- **Live Rehearsal Demo Script (`backend/src/scripts/demoRehearsal.ts`)**:
+  - Verified live on-chain lifecycle from harvest to verification and recall across blocks `#11655868` to `#11655873`.
+- **Merge & Sync**:
+  - Fast-forward merged `blockchain` branch into `main` and pushed to remote `origin/main`.
+
+---
+
+## [Phase 5: Production MongoDB Data Layer & Seed Infrastructure] - 2026-09-08
+
+### Added
+- **Production MongoDB Connection (`backend/src/config/db.ts`)**:
+  - Implemented connection pooling (`maxPoolSize: 50`, `minPoolSize: 10`, `socketTimeoutMS: 45000`).
+  - Implemented credential masking (`sanitizeMongoUri`) in connection logs.
+  - Registered process event handlers for graceful shutdown (`SIGINT`, `SIGTERM`).
+- **Apiary Model (`backend/src/models/Apiary.ts`)**:
+  - Represents physical apiary sanctuaries with GeoJSON Point coordinates (`2dsphere` index).
+  - Tracks beekeeper owner, contact information, flora types, capacity, and active hives.
+- **Hive Model (`backend/src/models/Hive.ts`)**:
+  - Represents individual hives with queen details, hardware device metadata (ESP32/LoRa), and active health summary.
+  - References parent Apiary via ObjectId and indexed `apiaryId`.
+- **SensorReading Model (`backend/src/models/SensorReading.ts`)**:
+  - High-volume time-series telemetry model for temperature, humidity, weight, sound frequency, and acoustics.
+  - Optimized with compound B-tree indexes: `{ hiveId: 1, timestamp: -1 }`, `{ deviceId: 1, timestamp: -1 }`, `{ timestamp: -1 }`.
+- **AIPrediction Model (`backend/src/models/AIPrediction.ts`)**:
+  - Stores AI model outputs for colony health, disease risk, swarming predictions, and yield estimates.
+  - Supports input window summaries, confidence scores, and action recommendations.
+- **Batch Model Preservation & Extension (`backend/src/models/Batch.ts`)**:
+  - Fully preserved existing blockchain and provenance fields.
+  - Extended with optional `apiary` and `hives` relationships.
+- **Repeatable Seed Script (`backend/src/scripts/seed.ts`)**:
+  - Idempotent script populating 3 apiaries, 6 hives, 100 hourly IoT telemetry readings, 3 AI predictions, and 2 honey batches.
+  - Added npm script: `npm run seed`.
+- **Model Test Suite (`backend/src/tests/models.test.ts`)**:
+  - 14 automated tests validating schema constraints, coordinates, unique indexes, relationships, and time-series queries.
+  - Total backend tests passing: **29/29 tests**.
+
+
 
 
 

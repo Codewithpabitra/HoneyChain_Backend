@@ -88,3 +88,93 @@ Rather than storing dynamic historical arrays inside Solidity contract storage�
 - `BatchRecalled(bytes32 indexed batchId, address indexed by, string reason, uint256 timestamp)`
 
 The backend client (or any independent consumer portal) reconstructs the chronological journey of a honey jar by querying past event logs matching `batchId` directly from the Sepolia RPC provider.
+
+---
+
+## 6. MongoDB Operational Data Architecture
+
+### 6.1 Entity Relationship Model (ERD)
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                                Apiary                                  │
+│  - apiaryId (String, Unique)                                           │
+│  - name (String)                                                       │
+│  - beekeeper (String, EVM Address)                                     │
+│  - location: { lat, lng, region, address, coordinates [2dsphere] }     │
+│  - floraType: [String]                                                 │
+│  - capacity: Number                                                    │
+│  - hives: [ObjectId -> Hive]                                           │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ 1:N
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                                 Hive                                   │
+│  - hiveId (String, Unique)                                             │
+│  - apiary (ObjectId -> Apiary)                                         │
+│  - apiaryId (String, Fast Index)                                       │
+│  - beekeeper (String, EVM Address)                                     │
+│  - hiveType (Langstroth | Top-Bar | Smart-IoT-Box)                     │
+│  - beeSpecies (String, e.g. Apis cerana indica)                        │
+│  - queenInfo: { queenId, markedColor, isMated, installedDate }         │
+│  - deviceMetadata: { deviceId, hardwareModel, firmware, battery }      │
+│  - currentHealthSummary: { healthScore, status, stressIndex, alerts }  │
+└─────────────┬────────────────────────────────────────────┬─────────────┘
+              │ 1:N (Time-Series Telemetry)                 │ 1:N
+              ▼                                            ▼
+┌──────────────────────────────────────────┐ ┌───────────────────────────┐
+│              SensorReading               │ │       AIPrediction        │
+│  - hiveId (String, Index)                │ │  - predictionId (Unique)  │
+│  - hive (ObjectId -> Hive)               │ │  - targetType: hive|batch │
+│  - deviceId (String, Index)              │ │  - hive (ObjectId -> Hive)│
+│  - timestamp (Date, Index)               │ │  - batch (ObjectId->Batch)│
+│  - temperature (Number, C)               │ │  - predictionType:        │
+│  - humidity (Number, % RH)               │ │    colony_health |        │
+│  - weightKg (Number, kg)                 │ │    swarming_risk |        │
+│  - soundFrequencyHz (Number, Hz)         │ │    productivity_yield     │
+│  - acousticsDb (Number, dB)              │ │  - confidence (0.0 - 1.0) │
+│  - batteryLevelPct (Number, %)           │ │  - modelVersion (String)  │
+│  - ambientTemperature / ambientHumidity  │ │  - inputWindow (Summary)  │
+│  - metadata (LoRa/Packet telemetry)      │ │  - result (Anomalies,     │
+└──────────────────────────────────────────┘ │    actions, stressScore)  │
+                                             └───────────────────────────┘
+                                                           ▲
+                                                           │ Optional Ref
+┌──────────────────────────────────────────────────────────┴─────────────┐
+│                             Honey Batch                                │
+│  - batchId (String, Unique)                                            │
+│  - batchIdBytes32 (String, Contract Key)                               │
+│  - producer (String, Beekeeper EVM Address)                            │
+│  - currentCustodian (String, Active Custodian Address)                 │
+│  - quantityGrams (Number)                                              │
+│  - harvestTimestamp (Number)                                           │
+│  - floralOrigin (String)                                               │
+│  - sourceHives: [String]                                               │
+│  - apiary (ObjectId -> Apiary)                                         │
+│  - hives: [ObjectId -> Hive]                                           │
+│  - apiaryLocation: { lat, lng, region, elevationMeters }               │
+│  - metadata (Canonical JSON Object)                                    │
+│  - metadataHash (0x SHA-256 Digest) ◄────────── Anchored on Sepolia    │
+│  - status (Registered | Certified | InTransit | Delivered | Recalled)  │
+│  - quality: { grade, moisturePercentage, labReportHash, certifiedBy }  │
+│  - custodyHistory: [{ from, to, location, timestamp, txHash }]         │
+│  - recall: { recalled, reason, recalledBy, txHash }                    │
+│  - blockchain: { network, chainId, contractAddress, registrationTx }   │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### 6.2 High-Scale IoT Telemetry Indexing Strategy
+Sensor readings from thousands of ESP32 edge gateways stream in via MQTT. To prevent collection table scans and optimize dashboard retrieval:
+1. **Compound Index `{ hiveId: 1, timestamp: -1 }`**:
+   - `db.sensorreadings.find({ hiveId: "HIVE-01" }).sort({ timestamp: -1 }).limit(1)`: Returns the hive's latest live reading in single-digit milliseconds via index lookup without reading full collections.
+   - `db.sensorreadings.find({ hiveId: "HIVE-01", timestamp: { $gte: start, $lte: end } })`: Bounds time-range scans directly within the hive's index slice.
+2. **Compound Index `{ deviceId: 1, timestamp: -1 }`**: Powers edge gateway hardware diagnostics, battery health monitoring, and connection dropout detection.
+3. **Compound Index `{ timestamp: -1 }`**: Global chronological ordering for pipeline workers and batch export jobs.
+
+### 6.3 Standard Collections vs. MongoDB Time-Series Collections
+HoneyChain implements regular Mongoose collections paired with compound B-tree index slices rather than native MongoDB 5.0 time-series collections.
+- **Rationale**:
+  1. Maximum compatibility across standalone nodes, replica sets, memory-testing servers, and multi-cloud tiers.
+  2. Full support for document-level updates, upserts, secondary compound indexes, and polymorphic metadata fields without MongoDB engine restrictions.
+  3. Consistent performance with zero query engine translation overhead.
+

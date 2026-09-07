@@ -123,4 +123,51 @@ npm run roles:sepolia
 npm run fund:stakeholders
 ```
 
+---
+
+## 7. MongoDB Setup, Seeding & Testing
+
+### 7.1 Database Connection Configuration
+The backend uses a production-quality connection pool managed via `backend/src/config/db.ts`.
+
+Configure your connection string in `backend/.env`:
+```env
+MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/honeychain?retryWrites=true&w=majority
+```
+> [!NOTE]
+> All connection logs automatically mask credentials using `sanitizeMongoUri(...)` to avoid leaking passwords in standard output.
+
+### 7.2 Database Models Overview
+| Model | Collection | Primary Responsibility | Key Indexes |
+|---|---|---|---|
+| **`Apiary`** | `apiaries` | Physical beekeeping sanctuaries | `{ apiaryId: 1 }` (unique), `{ beekeeper: 1 }`, `{ "location.coordinates": "2dsphere" }` |
+| **`Hive`** | `hives` | Individual monitored hives & queens | `{ hiveId: 1 }` (unique), `{ apiary: 1 }`, `{ "deviceMetadata.deviceId": 1 }` |
+| **`SensorReading`** | `sensorreadings` | Time-series telemetry from IoT gateways | `{ hiveId: 1, timestamp: -1 }`, `{ deviceId: 1, timestamp: -1 }`, `{ timestamp: -1 }` |
+| **`Batch`** | `batches` | Harvest batches & provenance anchors | `{ batchId: 1 }` (unique), `{ producer: 1 }`, `{ status: 1 }` |
+| **`AIPrediction`** | `aipredictions` | Analytics, swarming risk, yield forecasts | `{ predictionId: 1 }` (unique), `{ hiveId: 1, predictionTimestamp: -1 }`, `{ predictionType: 1 }` |
+
+### 7.3 Seeding Realistic Development Data
+An idempotent, safely repeatable seed script is provided to populate realistic apiaries, monitored hives, 24-hour time-series telemetry streams, AI predictions, and sample honey batches:
+
+```bash
+cd backend
+npm run seed
+```
+
+### 7.4 Running Test Suites
+Run the unified test suite (covering both MongoDB data layer and Ethereum Sepolia integration):
+```bash
+cd backend
+npm test
+```
+
+### 7.5 Running the Development API Server
+Start the Express server with live TypeScript reload:
+```bash
+cd backend
+npm run dev
+```
+Server boots on `http://localhost:5000` with graceful shutdown handling on `SIGINT` / `SIGTERM`.
+
+
 

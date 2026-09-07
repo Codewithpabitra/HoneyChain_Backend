@@ -1,11 +1,7 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Types } from "mongoose";
+import { IApiaryLocation } from "./Apiary.js";
 
-export interface IApiaryLocation {
-  latitude: number;
-  longitude: number;
-  region: string;
-  elevationMeters?: number;
-}
+export { IApiaryLocation };
 
 export interface IQualityDetails {
   grade: "None" | "GradeA" | "GradeB" | "GradeC" | "Substandard";
@@ -54,6 +50,9 @@ export interface IBatch extends Document {
   harvestTimestamp: number;
   floralOrigin: string;
   sourceHives: string[];
+  apiary?: Types.ObjectId;
+  apiaryId?: string;
+  hives?: Types.ObjectId[];
   apiaryLocation: IApiaryLocation;
   metadata: Record<string, any>;
   metadataHash: string;
@@ -171,6 +170,23 @@ const BatchSchema = new Schema<IBatch>(
       type: [String],
       default: [],
     },
+    apiary: {
+      type: Schema.Types.ObjectId,
+      ref: "Apiary",
+      required: false,
+      index: true,
+    },
+    apiaryId: {
+      type: String,
+      required: false,
+      index: true,
+    },
+    hives: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Hive",
+      },
+    ],
     apiaryLocation: {
       type: ApiaryLocationSchema,
       required: true,
