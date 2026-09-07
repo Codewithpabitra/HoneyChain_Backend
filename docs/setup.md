@@ -217,19 +217,19 @@ In your [Render Dashboard](https://dashboard.render.com/):
 #### Step 3: Environment Variables Table
 Add these key-value pairs in the **Environment Variables** section on Render:
 
-| Key | Suggested / Required Value | Notes |
+| Key | Value to Paste | Source in Local Files |
 |---|---|---|
-| `NODE_ENV` | `production` | Production mode |
-| `PORT` | `10000` | Render default port |
-| `MONGO_URI` | `mongodb+srv://...` | Your MongoDB Atlas connection string |
-| `SEPOLIA_RPC_URL` | `https://ethereum-sepolia-rpc.publicnode.com` | Sepolia public or private RPC |
-| `CONTRACT_ADDRESS` | `0x65afF3B44441FfF68171a9a0AA28063BC83C208d` | Deployed `HoneyChainRegistry` on Sepolia |
-| `ADMIN_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
-| `BEEKEEPER_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
-| `LAB_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
-| `PROCESSOR_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
-| `DISTRIBUTOR_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
-| `AUDITOR_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
+| `NODE_ENV` | `production` | (Hardcode) |
+| `PORT` | `10000` | (Hardcode) |
+| `MONGO_URI` | *(Your MongoDB Atlas URI)* | Copy from `backend/.env` |
+| `SEPOLIA_RPC_URL` | `https://ethereum-sepolia-rpc.publicnode.com` | Sepolia RPC endpoint |
+| `CONTRACT_ADDRESS` | `0x65afF3B44441FfF68171a9a0AA28063BC83C208d` | Sepolia contract address |
+| `DEPLOYER_PRIVATE_KEY` *(or `ADMIN_PRIVATE_KEY`)* | *(Paste Deployer key)* | Copy `DEPLOYER_PRIVATE_KEY` from `blockchain/.env` |
+| `BEEKEEPER_PRIVATE_KEY` | *(Paste Beekeeper key)* | Copy `BEEKEEPER_PRIVATE_KEY` from `blockchain/.env` |
+| `LABORATORY_PRIVATE_KEY` *(or `LAB_PRIVATE_KEY`)* | *(Paste Laboratory key)* | Copy `LABORATORY_PRIVATE_KEY` from `blockchain/.env` |
+| `PROCESSOR_PRIVATE_KEY` | *(Paste Processor key)* | Copy `PROCESSOR_PRIVATE_KEY` from `blockchain/.env` |
+| `DISTRIBUTOR_PRIVATE_KEY` | *(Paste Distributor key)* | Copy `DISTRIBUTOR_PRIVATE_KEY` from `blockchain/.env` |
+| `AUDITOR_PRIVATE_KEY` | *(Paste Auditor key)* | Copy `AUDITOR_PRIVATE_KEY` from `blockchain/.env` |
 | `IOT_TARGET_URL` | `https://<your-service-name>.onrender.com` | **Set to your Render URL after creation** |
 | `IOT_INTERVAL_MS` | `600000` | 10 minutes interval (or `10000` for fast testing) |
 

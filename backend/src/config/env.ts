@@ -19,6 +19,7 @@ const envSchema = z.object({
 
   // Dedicated Testnet Wallets for Backend Role Simulation
   ADMIN_PRIVATE_KEY: z.string().optional(),
+  DEPLOYER_PRIVATE_KEY: z.string().optional(),
   BEEKEEPER_PRIVATE_KEY: z.string().optional(),
   LABORATORY_PRIVATE_KEY: z.string().optional(),
   LAB_PRIVATE_KEY: z.string().optional(),
@@ -40,5 +41,6 @@ if (!parsed.success) {
 
 export const env = {
   ...parsed.data,
+  ADMIN_PRIVATE_KEY: parsed.data.ADMIN_PRIVATE_KEY || parsed.data.DEPLOYER_PRIVATE_KEY,
   LABORATORY_PRIVATE_KEY: parsed.data.LABORATORY_PRIVATE_KEY || parsed.data.LAB_PRIVATE_KEY,
 };
