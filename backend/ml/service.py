@@ -7,13 +7,22 @@ Loads all 26 model artifacts ONCE at startup into memory.
 
 import sys
 import os
+import glob
 import json
 import argparse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import logging
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(BASE_DIR, 'model')
+
+# Auto-detect and include virtual environment site-packages if present
+venv_site_candidates = glob.glob(os.path.join(BASE_DIR, 'venv', 'lib', 'python3.*', 'site-packages'))
+for site_pkg in venv_site_candidates:
+    if site_pkg not in sys.path:
+        sys.path.insert(0, site_pkg)
+
 # Ensure model directory is in sys.path
-MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'model')
 if MODEL_DIR not in sys.path:
     sys.path.insert(0, MODEL_DIR)
 

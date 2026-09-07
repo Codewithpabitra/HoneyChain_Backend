@@ -5,14 +5,14 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon",
-    "build": "tsc && tsc-alias",
+    "build": "npm run setup:ml && tsc && tsc-alias",
     "start": "node dist/server.js",
     "test": "mocha --node-option import=tsx src/tests/**/*.test.ts",
     "demo": "tsx src/scripts/demoRehearsal.ts",
     "seed": "tsx src/scripts/seed.ts",
     "seed:batches": "tsx src/scripts/seedDemoBatches.ts",
     "simulate:iot": "tsx src/scripts/simulateIoT.ts",
-    "setup:ml": "python3 -m venv ml/venv && ml/venv/bin/pip install -r ml/model/requirements.txt",
+    "setup:ml": "bash ml/setup.sh",
     "ml:service": "ml/venv/bin/python3 ml/service.py --port 5001"
   },
   "repository": {

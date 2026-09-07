@@ -161,16 +161,57 @@ export class MLService {
 
     this.isStartingProcess = true;
 
-    // Determine paths
-    const venvPython = path.resolve(__dirname, "../../ml/venv/bin/python3");
-    const systemPython = "python3";
-    const pythonBin = fs.existsSync(venvPython) ? venvPython : systemPython;
-    const serviceScript = path.resolve(__dirname, "../../ml/service.py");
+    // Determine paths across dist/ and dev environments
+    const serviceScriptCandidates = [
+      path.resolve(__dirname, "../../ml/service.py"),
+      path.resolve(process.cwd(), "ml/service.py"),
+      path.resolve(process.cwd(), "backend/ml/service.py"),
+      path.resolve(__dirname, "../ml/service.py"),
+    ];
+    let serviceScript: string | null = null;
+    for (const cand of serviceScriptCandidates) {
+      if (fs.existsSync(cand)) {
+        serviceScript = cand;
+        break;
+      }
+    }
 
-    if (!fs.existsSync(serviceScript)) {
-      console.warn(`[MLService] Python service script not found at ${serviceScript}`);
+    if (!serviceScript) {
+      console.warn(`[MLService] Python service script not found in any candidate path`);
       this.isStartingProcess = false;
       return false;
+    }
+
+    const venvCandidates = [
+      path.resolve(path.dirname(serviceScript), "venv/bin/python3"),
+      path.resolve(__dirname, "../../ml/venv/bin/python3"),
+      path.resolve(process.cwd(), "ml/venv/bin/python3"),
+      path.resolve(process.cwd(), "backend/ml/venv/bin/python3"),
+    ];
+    let pythonBin = "python3";
+    for (const cand of venvCandidates) {
+      if (fs.existsSync(cand)) {
+        pythonBin = cand;
+        break;
+      }
+    }
+
+    // Self-healing: if venv python not found, try to run setup.sh if present
+    if (pythonBin === "python3") {
+      const setupScript = path.resolve(path.dirname(serviceScript), "setup.sh");
+      if (fs.existsSync(setupScript)) {
+        try {
+          console.log(`[MLService] Venv not detected. Running self-healing setup: ${setupScript}...`);
+          const { execSync } = await import("child_process");
+          execSync(`bash "${setupScript}"`, { stdio: "inherit" });
+          const candidateVenv = path.resolve(path.dirname(serviceScript), "venv/bin/python3");
+          if (fs.existsSync(candidateVenv)) {
+            pythonBin = candidateVenv;
+          }
+        } catch (setupErr: any) {
+          console.warn(`[MLService] Setup script execution notice: ${setupErr.message}`);
+        }
+      }
     }
 
     try {
