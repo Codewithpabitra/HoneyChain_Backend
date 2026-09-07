@@ -93,6 +93,17 @@ export function resolveTargetEndpoint(rawUrl?: string): string {
 
   // Strip trailing slashes
   const cleanBase = url.replace(/\/+$/, "");
+
+  if (cleanBase.endsWith("/api/iot/telemetry")) {
+    return cleanBase;
+  }
+  if (cleanBase.endsWith("/api/iot")) {
+    return `${cleanBase}/telemetry`;
+  }
+  if (cleanBase.endsWith("/api")) {
+    return `${cleanBase}/iot/telemetry`;
+  }
+
   return `${cleanBase}/api/iot/telemetry`;
 }
 
@@ -203,11 +214,79 @@ export async function sendTelemetry(
       };
     }
   } catch (err: any) {
+    // If external call failed with network/timeout error, attempt local loopback fallback
+    const isLocal = endpointUrl.includes("127.0.0.1") || endpointUrl.includes("localhost");
+    const port = process.env.PORT || "5000";
+    if (!isLocal) {
+      const localUrl = `http://127.0.0.1:${port}/api/iot/telemetry`;
+      try {
+        const localRes = await fetch(localUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "HoneyChain-IoTSimulator/1.0",
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(5000),
+        });
+        const localBody = (await localRes.json().catch(() => ({}))) as any;
+        if (localRes.ok) {
+          const isDup = localBody?.duplicate === true;
+          return {
+            success: true,
+            status: localRes.status,
+            message: isDup ? "Duplicate reading accepted (via loopback)" : "Ingested successfully (via loopback)",
+          };
+        }
+      } catch {
+        // Fall back to returning original error
+      }
+    }
+
     if (err.name === "TimeoutError") {
       return { success: false, message: `Request timed out after ${REQUEST_TIMEOUT_MS}ms` };
     }
     return { success: false, message: err.message || "Network error connecting to backend" };
   }
+}
+
+/**
+ * Triggers an immediate one-off telemetry simulation cycle across all monitored hives.
+ */
+export async function triggerSimulationCycle(targetUrl?: string): Promise<{
+  success: boolean;
+  total: number;
+  successful: number;
+  results: any[];
+}> {
+  const rawUrl = targetUrl || process.env.IOT_TARGET_URL || `http://127.0.0.1:${process.env.PORT || 5000}`;
+  const endpoint = resolveTargetEndpoint(rawUrl);
+
+  const results: any[] = [];
+  let successful = 0;
+
+  for (const device of simulatedDevices) {
+    const payload = evolveDeviceState(device);
+    const res = await sendTelemetry(endpoint, payload);
+    if (res.success) successful += 1;
+    results.push({
+      deviceId: device.deviceId,
+      hiveId: device.hiveId,
+      temperature: payload.temperature,
+      humidity: payload.humidity,
+      weightKg: payload.weightKg,
+      success: res.success,
+      status: res.status,
+      message: res.message,
+    });
+  }
+
+  return {
+    success: successful > 0,
+    total: simulatedDevices.length,
+    successful,
+    results,
+  };
 }
 
 let backgroundTimer: NodeJS.Timeout | null = null;
@@ -220,7 +299,7 @@ let isBackgroundRunning = false;
  * If targetUrl is not provided or empty, it logs an informational note and remains idle.
  */
 export function startBackgroundSimulator(targetUrl?: string, intervalMsInput?: number | string): boolean {
-  const rawUrl = targetUrl || process.env.IOT_TARGET_URL;
+  const rawUrl = targetUrl !== undefined ? targetUrl : process.env.IOT_TARGET_URL;
 
   if (!rawUrl || !rawUrl.trim()) {
     console.log("[HoneyChain IoT Simulator] IOT_TARGET_URL not configured. Integrated simulator service is idle (awaiting IOT_TARGET_URL environment variable).");

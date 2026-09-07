@@ -11,6 +11,7 @@ import {
   sendTelemetry,
   startBackgroundSimulator,
   stopBackgroundSimulator,
+  triggerSimulationCycle,
 } from "../scripts/simulateIoT.js";
 
 describe("HoneyChain IoT Telemetry Ingestion & Simulator Test Suite", function () {
@@ -361,6 +362,13 @@ describe("HoneyChain IoT Telemetry Ingestion & Simulator Test Suite", function (
       // Strips trailing slashes correctly
       const endpoint2 = resolveTargetEndpoint("https://honeychain-api.onrender.com///");
       expect(endpoint2).to.equal("https://honeychain-api.onrender.com/api/iot/telemetry");
+
+      // Correctly handles already-included endpoint paths without duplication
+      const endpoint3 = resolveTargetEndpoint("https://honeychain-api.onrender.com/api/iot/telemetry");
+      expect(endpoint3).to.equal("https://honeychain-api.onrender.com/api/iot/telemetry");
+
+      const endpoint4 = resolveTargetEndpoint("https://honeychain-api.onrender.com/api/iot");
+      expect(endpoint4).to.equal("https://honeychain-api.onrender.com/api/iot/telemetry");
     });
 
     it("resolveIntervalMs parses custom intervals and falls back to default", function () {
@@ -452,6 +460,25 @@ describe("HoneyChain IoT Telemetry Ingestion & Simulator Test Suite", function (
 
       // Clean shutdown
       stopBackgroundSimulator();
+    });
+
+    it("POST /api/iot/simulate triggers an immediate simulation cycle", async function () {
+      const originalFetch = global.fetch;
+      try {
+        global.fetch = async () =>
+          new Response(JSON.stringify({ success: true, duplicate: false }), {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+          });
+
+        const res = await request(app).post("/api/iot/simulate");
+        expect(res.status).to.equal(200);
+        expect(res.body.success).to.be.true;
+        expect(res.body.data.total).to.equal(5);
+        expect(res.body.data.successful).to.equal(5);
+      } finally {
+        global.fetch = originalFetch;
+      }
     });
   });
 });
