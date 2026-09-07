@@ -4,6 +4,7 @@ import blockchainService, {
   QualityGrade,
   RoleName,
 } from "../services/blockchain.service.js";
+import qrService from "../services/qr.service.js";
 import AppError from "../utils/AppError.js";
 
 /**
@@ -516,6 +517,46 @@ export class BatchController {
               txHash: batch.recall.txHash,
             }
           : undefined,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * GET /api/batches/:batchId/qr
+   * Public endpoint to generate PNG Data URL & SVG QR code for honey jar labeling.
+   * Validates batch exists in MongoDB, constructs verification URL, and returns QR payloads.
+   */
+  public getBatchQrCode = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const batchId = (Array.isArray(req.params.batchId)
+        ? req.params.batchId[0]
+        : req.params.batchId) as string;
+
+      if (!batchId || !batchId.trim()) {
+        return next(new AppError("Valid batchId is required", 400));
+      }
+
+      const batch = await Batch.findOne({ batchId: batchId.trim() });
+      if (!batch) {
+        return next(
+          new AppError(`Batch '${batchId}' not found in registry`, 404)
+        );
+      }
+
+      const qrResult = await qrService.generateQrCode(batchId.trim());
+
+      return res.status(200).json({
+        success: true,
+        batchId: batch.batchId,
+        verificationUrl: qrResult.verificationUrl,
+        dataUrl: qrResult.dataUrl,
+        svg: qrResult.svg,
       });
     } catch (err) {
       return next(err);

@@ -91,6 +91,9 @@
         <div class="search-input-group">
           <input type="text" id="batchIdInput" placeholder="Enter Batch ID (e.g. HC-DEMO-168666, HC-BATCH-2026-001)" value="HC-DEMO-168666">
           <button type="button" id="verifyBtn" class="btn btn-primary">Verify Batch</button>
+          <button type="button" id="viewQrBtn" class="btn" style="background: rgba(245, 158, 11, 0.15); color: var(--primary); border: 1px solid rgba(245, 158, 11, 0.35);">
+            📱 View / Print QR Code
+          </button>
         </div>
         <div class="sample-chips">
           <span class="chip-label">Quick test IDs:</span>
@@ -209,6 +212,17 @@
         </div>
         <div class="endpoint-item">
           <span class="method get">GET</span>
+          <span class="path">/api/batches/:batchId/qr</span>
+          <span class="desc">Generate PNG Data URL & SVG QR code for honey jar packaging</span>
+        </div>
+        <div class="endpoint-item">
+          <span class="method get">GET</span>
+          <span class="path">/verify/:batchId</span>
+          <span class="desc">Consumer-facing mobile authenticity & provenance web page</span>
+          <a class="btn-sm" href="/verify/HC-DEMO-168666" target="_blank">Try ↗</a>
+        </div>
+        <div class="endpoint-item">
+          <span class="method get">GET</span>
           <span class="path">/api/verify/:batchId</span>
           <span class="desc">Query on-chain cryptographic proof & custody timeline</span>
         </div>
@@ -231,6 +245,34 @@
     </section>
   </main>
 
+  <!-- QR Code Modal Dialog -->
+  <div id="qrModalBackdrop" class="qr-modal-backdrop hidden" style="display: none;">
+    <div class="qr-modal">
+      <button type="button" id="qrModalClose" class="qr-modal-close" aria-label="Close Modal">&times;</button>
+      <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-dim); font-weight: 600;">Honey Jar Label QR Code</div>
+      <h3 id="qrModalBatchTitle" style="font-family: var(--font-mono); margin-top: 0.25rem; font-size: 1.2rem;">--</h3>
+      
+      <div class="qr-image-wrap">
+        <img id="qrModalImage" src="" alt="HoneyChain Batch QR Code">
+      </div>
+
+      <div style="font-size: 0.8rem; color: var(--text-muted);">Encoded Public Verification Link:</div>
+      <div id="qrModalUrl" class="qr-url-box">--</div>
+
+      <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+        <a id="qrModalOpenLink" href="#" target="_blank" class="btn btn-primary" style="text-decoration: none; padding: 0.5rem 1rem; font-size: 0.85rem;">
+          Open Consumer Page ↗
+        </a>
+        <button type="button" id="qrModalDownloadBtn" class="btn" style="background: var(--bg-card-hover); color: var(--text-main); border: 1px solid var(--border-subtle); padding: 0.5rem 1rem; font-size: 0.85rem;">
+          💾 Download PNG
+        </button>
+        <button type="button" id="qrModalPrintBtn" class="btn" style="background: var(--bg-card-hover); color: var(--text-main); border: 1px solid var(--border-subtle); padding: 0.5rem 1rem; font-size: 0.85rem;">
+          🖨️ Print Label
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <footer class="footer">
     <div class="container footer-container">
@@ -239,6 +281,8 @@
       </div>
       <div class="footer-links">
         <span>Smart India Hackathon 2026</span>
+        <span>•</span>
+        <a href="/verify">Consumer Verification</a>
         <span>•</span>
         <a href="https://sepolia.etherscan.io/address/0x65afF3B44441FfF68171a9a0AA28063BC83C208d" target="_blank" rel="noopener noreferrer">Smart Contract</a>
         <span>•</span>

@@ -191,6 +191,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - 15 comprehensive automated tests covering `GET /` HTML serving, JSON negotiation, `GET /health`, valid ingestion, missing fields, out-of-bounds metrics, timestamp drift, inactive hives, deduplication idempotency, target URL resolution, interval resolution, device state evolution, network resilience, and background simulator lifecycle.
   - Total backend tests passing: **44/44 tests**.
 
+---
+
+## [1.3.0] - 2026-09-08: Consumer QR Verification System
+
+### Added
+- **Public Base URL Configuration (`backend/src/config/env.ts`, `backend/.env.example`)**:
+  - Added `PUBLIC_BASE_URL` environment variable for constructing verifiable jar URLs.
+  - Normalized stripping of trailing slashes.
+  - Clear, descriptive error if `PUBLIC_BASE_URL` is missing when generating QR codes.
+- **QR Code Generation Service (`backend/src/services/qr.service.ts`)**:
+  - Reusable QR service powered by `qrcode`.
+  - Supports high error-correction level (`H`) allowing up to 30% packaging damage without loss of scannability.
+  - Generates PNG Data URLs (`data:image/png;base64,...`) and lossless SVG vector markup.
+- **Batch QR REST API (`backend/src/controllers/batch.controller.ts`, `backend/src/routes/batch.routes.ts`)**:
+  - `GET /api/batches/:batchId/qr`: Public, unauthenticated endpoint returning verification URL, PNG data URI, and SVG markup.
+  - Returns HTTP 404 for nonexistent batches and HTTP 400 for empty batch IDs.
+- **Dedicated Consumer Verification Route (`backend/src/app.ts`)**:
+  - `GET /verify/:batchId` and `GET /verify` served by Express before fallback handlers.
+  - Supports direct browser navigation from mobile QR scanners.
+- **Mobile-First Consumer Verification Web Page (`frontend/verify.html`, `frontend/verify.js`, `frontend/style.css`)**:
+  - Instant on-load verification querying `GET /api/verify/:batchId`.
+  - Authenticity status badges:
+    - 🟢 `✓ AUTHENTIC HONEY` (Anchored on Ethereum Sepolia, 100% hash match)
+    - 🔴 `INTEGRITY WARNING` (Hash mismatch / data tampering detected)
+    - ⛔ `PRODUCT RECALLED` (Prominent recall warning banner with reason, auditor address, and tx link)
+    - ⚠️ `PRODUCT NOT FOUND` (Informative 404 state for unlisted batches)
+  - Rich honey details: Floral origin, harvest date, batch volume, certified lab grade, moisture %, and apiary GPS coordinates.
+  - Cryptographic audit trail: On-chain vs off-chain SHA-256 hash comparison.
+  - Chronological provenance timeline with direct links to Sepolia Etherscan transactions.
+  - One-click actions: "Print Proof" (optimized `@media print` certificate) and "Share Proof".
+- **Main Portal QR Preview & Jar Label Printing (`frontend/index.html`, `frontend/app.js`)**:
+  - Added "View / Print QR Code" button and modal dialog.
+  - Printable honey jar label popup and PNG download.
+  - Mirrored all frontend assets to `backend/public/` for reliable containerized serving.
+- **Automated Test Suite (`backend/src/tests/qr.test.ts`)**:
+  - 9 automated unit and integration tests covering QR URL formatting, error handling for missing variables, PNG/SVG format generation, `GET /api/batches/:batchId/qr`, 404 handling, and consumer web page routing.
+  - Total backend tests passing: **54/54 tests**.
+
 
 
 

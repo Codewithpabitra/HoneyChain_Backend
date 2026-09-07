@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HoneyChain | Consumer Batch Authenticity Verification</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="verify-page">
+  <!-- Navigation Header -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="/" class="brand" style="text-decoration: none;">
+        <span class="brand-icon">🍯</span>
+        <div class="brand-text">
+          <span class="brand-title">HoneyChain</span>
+          <span class="brand-badge">Consumer Verification</span>
+        </div>
+      </a>
+      <div class="nav-status">
+        <a href="/" class="btn-sm" style="margin-right: 0.75rem;">← Back to Portal</a>
+        <a href="https://sepolia.etherscan.io/address/0x65afF3B44441FfF68171a9a0AA28063BC83C208d" target="_blank" rel="noopener noreferrer" class="btn-sm" style="display: inline-flex; align-items: center; gap: 0.25rem;">
+          <span>Sepolia Contract</span> ↗
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Consumer Verification Container -->
+  <main class="container verify-main">
+    
+    <!-- Top Search Bar (Available for direct lookups or modifying batch ID) -->
+    <section class="search-section no-print">
+      <div class="verify-search-box">
+        <div class="verify-search-title">Verify Honey Provenance</div>
+        <p class="verify-search-sub">
+          Instant cryptographic verification against Ethereum Sepolia smart contract records.
+        </p>
+        <div class="search-input-group" style="margin-top: 1rem;">
+          <input type="text" id="verifyBatchInput" placeholder="Enter Batch ID (e.g. HC-DEMO-168666, HC-BATCH-2026-001)" autofocus>
+          <button type="button" id="submitVerifyBtn" class="btn btn-primary">Verify Now</button>
+        </div>
+        <div class="sample-chips" style="margin-top: 0.75rem;">
+          <span class="chip-label">Try sample batches:</span>
+          <button type="button" class="chip sample-verify-chip" data-batch="HC-DEMO-168666">HC-DEMO-168666 (Rehearsal Demo)</button>
+          <button type="button" class="chip sample-verify-chip" data-batch="HC-BATCH-2026-001">HC-BATCH-2026-001 (Sundarbans)</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dynamic Verification Card Area -->
+    <div id="verifyDisplayArea" style="margin-top: 1.5rem;">
+      <!-- Initializing or Verification Content injected here -->
+    </div>
+
+  </main>
+
+  <!-- Printable Jar Certificate Footer -->
+  <footer class="footer no-print">
+    <div class="container footer-container">
+      <div>
+        <strong>HoneyChain</strong> — Consumer Authenticity & Supply Chain Provenance
+      </div>
+      <div class="footer-links">
+        <span>Ethereum Sepolia Network</span>
+        <span>•</span>
+        <a href="https://sepolia.etherscan.io/address/0x65afF3B44441FfF68171a9a0AA28063BC83C208d" target="_blank" rel="noopener noreferrer">Smart Contract</a>
+        <span>•</span>
+        <a href="/health">API Health</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/verify.js"></script>
+</body>
+</html>

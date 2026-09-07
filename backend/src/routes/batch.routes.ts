@@ -9,4 +9,7 @@ router.post("/:batchId/quality", batchController.certifyBatch);
 router.post("/:batchId/transfer", batchController.transferCustody);
 router.post("/:batchId/recall", batchController.recallBatch);
 
+// Public batch QR code generation (PNG & SVG)
+router.get("/:batchId/qr", batchController.getBatchQrCode);
+
 export default router;

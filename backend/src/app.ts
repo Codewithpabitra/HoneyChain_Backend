@@ -90,6 +90,20 @@ app.use("/api/batches", batchRoutes);
 app.use("/api/verify", verifyRoutes);
 app.use("/api/iot", iotRoutes);
 
+// Dedicated Consumer QR Verification Web Page Route
+app.get(["/verify", "/verify/:batchId"], (req, res, next) => {
+  if (frontendDir && fs.existsSync(path.join(frontendDir, "verify.html"))) {
+    return res.sendFile(path.join(frontendDir, "verify.html"));
+  }
+  if (frontendDir && fs.existsSync(path.join(frontendDir, "index.html"))) {
+    return res.sendFile(path.join(frontendDir, "index.html"));
+  }
+  return res
+    .status(200)
+    .type("html")
+    .send("<!DOCTYPE html><html><head><title>HoneyChain Verification</title></head><body><h1>HoneyChain Consumer Verification</h1></body></html>");
+});
+
 // Fallback for HTML navigation routes (Express 5 compatible)
 app.use((req, res, next) => {
   if (req.method !== "GET") {

@@ -240,5 +240,48 @@ If an edge gateway retransmits an identical reading, the API responds with `HTTP
 2. **Decoupled Configuration**: Leaving `IOT_TARGET_URL` unconfigured keeps the integrated simulator idle. When the deployed backend URL is populated, the backend immediately begins self-ingesting simulated telemetry.
 3. **Drop-In Hardware Replacement**: When physical ESP32/LoRa hardware is ready, setting `IOT_TARGET_URL=""` halts the internal simulator while physical gateways take over sending to the exact same endpoint.
 
+---
+
+## 8. Consumer QR Verification System
+
+### 8.1 Architectural Flow
+The consumer verification subsystem provides an instant, trustless provenance check for consumers scanning physical honey jars with their mobile phone cameras.
+
+```
+Honey Jar Physical Label
+         │
+         │ (Mobile Camera Scan)
+         ▼
+${PUBLIC_BASE_URL}/verify/${batchId}
+         │
+         │ (HTTP GET)
+         ▼
+Express Server Route: GET /verify/:batchId
+         │
+         │ (Serves mobile-first verify.html / verify.js)
+         ▼
+Consumer Web Client (Mobile Browser)
+         │
+         │ (Client-side API call)
+         ▼
+Express API: GET /api/verify/:batchId
+         │
+         ├─── Query MongoDB Batch Document (Metadata, Hives, Apiary Location)
+         ├─── Query Ethereum Sepolia (HoneyChainRegistry.sol @ 0x65af...208d)
+         ├─── Recompute SHA-256 Metadata Hash
+         └─── Reconstruct Event Audit Trail from On-Chain Event Logs
+         │
+         ▼
+Authenticity & Provenance Report
+         ├── 🟢 100% Authentic (Cryptographic Hash Match)
+         ├── 🔴 Integrity Warning (Tampered off-chain metadata)
+         └── ⛔ Product Recalled (Auditor recall reason & Etherscan link)
+```
+
+### 8.2 Security Guarantees
+1. **Zero Secret Leakage**: The QR code encodes solely the public verification URL (`${PUBLIC_BASE_URL}/verify/${batchId}`). It never contains Ethereum private keys, stakeholder addresses, or database credentials.
+2. **Configurable Base URL**: `PUBLIC_BASE_URL` is configured via environment variables (e.g. `https://honeychain-backend-trag.onrender.com` on Render or `http://localhost:5000` in local testing) rather than hardcoded URLs.
+3. **Lossless Vector Printing**: The QR generation service (`qr.service.ts`) generates both high-density base64 PNG data URLs and SVG vectors with high error correction (`level: 'H'`), allowing seamless integration into physical honey jar packaging and label printers.
+
 
 

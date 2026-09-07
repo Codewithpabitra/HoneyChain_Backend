@@ -30,6 +30,9 @@ const envSchema = z.object({
   // IoT Telemetry Simulation (hits backend itself over HTTP)
   IOT_TARGET_URL: z.string().optional(),
   IOT_INTERVAL_MS: z.string().optional(),
+
+  // Public Base URL for Consumer QR Verification (e.g. https://your-service.onrender.com or http://localhost:5000)
+  PUBLIC_BASE_URL: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -43,4 +46,7 @@ export const env = {
   ...parsed.data,
   ADMIN_PRIVATE_KEY: parsed.data.ADMIN_PRIVATE_KEY || parsed.data.DEPLOYER_PRIVATE_KEY,
   LABORATORY_PRIVATE_KEY: parsed.data.LABORATORY_PRIVATE_KEY || parsed.data.LAB_PRIVATE_KEY,
+  PUBLIC_BASE_URL: parsed.data.PUBLIC_BASE_URL
+    ? parsed.data.PUBLIC_BASE_URL.replace(/\/+$/, "")
+    : undefined,
 };

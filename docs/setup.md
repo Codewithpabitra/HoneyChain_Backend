@@ -232,9 +232,13 @@ Add these key-value pairs in the **Environment Variables** section on Render:
 | `AUDITOR_PRIVATE_KEY` | *(Paste Auditor key)* | Copy `AUDITOR_PRIVATE_KEY` from `blockchain/.env` |
 | `IOT_TARGET_URL` | `https://<your-service-name>.onrender.com` | **Set to your Render URL after creation** |
 | `IOT_INTERVAL_MS` | `600000` | 10 minutes interval (or `10000` for fast testing) |
+| `PUBLIC_BASE_URL` | `https://<your-service-name>.onrender.com` | **Set to your Render URL for jar QR verification** |
 
 > [!TIP]
-> When initially creating the service, you can leave `IOT_TARGET_URL` blank. As soon as Render assigns your URL (e.g., `https://honeychain-backend.onrender.com`), go to **Environment** tab on Render, set `IOT_TARGET_URL=https://honeychain-backend.onrender.com`, and click Save Changes. The backend will automatically reboot and start self-ingesting IoT data!
+> When initially creating the service, you can leave `IOT_TARGET_URL` and `PUBLIC_BASE_URL` blank. As soon as Render assigns your URL (e.g., `https://honeychain-backend-trag.onrender.com`), go to **Environment** tab on Render, set:
+> - `IOT_TARGET_URL=https://honeychain-backend-trag.onrender.com`
+> - `PUBLIC_BASE_URL=https://honeychain-backend-trag.onrender.com`
+> and click Save Changes. The backend will automatically restart, stream IoT data, and encode the live URL on all consumer QR codes!
 
 ### 8.4 Standalone CLI Simulator (Optional)
 If you ever want to run an extra simulated gateway stream locally from the terminal:
