@@ -8,7 +8,9 @@
   },
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "deploy:amoy": "hardhat run scripts/deploy.cjs --network amoy",
+    "roles:amoy": "hardhat run scripts/assignRoles.cjs --network amoy"
   },
   "keywords": [],
   "author": "",
