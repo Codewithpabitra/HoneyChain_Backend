@@ -5,7 +5,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
  * @title HoneyChainRegistry
- * @dev Provenance and traceability registry for HoneyChain on Polygon Amoy.
+ * @dev Provenance and traceability registry for HoneyChain on Ethereum Sepolia.
  * Records harvest batches, lab certifications, custody handoffs, and recalls.
  */
 contract HoneyChainRegistry is AccessControl {

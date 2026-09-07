@@ -63,19 +63,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Phase 3: Polygon Amoy Deployment Preparation] - 2026-09-07
+## [Phase 3: Testnet Transition to Ethereum Sepolia & Deployment Preparation] - 2026-09-07
 
-### Added
-- **Network Verification**:
-  - Verified Polygon Amoy network specs (Chain ID: `80002`, Gas Token: `POL`, Explorer: `https://amoy.polygonscan.com/`).
-  - Identified that official `rpc-amoy.polygon.technology` endpoint was deprecated in July 2026; configured verified active RPC endpoint `https://polygon-amoy.drpc.org`.
-- **Dedicated Testnet Wallet**:
-  - Generated dedicated testnet deployer wallet: `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`.
-  - Stored private key securely in local `blockchain/.env` with strict `chmod 600` permissions (never committed to Git).
-- **Deployment & Role Automation (`blockchain/scripts/`)**:
-  - Created `blockchain/scripts/deploy.cjs` to automate contract deployment, receipt logging, and structured artifact generation at `blockchain/deployments/amoy/HoneyChainRegistry.json`.
-  - Created `blockchain/scripts/assignRoles.cjs` to configure role permissions for Beekeeper, Laboratory, Processor, Distributor, and Auditor.
-  - Added `deploy:amoy` and `roles:amoy` scripts to `blockchain/package.json`.
+### Changed
+- **Testnet Target Shift (Polygon Amoy → Ethereum Sepolia)**:
+  - Transitioned the HoneyChain blockchain deployment target from Polygon Amoy to **Ethereum Sepolia** (Chain ID: `11155111`, Gas token: `Sepolia ETH`, Explorer: [Sepolia Etherscan](https://sepolia.etherscan.io/)) prior to executing any on-chain deployment.
+  - Documented architectural rationale in **ADR-006** (official testnet recommendation, robust faucet availability, zero need for Polygon-specific L2 dependencies).
+- **Configuration & Toolchain Updates**:
+  - Updated `blockchain/hardhat.config.cjs` network definition to `sepolia` (Chain ID `11155111`) with Etherscan verification plugin.
+  - Replaced `AMOY_RPC_URL` and `POLYGONSCAN_API_KEY` with `SEPOLIA_RPC_URL` and `ETHERSCAN_API_KEY` in `blockchain/.env.example` and `backend/.env.example`.
+  - Replaced deployment scripts and commands: `deploy:sepolia` and `roles:sepolia`.
+  - Updated deployment artifact target path to `blockchain/deployments/sepolia/HoneyChainRegistry.json`.
+  - Replaced deployment and role assignment scripts (`deploy.cjs`, `assignRoles.cjs`) to target Sepolia Etherscan and Sepolia ETH.
+- **Wallet Status**:
+  - Maintained dedicated testnet deployer wallet: `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`.
+  - Current Sepolia balance: `0.0 ETH` (awaiting faucet funding before deployment).
+
 
 
 

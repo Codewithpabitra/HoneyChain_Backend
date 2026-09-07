@@ -5,17 +5,17 @@ const path = require("path");
 async function main() {
   const [admin] = await hre.ethers.getSigners();
   console.log("--------------------------------------------------");
-  console.log("HoneyChainRegistry Role Assignment on Polygon Amoy");
+  console.log("HoneyChainRegistry Role Assignment on Ethereum Sepolia");
   console.log("--------------------------------------------------");
   console.log("Admin / Signer Address:", admin.address);
 
   const deploymentPath = path.join(
     __dirname,
-    "../deployments/amoy/HoneyChainRegistry.json"
+    "../deployments/sepolia/HoneyChainRegistry.json"
   );
   if (!fs.existsSync(deploymentPath)) {
     throw new Error(
-      "Deployment artifact not found at blockchain/deployments/amoy/HoneyChainRegistry.json. Please deploy first."
+      "Deployment artifact not found at blockchain/deployments/sepolia/HoneyChainRegistry.json. Please deploy first."
     );
   }
 
@@ -77,7 +77,7 @@ async function main() {
     console.log(`Granting ${role.name} to ${role.address}...`);
     const tx = await contract.grantRole(role.constant, role.address);
     const receipt = await tx.wait(1);
-    console.log(`[GRANTED] ${role.name} -> ${role.address} (tx: ${receipt.hash})`);
+    console.log(`[GRANTED] ${role.name} -> ${role.address} (tx: https://sepolia.etherscan.io/tx/${receipt.hash})`);
   }
 
   console.log("\nRole assignment processing complete.");

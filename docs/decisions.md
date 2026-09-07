@@ -3,7 +3,8 @@
 ## ADR-001: Polygon Amoy Replaces Hyperledger Fabric for Prototype
 
 ### Status
-**Accepted** (Phase 0)
+**Superseded by ADR-006** (Phase 3)
+*(Note: Hyperledger Fabric was abandoned in Phase 0 in favor of a public EVM testnet. Prior to contract deployment in Phase 3, the target EVM testnet was updated from Polygon Amoy to Ethereum Sepolia via ADR-006).*
 
 ### Context
 In earlier architectural explorations, Hyperledger Fabric was considered for HoneyChain's traceability ledger due to its enterprise reputation and native permissioned architecture. However, deploying and maintaining Hyperledger Fabric introduces massive operational complexity, requiring multiple Docker containers for Orderer nodes, Peer nodes, Fabric CA, Raft consensus mechanism, LevelDB/CouchDB state databases, channels, and chaincode lifecycle packages. 
@@ -102,4 +103,36 @@ Honey traceability spans distinct physical actors: beekeepers harvest honey, ind
    - `AUDITOR_ROLE`: Dedicated inspection role.
 2. **Custody Lock**: Only the `currentCustodian` of a batch is permitted to transfer custody to another authorized entity.
 3. **Terminal Recalled State**: Once a batch is recalled by an Admin, Producer, Lab, or Auditor, the batch enters a terminal `Recalled` state and cannot undergo further custody transfers or certifications.
+
+---
+
+## ADR-006: Ethereum Sepolia Selected as Primary Testnet Prior to Deployment
+
+### Status
+**Accepted** (Phase 3)
+
+### Context
+In Phase 0, Polygon Amoy was initially considered as the public testnet deployment target. However, prior to executing any on-chain deployment, the testing infrastructure and testnet requirements were re-evaluated:
+1. Polygon's public Amoy RPC (`rpc-amoy.polygon.technology`) was deprecated in July 2026, leading to RPC fragmentation.
+2. HoneyChain's smart contract (`HoneyChainRegistry.sol`) uses standard EVM Solidity and OpenZeppelin contracts without any Polygon-specific or L2-specific opcodes or mechanisms.
+3. **Ethereum Sepolia** is the official, recommended, and most widely supported proof-of-stake testnet for Ethereum application development.
+4. Sepolia features broad faucet infrastructure (Google Cloud Faucet, Alchemy Faucet, PoW Faucet, Infura Faucet), universal developer tooling support, and rock-solid block explorer capabilities via Sepolia Etherscan.
+
+### Decision
+We intentionally transitioned the HoneyChain blockchain deployment target from **Polygon Amoy to Ethereum Sepolia** before any contract deployment occurred.
+- **Target Network**: Ethereum Sepolia
+- **Chain ID**: `11155111`
+- **Native Gas Token**: `Sepolia ETH`
+- **Primary Block Explorer**: [Sepolia Etherscan](https://sepolia.etherscan.io/)
+- **Target Deployment Artifact Path**: `blockchain/deployments/sepolia/HoneyChainRegistry.json`
+
+### Consequences
+- **Positive**:
+  - Broadest possible developer and faucet availability.
+  - Zero lock-in to L2-specific infrastructure.
+  - Public contract source code and transactions are fully auditable on Sepolia Etherscan.
+  - The smart contract implementation, role model, and test suite remain 100% identical.
+- **Zero Impact on Production Readiness**:
+  - The contract adheres strictly to EVM standards. If mainnet deployment on Polygon PoS, Arbitrum, or Ethereum L1 is desired in the future, the identical bytecode can be deployed by changing only the RPC URL and chain ID.
+
 

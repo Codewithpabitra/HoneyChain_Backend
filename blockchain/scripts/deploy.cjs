@@ -5,16 +5,16 @@ const path = require("path");
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
   console.log("--------------------------------------------------");
-  console.log("HoneyChainRegistry Deployment to Polygon Amoy");
+  console.log("HoneyChainRegistry Deployment to Ethereum Sepolia");
   console.log("--------------------------------------------------");
   console.log("Deployer Address:", deployer.address);
 
   const balance = await hre.ethers.provider.getBalance(deployer.address);
-  console.log("Deployer POL Balance:", hre.ethers.formatEther(balance), "POL");
+  console.log("Deployer Sepolia ETH Balance:", hre.ethers.formatEther(balance), "ETH");
 
   if (balance === 0n) {
     throw new Error(
-      `Deployer wallet ${deployer.address} has 0 POL. Please fund it with testnet POL from an Amoy faucet before deploying.`
+      `Deployer wallet ${deployer.address} has 0 ETH. Please fund it with testnet ETH from a Sepolia faucet before deploying.`
     );
   }
 
@@ -32,9 +32,10 @@ async function main() {
   console.log("Transaction Hash:", deploymentTx.hash);
   console.log("Block Number:", receipt.blockNumber);
   console.log("Gas Used:", receipt.gasUsed.toString());
+  console.log("Sepolia Etherscan URL:", `https://sepolia.etherscan.io/tx/${deploymentTx.hash}`);
 
   // Save deployment artifact
-  const deploymentsDir = path.join(__dirname, "../deployments/amoy");
+  const deploymentsDir = path.join(__dirname, "../deployments/sepolia");
   fs.mkdirSync(deploymentsDir, { recursive: true });
 
   const artifactPath = path.join(
@@ -44,14 +45,15 @@ async function main() {
   const contractArtifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
 
   const deploymentData = {
-    network: "Polygon Amoy",
-    chainId: 80002,
+    network: "Ethereum Sepolia",
+    chainId: 11155111,
     contractAddress,
     deployerAddress: deployer.address,
     deploymentTxHash: deploymentTx.hash,
     blockNumber: receipt.blockNumber,
     gasUsed: receipt.gasUsed.toString(),
     deployedAt: new Date().toISOString(),
+    explorerUrl: `https://sepolia.etherscan.io/address/${contractAddress}`,
     abi: contractArtifact.abi,
   };
 
@@ -59,23 +61,22 @@ async function main() {
   fs.writeFileSync(outputPath, JSON.stringify(deploymentData, null, 2));
   console.log("Deployment artifact saved to:", outputPath);
 
-  // Verification if Polygonscan API key exists
-  if (process.env.POLYGONSCAN_API_KEY && process.env.POLYGONSCAN_API_KEY.trim() !== "") {
-    console.log("\nInitiating Polygonscan verification...");
+  // Verification if Etherscan API key exists
+  if (process.env.ETHERSCAN_API_KEY && process.env.ETHERSCAN_API_KEY.trim() !== "") {
+    console.log("\nInitiating Sepolia Etherscan verification...");
     try {
-      // wait 5 confirmations before verification
       console.log("Waiting for 5 block confirmations for verification indexing...");
       await deploymentTx.wait(5);
       await hre.run("verify:verify", {
         address: contractAddress,
         constructorArguments: [deployer.address],
       });
-      console.log("Contract successfully verified on Polygonscan!");
+      console.log("Contract successfully verified on Sepolia Etherscan!");
     } catch (err) {
-      console.log("Polygonscan verification note:", err.message);
+      console.log("Sepolia Etherscan verification note:", err.message);
     }
   } else {
-    console.log("\nNotice: POLYGONSCAN_API_KEY not set. Skipping automated contract verification.");
+    console.log("\nNotice: ETHERSCAN_API_KEY not set. Skipping automated contract verification.");
   }
 }
 

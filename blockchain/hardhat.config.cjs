@@ -14,15 +14,20 @@ module.exports = {
   },
   networks: {
     hardhat: {},
-    amoy: {
-      url: process.env.AMOY_RPC_URL || "https://rpc-amoy.polygon.technology/",
+    sepolia: {
+      url:
+        process.env.SEPOLIA_RPC_URL ||
+        "https://ethereum-sepolia-rpc.publicnode.com",
       accounts:
         process.env.DEPLOYER_PRIVATE_KEY &&
         process.env.DEPLOYER_PRIVATE_KEY !==
           "0x0000000000000000000000000000000000000000000000000000000000000000"
           ? [process.env.DEPLOYER_PRIVATE_KEY]
           : [],
-      chainId: 80002,
+      chainId: 11155111,
     },
+  },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY || "",
   },
 };

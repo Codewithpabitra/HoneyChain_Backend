@@ -2,7 +2,7 @@
 
 ## 1. Overview & Architectural Role
 
-The **HoneyChainRegistry** smart contract provides the decentralized, immutable provenance layer for the HoneyChain platform. Deployed on **Polygon Amoy Testnet** (Chain ID: `80002`), it anchors physical honey harvests, quality lab certifications, and custody transitions without storing high-volume operational data.
+The **HoneyChainRegistry** smart contract provides the decentralized, immutable provenance layer for the HoneyChain platform. Deployed on **Ethereum Sepolia Testnet** (Chain ID: `11155111`), it anchors physical honey harvests, quality lab certifications, and custody transitions without storing high-volume operational data.
 
 ---
 
@@ -308,7 +308,7 @@ Backend Event (e.g. Beekeeper creates batch in UI)
    contract.connect(beekeeperWallet).registerBatch(batchId, quantityGrams, metadataHash, harvestTimestamp)
        │
        ▼
-5. Wait for 1 block confirmation on Polygon Amoy
+5. Wait for 1 block confirmation on Ethereum Sepolia
        │
        ▼
 6. Update MongoDB record with txHash, blockNumber, and onChainStatus = "CONFIRMED"
@@ -324,7 +324,7 @@ Consumer Scans QR (batchId)
        ▼
 Backend Verification Service
        ├── Fetch MongoDB document (source hives, beekeeper profile, lab PDF url, AI summary)
-       ├── Call contract.getBatch(batchId) via Polygon Amoy RPC
+       ├── Call contract.getBatch(batchId) via Sepolia RPC
        └── Query historical event logs:
              const registeredEvents = await contract.queryFilter(contract.filters.BatchRegistered(batchId));
              const certifiedEvents  = await contract.queryFilter(contract.filters.BatchCertified(batchId));
@@ -348,11 +348,11 @@ Return Verified Provenance Payload to Web / Mobile Frontend
   "batchId": "0x4a726191b2c6...3f",
   "verifiedOnChain": true,
   "blockchain": {
-    "network": "Polygon Amoy",
-    "chainId": 80002,
+    "network": "Ethereum Sepolia",
+    "chainId": 11155111,
     "contractAddress": "0x1234...5678",
     "status": "Delivered",
-    "polygonscanUrl": "https://amoy.polygonscan.com/tx/0x9ab...c12"
+    "etherscanUrl": "https://sepolia.etherscan.io/tx/0x9ab...c12"
   },
   "quality": {
     "grade": "GradeA",

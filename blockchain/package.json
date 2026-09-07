@@ -9,8 +9,8 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy:amoy": "hardhat run scripts/deploy.cjs --network amoy",
-    "roles:amoy": "hardhat run scripts/assignRoles.cjs --network amoy"
+    "deploy:sepolia": "hardhat run scripts/deploy.cjs --network sepolia",
+    "roles:sepolia": "hardhat run scripts/assignRoles.cjs --network sepolia"
   },
   "keywords": [],
   "author": "",
