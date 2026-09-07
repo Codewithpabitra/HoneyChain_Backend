@@ -61,4 +61,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - 16 automated tests covering authorized & unauthorized registration, duplicate registration, laboratory certification, pre-registration checks, multi-actor custody transfers, invalid recipients, role-governed recall operations, post-recall access prevention, event argument emissions, and batch state integrity.
   - **Actual Test Output**: 16/16 tests passing on the local Hardhat network (960ms execution time).
 
+---
+
+## [Phase 3: Polygon Amoy Deployment Preparation] - 2026-09-07
+
+### Added
+- **Network Verification**:
+  - Verified Polygon Amoy network specs (Chain ID: `80002`, Gas Token: `POL`, Explorer: `https://amoy.polygonscan.com/`).
+  - Identified that official `rpc-amoy.polygon.technology` endpoint was deprecated in July 2026; configured verified active RPC endpoint `https://polygon-amoy.drpc.org`.
+- **Dedicated Testnet Wallet**:
+  - Generated dedicated testnet deployer wallet: `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`.
+  - Stored private key securely in local `blockchain/.env` with strict `chmod 600` permissions (never committed to Git).
+- **Deployment & Role Automation (`blockchain/scripts/`)**:
+  - Created `blockchain/scripts/deploy.cjs` to automate contract deployment, receipt logging, and structured artifact generation at `blockchain/deployments/amoy/HoneyChainRegistry.json`.
+  - Created `blockchain/scripts/assignRoles.cjs` to configure role permissions for Beekeeper, Laboratory, Processor, Distributor, and Auditor.
+  - Added `deploy:amoy` and `roles:amoy` scripts to `blockchain/package.json`.
+
+
 

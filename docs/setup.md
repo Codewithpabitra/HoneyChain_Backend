@@ -78,8 +78,45 @@ Key variables configured:
 ## 5. Polygon Amoy Network & Faucet Details
 
 - **Network Name**: Polygon Amoy Testnet
-- **RPC URL**: `https://rpc-amoy.polygon.technology/` (or Alchemy/Infura Amoy endpoint)
+- **RPC URL**: `https://polygon-amoy.drpc.org` (or `https://rpc.ankr.com/polygon_amoy`, Alchemy/Infura Amoy endpoints)
+  - *Note*: `rpc-amoy.polygon.technology` public endpoint was deprecated by Polygon in July 2026.
 - **Chain ID**: `80002`
 - **Currency Symbol**: `POL`
-- **Block Explorer**: `https://amoy.polygonscan.com/`
-- **Faucet**: Obtain testnet POL tokens from the official [Polygon Faucet](https://faucet.polygon.technology/) or third-party faucets (e.g. Alchemy Faucet).
+- **Block Explorer**: [Polygonscan Amoy](https://amoy.polygonscan.com/)
+- **Faucets**:
+  - [Polygon Official Faucet](https://faucet.polygon.technology/)
+  - [Alchemy Amoy Faucet](https://www.alchemy.com/faucets/polygon-amoy)
+
+---
+
+## 6. Deployment & Role Setup Runbook
+
+### 6.1 Deployer Wallet
+The dedicated testnet deployment wallet for this environment is:
+- **Deployer Public Address**: `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`
+- **State**: Pending testnet POL faucet funding.
+
+### 6.2 Required Role Wallets
+For production and multi-actor staging, dedicated testnet wallets should be configured in `blockchain/.env`:
+- **`Admin`**: Receives `DEFAULT_ADMIN_ROLE` at contract construction (`deployer.address`).
+- **`Beekeeper` (`BEEKEEPER_ADDRESS`)**: Authorized to call `registerBatch`.
+- **`Laboratory` (`LABORATORY_ADDRESS`)**: Authorized to call `certifyBatch`.
+- **`Processor` (`PROCESSOR_ADDRESS`)**: Authorized to accept and forward batch custody.
+- **`Distributor` (`DISTRIBUTOR_ADDRESS`)**: Authorized to receive custody and distribute to retail.
+- **`Auditor` (`AUDITOR_ADDRESS`)**: Authorized to inspect and execute safety recalls.
+
+### 6.3 Deployment Commands
+Once the deployer wallet is funded with testnet POL:
+
+```bash
+cd blockchain
+npm run deploy:amoy
+```
+
+To assign roles once addresses are configured in `blockchain/.env`:
+
+```bash
+cd blockchain
+npm run roles:amoy
+```
+
