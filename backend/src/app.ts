@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import batchRoutes from "./routes/batch.routes.js";
 import verifyRoutes from "./routes/verify.routes.js";
 import iotRoutes from "./routes/iot.routes.js";
+import mlRoutes from "./routes/ml.routes.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import AppError from "./utils/AppError.js";
 
@@ -89,6 +90,7 @@ app.get("/health", (req, res) => {
 app.use("/api/batches", batchRoutes);
 app.use("/api/verify", verifyRoutes);
 app.use("/api/iot", iotRoutes);
+app.use("/api/ml", mlRoutes);
 
 // Dedicated Consumer QR Verification Web Page Route
 app.get(["/verify", "/verify/:batchId"], (req, res, next) => {

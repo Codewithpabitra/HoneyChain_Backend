@@ -325,7 +325,7 @@ async function seed() {
   const readingsToInsert: any[] = [];
   const nowMs = Date.now();
 
-  // Generate 24 hourly readings for each monitored hive
+  // Generate 48 hourly readings for each monitored hive to support full T1-T48 tiers
   const monitoredHives = [
     { hiveId: "HIVE-SB-101", deviceId: "ESP32-SB-GW-01", baseTemp: 34.6, baseWeight: 31.2, baseHz: 215 },
     { hiveId: "HIVE-SB-102", deviceId: "ESP32-SB-GW-02", baseTemp: 34.2, baseWeight: 28.5, baseHz: 205 },
@@ -334,12 +334,17 @@ async function seed() {
   ];
 
   for (const h of monitoredHives) {
-    for (let hour = 24; hour >= 0; hour--) {
+    for (let hour = 49; hour >= 0; hour--) {
       const timestamp = new Date(nowMs - hour * 3600 * 1000);
       // Realistic diurnal variation (brood core holds tight temperature ~34.5-35.5°C)
       const hourOfDay = timestamp.getHours();
       const ambientVariation = Math.sin((hourOfDay - 8) * (Math.PI / 12)) * 4;
       const internalVariation = Math.sin((hourOfDay - 8) * (Math.PI / 12)) * 0.4;
+      // Diurnal bee foraging flow: active during daylight (7am-7pm), quiet at night
+      const isDay = hourOfDay >= 7 && hourOfDay <= 19;
+      const diurnalFlow = isDay
+        ? Math.round(Math.sin(((hourOfDay - 7) * Math.PI) / 12) * 80 + (Math.random() * 20 - 10))
+        : Math.round(Math.random() * 6 - 3);
 
       readingsToInsert.push({
         hiveId: h.hiveId,
@@ -348,13 +353,15 @@ async function seed() {
         timestamp,
         temperature: Number((h.baseTemp + internalVariation + (Math.random() * 0.2 - 0.1)).toFixed(2)),
         humidity: Number((58.5 + (Math.random() * 3.0 - 1.5)).toFixed(1)),
-        weightKg: Number((h.baseWeight + (24 - hour) * 0.03 + (Math.random() * 0.05)).toFixed(3)),
+        weightKg: Number((h.baseWeight + (48 - hour) * 0.02 + (Math.random() * 0.05)).toFixed(3)),
+        flow: diurnalFlow,
         soundFrequencyHz: Math.round(h.baseHz + (Math.random() * 8 - 4)),
         acousticsDb: Number((58.0 + (Math.random() * 5.0)).toFixed(1)),
         batteryLevelPct: Math.round(95 - hour * 0.05),
         ambientTemperature: Number((26.0 + ambientVariation + (Math.random() * 0.5)).toFixed(1)),
         ambientHumidity: Number((65.0 - ambientVariation * 1.5 + (Math.random() * 2)).toFixed(1)),
         metadata: {
+          flow: diurnalFlow,
           rssi: -78 - Math.round(Math.random() * 8),
           snr: 9.2,
           packetLossPct: 0.0,

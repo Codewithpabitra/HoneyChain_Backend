@@ -16,6 +16,26 @@ export interface IAIPredictionResult {
   probableCauses?: string[];
   recommendedActions?: string[];
   metricsSnapshot?: Record<string, any>;
+
+  // Model 1: Hive Health & Disease Risk Inference fields
+  tier?: "T1" | "T6" | "T12" | "T24" | "T36" | "T48" | null;
+  stressRisk?: "LOW" | "MEDIUM" | "HIGH" | null;
+  stressProbability?: number | null;
+  abnormalityRisk?: number | null;
+  stressBasis?: "classifier" | "anomaly" | null;
+  detectionScope?: string[];
+  hoursAvailable?: number;
+  hoursObserved?: number;
+  drivers?: {
+    activityDeviation?: number | null;
+    temperatureDeviation?: number | null;
+    netFlow?: number | null;
+    weightTrend?: number | null;
+    weightDrop?: number | null;
+    [key: string]: any;
+  };
+  recommendation?: string;
+  caveat?: string;
 }
 
 export interface IAIPrediction extends Document {
@@ -71,6 +91,31 @@ const AIPredictionResultSchema = new Schema<IAIPredictionResult>(
     probableCauses: { type: [String], default: [] },
     recommendedActions: { type: [String], default: [] },
     metricsSnapshot: { type: Schema.Types.Mixed, default: {} },
+
+    // Model 1: Hive Health & Disease Risk Inference fields
+    tier: {
+      type: String,
+      enum: ["T1", "T6", "T12", "T24", "T36", "T48", null],
+      default: null,
+    },
+    stressRisk: {
+      type: String,
+      enum: ["LOW", "MEDIUM", "HIGH", null],
+      default: null,
+    },
+    stressProbability: { type: Number, min: 0, max: 1 },
+    abnormalityRisk: { type: Number, min: 0, max: 100 },
+    stressBasis: {
+      type: String,
+      enum: ["classifier", "anomaly", null],
+      default: null,
+    },
+    detectionScope: { type: [String], default: [] },
+    hoursAvailable: { type: Number },
+    hoursObserved: { type: Number },
+    drivers: { type: Schema.Types.Mixed, default: {} },
+    recommendation: { type: String },
+    caveat: { type: String },
   },
   { _id: false }
 );

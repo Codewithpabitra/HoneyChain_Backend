@@ -11,6 +11,11 @@ export interface ISensorReading extends Document {
   humidity: number; // Internal relative humidity percentage (e.g. 58.0%)
   weightKg: number; // Hive total weight in kg (e.g. 32.4 kg)
 
+  // Bee Activity & Flow Telemetry (for ML colony health & swarming inference)
+  flow?: number; // Net bee flow (count_in - count_out)
+  beeInCount?: number; // Bees entering hive
+  beeOutCount?: number; // Bees exiting hive
+
   // Acoustic & Vibration Telemetry (crucial for swarming/queenless detection)
   soundFrequencyHz?: number; // Dominant acoustic frequency in Hz (e.g. 220-250 Hz)
   acousticsDb?: number; // Acoustic amplitude in decibels (e.g. 62 dB)
@@ -68,6 +73,17 @@ const SensorReadingSchema = new Schema<ISensorReading>(
       type: Number,
       required: [true, "Hive weight is required"],
       min: [0, "Weight cannot be negative"],
+    },
+    flow: {
+      type: Number,
+    },
+    beeInCount: {
+      type: Number,
+      min: [0, "Bee in count cannot be negative"],
+    },
+    beeOutCount: {
+      type: Number,
+      min: [0, "Bee out count cannot be negative"],
     },
     soundFrequencyHz: {
       type: Number,

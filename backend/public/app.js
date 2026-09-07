@@ -322,3 +322,143 @@ if (triggerSimBtn) {
 // Initial health check and periodic polling
 checkHealth();
 setInterval(checkHealth, 15000);
+
+// ==========================================
+// Hive Health & AI Diagnostics Integration
+// ==========================================
+const aiHiveSelect = document.getElementById("aiHiveSelect");
+const runAiPredictBtn = document.getElementById("runAiPredictBtn");
+const aiLoadingIndicator = document.getElementById("aiLoadingIndicator");
+const aiDiagnosticsContent = document.getElementById("aiDiagnosticsContent");
+
+const aiStressRiskBadge = document.getElementById("aiStressRiskBadge");
+const aiHealthScoreVal = document.getElementById("aiHealthScoreVal");
+const aiTierVal = document.getElementById("aiTierVal");
+const aiAbnormalityVal = document.getElementById("aiAbnormalityVal");
+
+const driverActivity = document.getElementById("driverActivity");
+const driverTemp = document.getElementById("driverTemp");
+const driverFlow = document.getElementById("driverFlow");
+const driverTrend = document.getElementById("driverTrend");
+const driverDrop = document.getElementById("driverDrop");
+
+const aiDetectionScopeChips = document.getElementById("aiDetectionScopeChips");
+const aiRecommendationText = document.getElementById("aiRecommendationText");
+const aiCaveatBox = document.getElementById("aiCaveatBox");
+
+function renderAiPrediction(pred) {
+  if (!pred) return;
+  const res = pred.result || pred;
+
+  // Stress Risk Badge
+  const risk = res.stressRisk || (res.status === "critical" ? "HIGH" : res.status === "warning" ? "MEDIUM" : "LOW");
+  let badgeClass = "risk-badge-low";
+  let icon = "🟢";
+  if (risk === "HIGH") {
+    badgeClass = "risk-badge-high";
+    icon = "🔴";
+  } else if (risk === "MEDIUM") {
+    badgeClass = "risk-badge-medium";
+    icon = "🟠";
+  }
+  aiStressRiskBadge.innerHTML = `<span class="risk-badge ${badgeClass}">${icon} ${risk} RISK</span>`;
+
+  // Health Score
+  const score = typeof res.healthScore === "number" ? res.healthScore : "--";
+  aiHealthScoreVal.textContent = typeof score === "number" ? `${score.toFixed(1)} / 100` : "-- / 100";
+  if (typeof score === "number") {
+    aiHealthScoreVal.style.color = score >= 75 ? "#10B981" : score >= 50 ? "#F59E0B" : "#EF4444";
+  }
+
+  // Tier
+  const tier = res.tier || "--";
+  const hours = res.hoursObserved || res.hoursAvailable || "";
+  aiTierVal.innerHTML = `<span class="tier-badge">${tier}${hours ? ` (${hours}h window)` : ""}</span>`;
+
+  // Abnormality Risk
+  const abn = typeof res.abnormalityRisk === "number" ? `${res.abnormalityRisk.toFixed(1)}%` : "-- %";
+  aiAbnormalityVal.textContent = abn;
+
+  // Drivers
+  const d = res.drivers || {};
+  driverActivity.textContent = typeof d.activityDeviation === "number" ? `${d.activityDeviation > 0 ? "+" : ""}${d.activityDeviation.toFixed(2)}σ` : "--";
+  driverTemp.textContent = typeof d.temperatureDeviation === "number" ? `${d.temperatureDeviation > 0 ? "+" : ""}${d.temperatureDeviation.toFixed(2)}σ` : "--";
+  driverFlow.textContent = typeof d.netFlow === "number" ? `${d.netFlow > 0 ? "+" : ""}${d.netFlow} bees/hr` : "--";
+  driverTrend.textContent = typeof d.weightTrend === "number" ? `${d.weightTrend > 0 ? "+" : ""}${d.weightTrend.toFixed(2)} kg` : "--";
+  driverDrop.textContent = typeof d.weightDrop === "number" ? `${d.weightDrop.toFixed(2)} kg` : "--";
+
+  // Detection Scope
+  const scopes = res.detectionScope || res.detectedAnomalies || [];
+  if (scopes.length > 0) {
+    aiDetectionScopeChips.innerHTML = scopes.map(s => `<span class="scope-chip">${s}</span>`).join("");
+  } else {
+    aiDetectionScopeChips.innerHTML = `<span class="scope-chip">Standard physical monitoring</span>`;
+  }
+
+  // Recommendation
+  aiRecommendationText.textContent = res.recommendation || (res.recommendedActions && res.recommendedActions[0]) || "Colony within normal range. No action needed.";
+
+  // Caveat for short-window tiers
+  if (res.caveat) {
+    aiCaveatBox.style.display = "block";
+    aiCaveatBox.textContent = `ℹ️ Note: ${res.caveat}`;
+  } else {
+    aiCaveatBox.style.display = "none";
+  }
+}
+
+async function loadLatestAiPrediction(hiveId) {
+  try {
+    const res = await fetch(`/api/ml/latest/${encodeURIComponent(hiveId)}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) {
+        renderAiPrediction(json.data);
+      }
+    }
+  } catch (err) {
+    console.debug("No previous prediction found:", err.message);
+  }
+}
+
+async function triggerAiPrediction(hiveId) {
+  if (!runAiPredictBtn) return;
+  runAiPredictBtn.disabled = true;
+  runAiPredictBtn.textContent = "Analyzing...";
+  if (aiLoadingIndicator) aiLoadingIndicator.style.display = "block";
+
+  try {
+    const res = await fetch(`/api/ml/predict/${encodeURIComponent(hiveId)}`, { method: "POST" });
+    const json = await res.json();
+
+    if (res.ok && json.success && json.data) {
+      renderAiPrediction(json.data.prediction || json.data.modelOutput);
+    } else if (json.status === "INSUFFICIENT_DATA") {
+      aiRecommendationText.textContent = `⚠️ Insufficient Data: ${json.message}`;
+      aiStressRiskBadge.innerHTML = `<span class="risk-badge risk-badge-medium">⚪ PENDING DATA</span>`;
+      aiHealthScoreVal.textContent = "-- / 100";
+    } else {
+      aiRecommendationText.textContent = `⚠️ Analysis Notice: ${json.message || "Model evaluation unavailable"}`;
+    }
+  } catch (err) {
+    aiRecommendationText.textContent = `⚠️ Network Error: Unable to complete inference (${err.message})`;
+  } finally {
+    if (aiLoadingIndicator) aiLoadingIndicator.style.display = "none";
+    runAiPredictBtn.disabled = false;
+    runAiPredictBtn.textContent = "⚡ Run AI Analysis";
+  }
+}
+
+if (aiHiveSelect) {
+  aiHiveSelect.addEventListener("change", () => {
+    loadLatestAiPrediction(aiHiveSelect.value);
+  });
+  loadLatestAiPrediction(aiHiveSelect.value);
+}
+
+if (runAiPredictBtn) {
+  runAiPredictBtn.addEventListener("click", () => {
+    triggerAiPrediction(aiHiveSelect.value);
+  });
+}
+

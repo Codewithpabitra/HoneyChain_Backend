@@ -151,8 +151,14 @@ export function evolveDeviceState(state: DeviceSimulationState): Record<string, 
   const now = new Date();
   const hour = now.getHours();
   const diurnalFactor = Math.sin(((hour - 6) * Math.PI) / 12);
-  const ambientTemp = Number((25.0 + diurnalFactor * 6.0 + (Math.random() - 0.5)).toFixed(1));
-  const ambientHum = Number((65.0 - diurnalFactor * 12.0 + (Math.random() - 0.5) * 2).toFixed(1));
+  const diurnalTemp = Number((25.0 + diurnalFactor * 6.0 + (Math.random() - 0.5)).toFixed(1));
+  const diurnalHum = Number((65.0 - diurnalFactor * 12.0 + (Math.random() - 0.5) * 2).toFixed(1));
+
+  // Bee foraging activity flow: peaks at daytime, inactive at night
+  const isDay = hour >= 7 && hour <= 19;
+  const diurnalFlow = isDay
+    ? Math.round(diurnalFactor * 65 + (Math.random() * 14 - 7))
+    : Math.round(Math.random() * 4 - 2);
 
   return {
     hiveId: state.hiveId,
@@ -161,12 +167,14 @@ export function evolveDeviceState(state: DeviceSimulationState): Record<string, 
     temperature: state.temp,
     humidity: state.humidity,
     weightKg: state.weightKg,
+    flow: diurnalFlow,
     soundFrequencyHz: acousticHz,
     acousticsDb: acousticDb,
     batteryLevelPct: Math.round(state.batteryPct),
-    ambientTemperature: ambientTemp,
-    ambientHumidity: ambientHum,
+    ambientTemperature: diurnalTemp,
+    ambientHumidity: diurnalHum,
     metadata: {
+      flow: diurnalFlow,
       source: "simulator",
       simulationVersion: "1.0",
       simulationCycle: state.cycleCount,

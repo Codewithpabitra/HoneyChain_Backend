@@ -4,6 +4,42 @@ All notable changes to the HoneyChain backend and blockchain subsystems will be 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Phase 7: Hive Health & Disease Risk ML Inference Subsystem] - 2026-09-08
+
+### Added
+- **Internal Python Inference Microservice (`backend/ml/service.py`)**:
+  - Exposes local HTTP endpoint on `127.0.0.1:5001` (`/health`, `/predict`).
+  - Loads all 26 model artifacts once at startup into memory via `get_model()`, achieving ~81ms inference latency.
+  - Supports CLI execution (`--predict-json`, `--health-check`) and automatic process management.
+- **Model Package Integration (`backend/ml/model/`)**:
+  - Bundled 26 external model artifacts unmodified: 6 scalers (`scaler_T1.pkl` to `scaler_T48.pkl`), 6 Isolation Forests (`iso_T1.pkl` to `iso_T48.pkl`), 5 XGBoost classifiers (`xgb_T6.pkl` to `xgb_T48.pkl`), 6 monthly quantile calibration files (`quantiles_T1.csv` to `quantiles_T48.csv`), `seasonal_baseline.csv`, `feature_config.json`, and `requirements.txt`.
+- **Node.js ML Orchestration Service (`backend/src/services/ml.service.ts`)**:
+  - **Local Time Conversion**: Automatically converts UTC timestamps to Indian Standard Time (IST, UTC+05:30) for accurate solar daylight (`is_daylight`) and seasonal baseline matching.
+  - **Telemetry Contract Alignment**: Maps `ambientTemperature` and `ambientHumidity` with fallback to in-hive sensors; maps `weightKg`; aggregates signed bee flow (`flow = count_in - count_out`) hourly summed, never averaged.
+  - **Insufficient Data Short-Circuiting**: Gracefully returns `INSUFFICIENT_DATA` when readings < 1 without invoking the Python process.
+  - **Process Lifecycle Management**: Automatically checks and starts the internal Python service on Node startup and terminates it gracefully on `SIGINT`/`SIGTERM`.
+- **REST API Endpoints (`backend/src/routes/ml.routes.ts`, `backend/src/controllers/ml.controller.ts`)**:
+  - `POST /api/ml/predict/:hiveId`: Triggers real-time ML inference and persists to MongoDB.
+  - `GET /api/ml/predictions/:hiveId`: Returns paginated historical predictions.
+  - `GET /api/ml/latest/:hiveId`: Retrieves the most recent AI prediction for a hive.
+  - `GET /api/ml/health`: Probes internal Python microservice health and loaded model tiers.
+- **Data Layer Enhancements**:
+  - `SensorReading.ts`: Added optional `flow`, `beeInCount`, and `beeOutCount` fields.
+  - `AIPrediction.ts`: Expanded schema to store model tier (`T1`-`T48`), `stressRisk` (`LOW`, `MEDIUM`, `HIGH`), `stressProbability`, `abnormalityRisk`, `stressBasis`, `detectionScope`, `drivers`, `recommendation`, and `caveat`.
+  - `Hive.ts`: Automatically updates `currentHealthSummary` (`healthScore`, `status`, `stressIndex`, `lastAIPredictionId`) upon inference.
+- **Frontend Dashboard Integration**:
+  - Added "Hive Health & AI Diagnostics" card to `frontend/index.html` and `backend/public/index.html`.
+  - Displays real-time risk badges, composite health score (0-100), active inference tier, abnormality percentage, anomaly drivers, and action recommendations.
+  - Added interactive "Run AI Analysis" button and hive selector in `frontend/app.js` and `backend/public/app.js`.
+  - Added styling in `frontend/style.css` and `backend/public/style.css`.
+- **Automated Testing Suite (`backend/src/tests/ml.test.ts`)**:
+  - Added 13 new unit and integration tests covering local time conversion, signed flow calculation, ambient fallback, 404 handling, insufficient data, real model inference across tiers, and all REST endpoints.
+  - Total test suite now passes 67/67 tests (100% pass rate).
+- **Documentation**:
+  - Created `docs/ml-integration.md` with complete architecture, contracts, tier definitions, troubleshooting, and deployment runbooks.
+  - Updated `docs/architecture.md` (Section 9: Hive Health ML Subsystem).
+  - Updated `docs/setup.md` (Render Build Command & local `setup:ml` script).
+
 ---
 
 ## [Phase 0: Project Foundation] - 2026-09-07

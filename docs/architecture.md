@@ -283,5 +283,46 @@ Authenticity & Provenance Report
 2. **Configurable Base URL**: `PUBLIC_BASE_URL` is configured via environment variables (e.g. `https://honeychain-backend-trag.onrender.com` on Render or `http://localhost:5000` in local testing) rather than hardcoded URLs.
 3. **Lossless Vector Printing**: The QR generation service (`qr.service.ts`) generates both high-density base64 PNG data URLs and SVG vectors with high error correction (`level: 'H'`), allowing seamless integration into physical honey jar packaging and label printers.
 
+---
+
+## 9. Hive Health & Disease Risk ML Inference Subsystem
+
+### 9.1 Architectural Overview
+The Hive Health Machine Learning subsystem is integrated as a lightweight internal inference microservice that lives alongside the Node.js/Express backend on the same server, preserving the unified single-deployment architecture:
+
+```text
+               ┌────────────────────────────────────────────────────────┐
+               │              Unified HoneyChain Server                 │
+               │                                                        │
+┌───────────┐  │  ┌───────────────────────┐   HTTP (127.0.0.1:5001)     │  ┌─────────────────────────┐
+│           │  │  │                       │ ──────────────────────────► │  │  Python Inference       │
+│  Client / │──┼─►│  Express Backend      │   POST /predict             │  │  Microservice           │
+│ Dashboard │  │  │  (Node.js / TS)       │ ◄────────────────────────── │  │  (backend/ml/service.py)│
+│           │  │  └──────────┬────────────┘   Sub-100ms response        │  └────────────┬────────────┘
+└───────────┘  │             │                                          │               │
+               │             ▼                                          │               ▼
+               │      MongoDB Atlas                                     │     26 Model Artifacts
+               │   (SensorReading & AIPrediction)                       │    (Scalers, Iso, XGB)
+               └────────────────────────────────────────────────────────┘
+```
+
+### 9.2 Key Subsystem Characteristics
+1. **Zero External VPS**: Inference runs directly on `127.0.0.1:5001` via a persistent Python microservice loaded once at boot time.
+2. **Progressive 6-Tier Architecture**:
+   - `T1` (1h history): Detects activity anomalies vs seasonal baseline.
+   - `T6` (6h history): Detects fast weight drops (robbing / swarming).
+   - `T12` (12h history): Computes 12h weight trend dynamics.
+   - `T24` (24h history): Full diurnal cycle; XGBoost trained classifier becomes active.
+   - `T36` (36h history): Evaluates sustained weight decline.
+   - `T48` (48h history): Detects slow starvation and long-term depletion over 2 days.
+3. **Strict Feature Engineering**:
+   - **Local Time Conversion**: Timestamps are converted from UTC to Indian Standard Time (IST, UTC+05:30) so daylight (`hour >= 7 && hour <= 19`) and `seasonal_baseline.csv` hour-of-day features remain accurate.
+   - **Flow Aggregation Rule**: Bee flow is signed integer (`flow = entering - leaving`). It is **hourly summed**, never averaged.
+   - **Ambient Fallback**: In the absence of separate apiary ambient weather probes, ambient temperature and humidity seamlessly fallback to in-hive sensors.
+4. **Resilience & Fault Isolation**:
+   - If the ML service is temporarily offline, cold-starting, or encounters insufficient data (< 1 reading), the Express backend returns a clean, structured `INSUFFICIENT_DATA` or `SERVICE_UNAVAILABLE` response.
+   - Core IoT ingestion, Ethereum Sepolia blockchain transactions, batch custody, and QR verification continue without interruption.
+
+
 
 

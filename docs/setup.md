@@ -209,7 +209,7 @@ In your [Render Dashboard](https://dashboard.render.com/):
 | **Branch** | `main` |
 | **Root Directory** | `backend` |
 | **Runtime** | `Node` |
-| **Build Command** | `npm install && npm run build` |
+| **Build Command** | `npm install && npm run setup:ml && npm run build` |
 | **Start Command** | `npm start` |
 | **Instance Type** | Free or Starter |
 | **Health Check Path** | `/health` |

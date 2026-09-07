@@ -25,6 +25,9 @@ export class IoTController {
         batteryLevelPct,
         ambientTemperature,
         ambientHumidity,
+        flow,
+        beeInCount,
+        beeOutCount,
         metadata = {},
       } = req.body;
 
@@ -147,6 +150,9 @@ export class IoTController {
         temperature,
         humidity,
         weightKg,
+        flow,
+        beeInCount,
+        beeOutCount,
         soundFrequencyHz,
         acousticsDb,
         batteryLevelPct,

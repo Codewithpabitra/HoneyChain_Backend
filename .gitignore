@@ -69,3 +69,13 @@ coverage/
 # Misc
 *.tmp
 .cache/
+
+# Python Virtual Environments & Bytecode
+venv/
+.venv/
+**/venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class

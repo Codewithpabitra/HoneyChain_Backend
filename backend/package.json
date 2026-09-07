@@ -11,7 +11,9 @@
     "demo": "tsx src/scripts/demoRehearsal.ts",
     "seed": "tsx src/scripts/seed.ts",
     "seed:batches": "tsx src/scripts/seedDemoBatches.ts",
-    "simulate:iot": "tsx src/scripts/simulateIoT.ts"
+    "simulate:iot": "tsx src/scripts/simulateIoT.ts",
+    "setup:ml": "python3 -m venv ml/venv && ml/venv/bin/pip install -r ml/model/requirements.txt",
+    "ml:service": "ml/venv/bin/python3 ml/service.py --port 5001"
   },
   "repository": {
     "type": "git",
