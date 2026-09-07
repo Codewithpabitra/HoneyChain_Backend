@@ -173,17 +173,18 @@ Server boots on `http://localhost:5000` with graceful shutdown handling on `SIGI
 
 ## 8. IoT Telemetry Ingestion & Integrated Simulator
 
-### 8.1 Ingestion Endpoints
+### 8.1 Ingestion Endpoints & Integrated Frontend
+- **`GET /`**: Serves the HoneyChain browser frontend dashboard for provenance verification, system health status, and monitored hive telemetry. If requested with `Accept: application/json`, returns API service metadata.
+- **`GET /health`**: Ingestion node health check.
+  - Returns `status`, `uptimeSeconds`, `timestamp`, and `database.status` (`connected`, `connecting`, `disconnected`).
+  - Zero sensitive database URIs or credentials leaked.
 - **`POST /api/iot/telemetry`**: Ingests environmental and acoustic sensor readings.
   - Required fields: `deviceId`, `hiveId`, `timestamp`, `metrics: { temperature, humidity, weightKg }`.
   - Optional fields: `soundFrequencyHz`, `acousticsDb`, `batteryLevelPct`, `ambientTemperature`, `ambientHumidity`, `metadata`.
   - Automatic deduplication on `deviceId + timestamp` (returns `HTTP 200` with `{ duplicate: true }`).
-- **`GET /health`**: Ingestion node health check.
-  - Returns `status`, `uptimeSeconds`, `timestamp`, and `database.status` (`connected`, `connecting`, `disconnected`).
-  - Zero sensitive database URIs or credentials leaked.
 
 ### 8.2 Single-Server Architecture & Self-Hitting IoT Simulator
-HoneyChain deploys as a **single unified server** (Express backend). The backend itself runs an integrated background telemetry simulation service that periodically fires HTTP POST requests to its own public/deployed URL:
+HoneyChain deploys as a **single unified server** (Express backend). The backend serves the web interface, processes API requests, and runs an integrated background telemetry simulation service that periodically fires HTTP POST requests to its own public/deployed URL:
 
 **Environment Variables**:
 - `IOT_TARGET_URL`: The URL that the backend hits to send telemetry.
@@ -192,26 +193,48 @@ HoneyChain deploys as a **single unified server** (Express backend). The backend
   - On Render: Set `IOT_TARGET_URL=https://<your-service-name>.onrender.com`.
 - `IOT_INTERVAL_MS` *(optional)*: Telemetry transmission interval in milliseconds (defaults to `600000` / 10 minutes; can be set to `5000` or `10000` for rapid testing).
 
-### 8.3 Render Deployment Runbook (Single Web Service)
-Only **one service** needs to be created on Render:
+### 8.3 Render Deployment Runbook (Copy-Paste Settings)
 
-1. In the Render Dashboard, create a new **Web Service** connected to your repository.
-2. Configure service parameters:
-   - **Root Directory**: `backend`
-   - **Environment**: `Node`
-   - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npm start`
-   - **Health Check Path**: `/health`
-3. Configure Environment Variables in Render:
-   - `NODE_ENV`: `production`
-   - `PORT`: `10000`
-   - `MONGO_URI`: Your MongoDB Atlas connection string
-   - `SEPOLIA_RPC_URL`: Your Ethereum Sepolia RPC endpoint
-   - `CONTRACT_ADDRESS`: `0x65afF3B44441FfF68171a9a0AA28063BC83C208d`
-   - Role Private Keys: `ADMIN_PRIVATE_KEY`, `BEEKEEPER_PRIVATE_KEY`, `LAB_PRIVATE_KEY`, `PROCESSOR_PRIVATE_KEY`, `DISTRIBUTOR_PRIVATE_KEY`
-   - `IOT_TARGET_URL`: Set to your Render deployment URL (e.g., `https://<your-service-name>.onrender.com`)
-   - `IOT_INTERVAL_MS`: `600000` (10 minutes)
-4. Upon deployment, the single backend server starts listening and automatically begins hitting its own `/api/iot/telemetry` endpoint on the configured schedule. No external worker or separate server is required!
+#### Step 1: Create Web Service
+In your [Render Dashboard](https://dashboard.render.com/):
+1. Click **New +** → **Web Service**.
+2. Select **Build and deploy from a Git repository**.
+3. Choose your repository: `Codewithpabitra/HoneyChain_Backend`.
+
+#### Step 2: Configure Service Parameters
+| Setting | Value to Enter |
+|---|---|
+| **Name** | `honeychain-backend` (or your preferred name) |
+| **Region** | Select closest region (e.g. Frankfurt, Singapore, Ohio) |
+| **Branch** | `main` |
+| **Root Directory** | `backend` |
+| **Runtime** | `Node` |
+| **Build Command** | `npm install && npm run build` |
+| **Start Command** | `npm start` |
+| **Instance Type** | Free or Starter |
+| **Health Check Path** | `/health` |
+
+#### Step 3: Environment Variables Table
+Add these key-value pairs in the **Environment Variables** section on Render:
+
+| Key | Suggested / Required Value | Notes |
+|---|---|---|
+| `NODE_ENV` | `production` | Production mode |
+| `PORT` | `10000` | Render default port |
+| `MONGO_URI` | `mongodb+srv://...` | Your MongoDB Atlas connection string |
+| `SEPOLIA_RPC_URL` | `https://ethereum-sepolia-rpc.publicnode.com` | Sepolia public or private RPC |
+| `CONTRACT_ADDRESS` | `0x65afF3B44441FfF68171a9a0AA28063BC83C208d` | Deployed `HoneyChainRegistry` on Sepolia |
+| `ADMIN_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
+| `BEEKEEPER_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
+| `LAB_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
+| `PROCESSOR_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
+| `DISTRIBUTOR_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
+| `AUDITOR_PRIVATE_KEY` | *(from backend/.env)* | Server-side role signer |
+| `IOT_TARGET_URL` | `https://<your-service-name>.onrender.com` | **Set to your Render URL after creation** |
+| `IOT_INTERVAL_MS` | `600000` | 10 minutes interval (or `10000` for fast testing) |
+
+> [!TIP]
+> When initially creating the service, you can leave `IOT_TARGET_URL` blank. As soon as Render assigns your URL (e.g., `https://honeychain-backend.onrender.com`), go to **Environment** tab on Render, set `IOT_TARGET_URL=https://honeychain-backend.onrender.com`, and click Save Changes. The backend will automatically reboot and start self-ingesting IoT data!
 
 ### 8.4 Standalone CLI Simulator (Optional)
 If you ever want to run an extra simulated gateway stream locally from the terminal:
@@ -219,6 +242,7 @@ If you ever want to run an extra simulated gateway stream locally from the termi
 cd backend
 IOT_TARGET_URL=http://localhost:5000 IOT_INTERVAL_MS=5000 npm run simulate:iot
 ```
+
 
 
 

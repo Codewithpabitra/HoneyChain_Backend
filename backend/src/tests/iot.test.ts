@@ -76,8 +76,30 @@ describe("HoneyChain IoT Telemetry Ingestion & Simulator Test Suite", function (
     await SensorReading.deleteMany({});
   });
 
-  describe("1. GET /health (Health & Status Endpoint)", function () {
-    it("returns 200 OK with connected database status and no exposed secrets", async function () {
+  describe("1. Frontend & System Health Endpoints", function () {
+    it("GET / serves the frontend HTML landing page for browser requests", async function () {
+      const res = await request(app)
+        .get("/")
+        .set("Accept", "text/html");
+
+      expect(res.status).to.equal(200);
+      expect(res.headers["content-type"]).to.include("text/html");
+      expect(res.text).to.include("HoneyChain");
+      expect(res.text).to.include("Sepolia");
+      expect(res.text).to.include("Batch Provenance Verification");
+    });
+
+    it("GET / serves JSON service metadata for API clients", async function () {
+      const res = await request(app)
+        .get("/")
+        .set("Accept", "application/json");
+
+      expect(res.status).to.equal(200);
+      expect(res.body.success).to.be.true;
+      expect(res.body.network).to.include("Sepolia");
+    });
+
+    it("GET /health returns 200 OK with connected database status and no exposed secrets", async function () {
       const res = await request(app).get("/health");
 
       expect(res.status).to.equal(200);

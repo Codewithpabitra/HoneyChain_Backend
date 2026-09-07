@@ -180,9 +180,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Ingestion metadata tagging `{ source: "simulator", simulationVersion: "1.0" }`.
   - Resilience against server downtime, network drops, and HTTP timeouts without crashing.
   - Can also be optionally run via CLI with `npm run simulate:iot`.
-- **Automated IoT Test Suite (`backend/src/tests/iot.test.ts`)**:
-  - 13 comprehensive automated tests covering `GET /health`, valid ingestion, missing fields, out-of-bounds metrics, timestamp drift, inactive hives, deduplication idempotency, target URL resolution, interval resolution, device state evolution, network resilience, and background simulator lifecycle.
-  - Total backend tests passing: **42/42 tests**.
+- **Integrated Frontend Serving (`frontend/`, `backend/src/app.ts`)**:
+  - Implemented sleek, responsive browser interface in `frontend/` (`index.html`, `style.css`, `app.js`) and mirrored in `backend/public/`.
+  - Express serves `index.html` on `GET /` when requested by a web browser, with content negotiation falling back to JSON for API consumers.
+  - Interactive on-chain batch provenance verification panel with direct links to Sepolia Etherscan, certified quality assay display, and tamper-proof verification badges.
+  - Live system health badge polling `/health` with connection status and uptime counter.
+  - Monitored hives grid showcasing all 5 IoT edge gateways and apiaries.
+  - Zero sensitive keys, passwords, or secrets leaked to frontend code or bundle.
+- **Automated Test Suite (`backend/src/tests/iot.test.ts`)**:
+  - 15 comprehensive automated tests covering `GET /` HTML serving, JSON negotiation, `GET /health`, valid ingestion, missing fields, out-of-bounds metrics, timestamp drift, inactive hives, deduplication idempotency, target URL resolution, interval resolution, device state evolution, network resilience, and background simulator lifecycle.
+  - Total backend tests passing: **44/44 tests**.
 
 
 

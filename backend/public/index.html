@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HoneyChain | IoT & Ethereum Sepolia Provenance</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Navigation Header -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <span class="brand-icon">🍯</span>
+        <div class="brand-text">
+          <span class="brand-title">HoneyChain</span>
+          <span class="brand-badge">Sepolia Testnet</span>
+        </div>
+      </div>
+      <div class="nav-status">
+        <div class="status-indicator">
+          <span class="pulse-dot" id="system-status-dot"></span>
+          <span id="system-status-text">Connecting to Backend...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">Smart India Hackathon 2026 • Apiculture 4.0</div>
+      <h1 class="hero-title">Decentralized Honey Provenance & IoT Hive Monitoring</h1>
+      <p class="hero-subtitle">
+        Bridging edge IoT environmental telemetry with immutable Ethereum Sepolia blockchain records to guarantee purity, detect adulteration, and protect honeybee colonies.
+      </p>
+
+      <!-- Live Infrastructure Cards -->
+      <div class="grid-cards">
+        <div class="card status-card">
+          <div class="card-icon">⚡</div>
+          <div class="card-content">
+            <span class="card-label">Backend Health</span>
+            <span class="card-value" id="val-backend-status">Checking...</span>
+            <span class="card-sub" id="val-uptime">Uptime: --</span>
+          </div>
+        </div>
+
+        <div class="card status-card">
+          <div class="card-icon">🗄️</div>
+          <div class="card-content">
+            <span class="card-label">MongoDB Operational Layer</span>
+            <span class="card-value" id="val-db-status">Checking...</span>
+            <span class="card-sub">Time-series & Entity Store</span>
+          </div>
+        </div>
+
+        <div class="card status-card">
+          <div class="card-icon">⛓️</div>
+          <div class="card-content">
+            <span class="card-label">Ethereum Sepolia</span>
+            <span class="card-value">Chain ID: 11155111</span>
+            <a class="card-sub link" href="https://sepolia.etherscan.io/address/0x65afF3B44441FfF68171a9a0AA28063BC83C208d" target="_blank" rel="noopener noreferrer">
+              View Contract on Etherscan ↗
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Interactive Container -->
+  <main class="container main-content">
+    
+    <!-- Section 1: Consumer Batch Verification -->
+    <section class="section-box">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <span class="section-icon">🔍</span>
+          <div>
+            <h2 class="section-title">Consumer Batch Provenance Verification</h2>
+            <p class="section-desc">Verify off-chain honey harvest metadata against the immutable cryptographic hash anchored on Ethereum Sepolia.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-form">
+        <div class="search-input-group">
+          <input type="text" id="batchIdInput" placeholder="Enter Batch ID (e.g. HC-DEMO-168666, HC-BATCH-2026-001)" value="HC-DEMO-168666">
+          <button type="button" id="verifyBtn" class="btn btn-primary">Verify Batch</button>
+        </div>
+        <div class="sample-chips">
+          <span class="chip-label">Quick test IDs:</span>
+          <button type="button" class="chip" data-batch="HC-DEMO-168666">HC-DEMO-168666 (Rehearsal Demo)</button>
+          <button type="button" class="chip" data-batch="HC-BATCH-2026-001">HC-BATCH-2026-001 (Sundarbans)</button>
+        </div>
+      </div>
+
+      <!-- Verification Output Area -->
+      <div id="verifyResult" class="result-container hidden"></div>
+    </section>
+
+    <!-- Section 2: Monitored IoT Apiaries & Hives -->
+    <section class="section-box">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <span class="section-icon">🐝</span>
+          <div>
+            <h2 class="section-title">Active Monitored Hives (IoT Telemetry)</h2>
+            <p class="section-desc">Simulated and physical ESP32 edge gateways stream circadian telemetry into the backend via <code class="code-inline">POST /api/iot/telemetry</code>.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="hives-grid">
+        <div class="hive-card">
+          <div class="hive-header">
+            <span class="hive-name">HIVE-SB-101</span>
+            <span class="badge badge-success">Active</span>
+          </div>
+          <div class="hive-region">Sundarbans Mangrove Sanctuary</div>
+          <div class="hive-meta">
+            <div>Device: <code>ESP32-SB-GW-01</code></div>
+            <div>Target Flora: Wild Mangrove Blossom</div>
+          </div>
+        </div>
+
+        <div class="hive-card">
+          <div class="hive-header">
+            <span class="hive-name">HIVE-SB-102</span>
+            <span class="badge badge-success">Active</span>
+          </div>
+          <div class="hive-region">Sundarbans Mangrove Sanctuary</div>
+          <div class="hive-meta">
+            <div>Device: <code>ESP32-SB-GW-02</code></div>
+            <div>Target Flora: Sundarbans Khalisa</div>
+          </div>
+        </div>
+
+        <div class="hive-card">
+          <div class="hive-header">
+            <span class="hive-name">HIVE-KV-201</span>
+            <span class="badge badge-success">Active</span>
+          </div>
+          <div class="hive-region">Kashmir Valley Highlands</div>
+          <div class="hive-meta">
+            <div>Device: <code>ESP32-KV-GW-01</code></div>
+            <div>Target Flora: Acacia & Kashmiri Saffron</div>
+          </div>
+        </div>
+
+        <div class="hive-card">
+          <div class="hive-header">
+            <span class="hive-name">HIVE-KV-202</span>
+            <span class="badge badge-success">Active</span>
+          </div>
+          <div class="hive-region">Kashmir Valley Highlands</div>
+          <div class="hive-meta">
+            <div>Device: <code>ESP32-KV-GW-02</code></div>
+            <div>Target Flora: Mountain Wildflower</div>
+          </div>
+        </div>
+
+        <div class="hive-card">
+          <div class="hive-header">
+            <span class="hive-name">HIVE-WG-301</span>
+            <span class="badge badge-success">Active</span>
+          </div>
+          <div class="hive-region">Western Ghats Rainforest</div>
+          <div class="hive-meta">
+            <div>Device: <code>ESP32-WG-GW-01</code></div>
+            <div>Target Flora: Cardamom & Forest Multifloral</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: REST API Reference & Quick Endpoints -->
+    <section class="section-box">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <span class="section-icon">🔌</span>
+          <div>
+            <h2 class="section-title">Backend API Specification</h2>
+            <p class="section-desc">Direct endpoints exposed by this unified backend server.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="api-endpoints-list">
+        <div class="endpoint-item">
+          <span class="method get">GET</span>
+          <span class="path">/health</span>
+          <span class="desc">System health check & database connectivity probe</span>
+          <a class="btn-sm" href="/health" target="_blank">Try ↗</a>
+        </div>
+        <div class="endpoint-item">
+          <span class="method post">POST</span>
+          <span class="path">/api/iot/telemetry</span>
+          <span class="desc">Ingest ESP32/LoRa sensor readings (bounds-checked, idempotent)</span>
+        </div>
+        <div class="endpoint-item">
+          <span class="method get">GET</span>
+          <span class="path">/api/verify/:batchId</span>
+          <span class="desc">Query on-chain cryptographic proof & custody timeline</span>
+        </div>
+        <div class="endpoint-item">
+          <span class="method post">POST</span>
+          <span class="path">/api/batches</span>
+          <span class="desc">Register harvest batch on Ethereum Sepolia (Beekeeper role)</span>
+        </div>
+        <div class="endpoint-item">
+          <span class="method post">POST</span>
+          <span class="path">/api/batches/:batchId/quality</span>
+          <span class="desc">Certify quality grade & laboratory report hash (Lab role)</span>
+        </div>
+        <div class="endpoint-item">
+          <span class="method post">POST</span>
+          <span class="path">/api/batches/:batchId/transfer</span>
+          <span class="desc">Transfer physical custody to next supply chain custodian</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-container">
+      <div>
+        <strong>HoneyChain</strong> — Smart Apiculture & Blockchain Provenance
+      </div>
+      <div class="footer-links">
+        <span>Smart India Hackathon 2026</span>
+        <span>•</span>
+        <a href="https://sepolia.etherscan.io/address/0x65afF3B44441FfF68171a9a0AA28063BC83C208d" target="_blank" rel="noopener noreferrer">Smart Contract</a>
+        <span>•</span>
+        <a href="/health">Health Endpoint</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
