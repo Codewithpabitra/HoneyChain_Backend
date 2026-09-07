@@ -42,3 +42,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Added **ADR-004**: On-Chain Batch Data Model and Safe Numeric Representation Standards.
   - Added **ADR-005**: Role-Based Authorization & Custody Enforcement.
 
+---
+
+## [Phase 2: HoneyChainRegistry.sol Implementation & Test Suite] - 2026-09-07
+
+### Added
+- **Smart Contract (`blockchain/contracts/HoneyChainRegistry.sol`)**:
+  - Implemented `HoneyChainRegistry` inheriting OpenZeppelin v5 `AccessControl`.
+  - Defined role constants: `BEEKEEPER_ROLE`, `LABORATORY_ROLE`, `PROCESSOR_ROLE`, `DISTRIBUTOR_ROLE`, `AUDITOR_ROLE`.
+  - Implemented write methods: `registerBatch`, `certifyBatch`, `transferCustody`, `recallBatch`.
+  - Implemented read view methods: `getBatch`, `batchExists`.
+  - Emitted all provenance lifecycle events: `BatchRegistered`, `BatchCertified`, `CustodyTransferred`, `BatchRecalled`.
+  - Added gas-efficient custom errors for all business validation failures.
+- **Hardhat Toolchain (`blockchain/`)**:
+  - Configured Hardhat 2 development environment (`hardhat.config.cjs`) targeting Solidity `0.8.24` with optimizer enabled (200 runs).
+  - Configured Polygon Amoy testnet network profile (`chainId: 80002`).
+- **Comprehensive Test Suite (`blockchain/test/HoneyChainRegistry.test.cjs`)**:
+  - 16 automated tests covering authorized & unauthorized registration, duplicate registration, laboratory certification, pre-registration checks, multi-actor custody transfers, invalid recipients, role-governed recall operations, post-recall access prevention, event argument emissions, and batch state integrity.
+  - **Actual Test Output**: 16/16 tests passing on the local Hardhat network (960ms execution time).
+
+

@@ -403,3 +403,55 @@ Return Verified Provenance Payload to Web / Mobile Frontend
   ]
 }
 ```
+
+---
+
+## 9. Implementation & Automated Test Verification
+
+The smart contract is implemented in [`blockchain/contracts/HoneyChainRegistry.sol`](file:///home/dhritish/Documents/githubFinal/HoneyChain_Backend/blockchain/contracts/HoneyChainRegistry.sol).
+
+### 9.1 Custom Error Mapping
+- `BatchAlreadyExists(bytes32 batchId)`: Thrown when trying to register an existing `batchId`.
+- `BatchDoesNotExist(bytes32 batchId)`: Thrown when accessing or modifying an unharvested batch.
+- `BatchAlreadyRecalled(bytes32 batchId)`: Thrown when attempting custody transfer or certification on a recalled batch.
+- `BatchAlreadyCertified(bytes32 batchId)`: Thrown when attempting duplicate lab certification.
+- `InvalidBatchId()`: Thrown when `batchId == bytes32(0)`.
+- `InvalidQuantity()`: Thrown when `quantityGrams == 0`.
+- `InvalidMetadataHash()`: Thrown when `metadataHash == bytes32(0)`.
+- `InvalidLabReportHash()`: Thrown when `labReportHash == bytes32(0)`.
+- `InvalidQualityGrade()`: Thrown when `qualityGrade == QualityGrade.None`.
+- `InvalidRecipient()`: Thrown when `to == address(0)` or `to == msg.sender`.
+- `NotCurrentCustodian(address caller, address currentCustodian)`: Thrown when a non-custodian attempts custody transfer.
+- `UnauthorizedRecall(address caller)`: Thrown when caller lacks admin, auditor, lab, or producer rights to recall.
+- `RecipientNotAuthorized(address recipient)`: Thrown when transferring to an account lacking supply chain roles (`PROCESSOR_ROLE`, `DISTRIBUTOR_ROLE`, `BEEKEEPER_ROLE`).
+
+### 9.2 Test Coverage (16 Automated Tests in Hardhat)
+Executed via `npm test` (`npx hardhat test`):
+
+```text
+  HoneyChainRegistry
+    1. Registration
+      ✔ 1. authorized registration: beekeeper can register batch
+      ✔ 2. unauthorized registration: non-beekeeper caller is rejected
+      ✔ 3. duplicate registration: cannot register existing batch ID
+      ✔ should revert if batchId, quantity or metadataHash are invalid
+    2. Certification
+      ✔ 4. valid certification: laboratory certifies batch
+      ✔ 5. certification before registration: cannot certify non-existent batch
+      ✔ 6. unauthorized certification: non-lab caller is rejected
+      ✔ duplicate certification: cannot certify an already certified batch
+    3. Custody Transfer
+      ✔ 7. valid transfer: custodian transfers custody to authorized participants
+      ✔ 8. unauthorized transfer: non-custodian cannot transfer custody
+      ✔ 9. invalid/non-owner transfer: transfer to self or zero address or unauthorized recipient
+    4. Recall Operations
+      ✔ 10. valid recall: admin, producer, lab, or auditor can recall batch
+      ✔ 11. unauthorized recall: unauthorized user or processor cannot recall
+      ✔ 12. transfer after recall: cannot transfer or certify a recalled batch
+    5. Event Emission & State Integrity
+      ✔ 13. correct event emission: emits all lifecycle events with exact indexed arguments
+      ✔ 14. correct batch state: getBatch and batchExists verification
+
+  16 passing (960ms)
+```
+
