@@ -12,6 +12,16 @@ out/
 **/.next/
 **/out/
 
+# Blockchain / Hardhat
+artifacts/
+**/artifacts/
+cache/
+**/cache/
+typechain/
+**/typechain/
+typechain-types/
+**/typechain-types/
+
 # Environment variables
 .env
 .env.local
