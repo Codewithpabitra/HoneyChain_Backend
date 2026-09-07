@@ -178,3 +178,57 @@ HoneyChain implements regular Mongoose collections paired with compound B-tree i
   2. Full support for document-level updates, upserts, secondary compound indexes, and polymorphic metadata fields without MongoDB engine restrictions.
   3. Consistent performance with zero query engine translation overhead.
 
+---
+
+## 7. IoT Telemetry Ingestion & Edge Simulation Architecture
+
+### 7.1 Telemetry Ingestion Pipeline (`POST /api/iot/telemetry`)
+Edge hardware (ESP32 nodes/gateways) or the standalone edge simulator transmit sensor readings via HTTP POST to the backend API:
+
+```text
+┌───────────────────────────────┐
+│     ESP32 Node / Gateway      │
+│  OR Standalone Edge Simulator │
+└───────────────┬───────────────┘
+                │ HTTP POST /api/iot/telemetry
+                │ Payload: { deviceId, hiveId, timestamp, metrics: {...}, metadata: {...} }
+                ▼
+┌───────────────────────────────┐
+│       Express API Server      │
+│   - Schema & Bounds Checking  │
+│   - Hive Status Verification  │
+│   - Idempotent Deduplication  │
+└───────────────┬───────────────┘
+                ├── Updates Hive (lastPingAt, latestReadingAt, batteryLevelPct)
+                └── Writes SensorReading Document (Indexed by { hiveId, timestamp }, { deviceId, timestamp })
+                ▼
+┌───────────────────────────────┐
+│       MongoDB Database        │
+└───────────────────────────────┘
+```
+
+### 7.2 Strict Input Validation & Sanity Bounds
+To maintain data integrity and protect the AI engine from sensor noise or compromised edge devices, incoming telemetry is validated against realistic physical bounds:
+- **Temperature**: `-40°C` to `+70°C` (disallowing impossible cryogenic or combustion values)
+- **Humidity**: `0%` to `100% RH`
+- **Weight**: `0 kg` to `300 kg` (accommodating empty supers up to heavy harvest-ready hives)
+- **Sound Frequency**: `0 Hz` to `5000 Hz`
+- **Acoustic Amplitude**: `0 dB` to `140 dB`
+- **Battery**: `0%` to `100%`
+- **Timestamp**: Valid ISO 8601 string, bounded by a 10-minute maximum future clock-drift window.
+- **Hive Verification**: Active verification against the `hives` collection; readings for unknown, archived, or collapsed hives are rejected with HTTP 404/422.
+
+### 7.3 Idempotency & Deduplication
+Network drops and LoRa retransmissions often cause duplicate packets. The database layer enforces uniqueness via the compound index:
+```javascript
+{ deviceId: 1, timestamp: 1 } // unique: true
+```
+If an edge gateway retransmits an identical reading, the API responds with `HTTP 200 OK` and `{ success: true, duplicate: true }`, ensuring gateway operations proceed without error while preserving database hygiene.
+
+### 7.4 Edge Simulator to Physical Hardware Transition
+Prior to physical ESP32 and LoRa node deployment, the HoneyChain IoT layer is powered by a standalone stateful simulator (`backend/src/scripts/simulateIoT.ts`):
+1. **Identical Protocol**: The simulator communicates strictly through the external HTTP ingestion endpoint (`POST /api/iot/telemetry`), exactly mimicking physical ESP32 gateway firmware.
+2. **Environment-Driven Target**: The simulator consumes `IOT_TARGET_URL` from its environment, ensuring complete decoupling from backend code.
+3. **Drop-In Hardware Replacement**: When physical ESP32/LoRa hardware is powered on and provisioned with the backend URL, the simulator can simply be halted. No backend code modifications or database migrations are required.
+
+

@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "test": "mocha --node-option import=tsx src/tests/**/*.test.ts",
     "demo": "tsx src/scripts/demoRehearsal.ts",
-    "seed": "tsx src/scripts/seed.ts"
+    "seed": "tsx src/scripts/seed.ts",
+    "simulate:iot": "tsx src/scripts/simulateIoT.ts"
   },
   "repository": {
     "type": "git",

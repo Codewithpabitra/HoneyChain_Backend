@@ -169,5 +169,61 @@ npm run dev
 ```
 Server boots on `http://localhost:5000` with graceful shutdown handling on `SIGINT` / `SIGTERM`.
 
+---
+
+## 8. IoT Telemetry Ingestion & Standalone Edge Simulator
+
+### 8.1 Ingestion Endpoints
+- **`POST /api/iot/telemetry`**: Ingests environmental and acoustic sensor readings.
+  - Required fields: `deviceId`, `hiveId`, `timestamp`, `metrics: { temperature, humidity, weightKg }`.
+  - Optional fields: `soundFrequencyHz`, `acousticsDb`, `batteryLevelPct`, `ambientTemperature`, `ambientHumidity`, `metadata`.
+  - Automatic deduplication on `deviceId + timestamp` (returns `HTTP 200` with `{ duplicate: true }`).
+- **`GET /health`**: Ingestion node health check.
+  - Returns `status`, `uptimeSeconds`, `timestamp`, and `database.status` (`connected`, `connecting`, `disconnected`).
+  - Zero sensitive database URIs or credentials leaked.
+
+### 8.2 Running the Edge Simulator Locally
+The simulator (`backend/src/scripts/simulateIoT.ts`) runs as a standalone Node.js process simulating 5 physical hives (`HIVE-SB-101`, `HIVE-SB-102`, `HIVE-KV-201`, `HIVE-KV-202`, `HIVE-WG-301`) with gradual circadian telemetry drift and realistic nectar accumulation.
+
+**Required Environment Variable**:
+- `IOT_TARGET_URL`: Base URL of the HoneyChain backend (e.g. `http://localhost:5000` or deployed cloud URL). If unset, the simulator halts immediately with an explanatory configuration error.
+- `IOT_INTERVAL_MS` *(optional)*: Telemetry transmission interval in milliseconds (defaults to `600000` / 10 minutes; set to `5000` or `10000` for rapid local testing).
+
+Example local run:
+```bash
+cd backend
+IOT_TARGET_URL=http://localhost:5000 IOT_INTERVAL_MS=5000 npm run simulate:iot
+```
+
+### 8.3 Render Cloud Deployment Runbook
+
+#### 1. Express API Backend (Render Web Service)
+1. In the Render Dashboard, create a new **Web Service** connected to your HoneyChain repository.
+2. Configure service parameters:
+   - **Root Directory**: `backend`
+   - **Environment**: `Node`
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm start`
+   - **Health Check Path**: `/health`
+3. Configure Environment Variables in Render:
+   - `NODE_ENV`: `production`
+   - `PORT`: `10000` (Render default or auto-bound)
+   - `MONGO_URI`: Your MongoDB Atlas production connection string
+   - `SEPOLIA_RPC_URL`: Your Ethereum Sepolia RPC endpoint
+   - `CONTRACT_ADDRESS`: `0x65afF3B44441FfF68171a9a0AA28063BC83C208d`
+   - Role Private Keys: `ADMIN_PRIVATE_KEY`, `BEEKEEPER_PRIVATE_KEY`, `LAB_PRIVATE_KEY`, `PROCESSOR_PRIVATE_KEY`, `DISTRIBUTOR_PRIVATE_KEY`
+
+#### 2. Standalone IoT Simulator (Render Background Worker)
+1. In the Render Dashboard, create a new **Background Worker** connected to the same repository.
+2. Configure worker parameters:
+   - **Root Directory**: `backend`
+   - **Environment**: `Node`
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm run simulate:iot`
+3. Configure Environment Variables in Render:
+   - `IOT_TARGET_URL`: The deployed Web Service URL (e.g., `https://<your-service-name>.onrender.com`)
+   - `IOT_INTERVAL_MS`: `600000` (10 minutes for realistic production simulation)
+
+
 
 

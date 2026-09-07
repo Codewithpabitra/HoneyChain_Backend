@@ -109,6 +109,7 @@ const SensorReadingSchema = new Schema<ISensorReading>(
 SensorReadingSchema.index({ hiveId: 1, timestamp: -1 });
 SensorReadingSchema.index({ deviceId: 1, timestamp: -1 });
 SensorReadingSchema.index({ timestamp: -1 });
+SensorReadingSchema.index({ deviceId: 1, timestamp: 1 }, { unique: true });
 
 export const SensorReading = mongoose.model<ISensorReading>(
   "SensorReading",
