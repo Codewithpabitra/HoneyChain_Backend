@@ -1,21 +1,27 @@
 /**
- * HoneyChain Consumer QR Verification Script
- * Automatically verifies batch authenticity against MongoDB and Ethereum Sepolia.
+ * HoneyChain Consumer Verification Client
+ * Dedicated to displaying the Digital Certificate of Authenticity for a specific honey jar.
  */
 
-// DOM Elements
-const verifyBatchInput = document.getElementById("verifyBatchInput");
-const submitVerifyBtn = document.getElementById("submitVerifyBtn");
-const verifyDisplayArea = document.getElementById("verifyDisplayArea");
-
-// Helper: Format UNIX timestamp to localized date/time
+// Format UNIX timestamp into user-friendly localized date
 function formatTimestamp(ts) {
   if (!ts) return "N/A";
   const num = typeof ts === "string" ? parseInt(ts, 10) : ts;
   if (isNaN(num) || num <= 0) return "N/A";
-  // Convert seconds to milliseconds if < 10000000000
   const ms = num < 10000000000 ? num * 1000 : num;
   return new Date(ms).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatDateTime(ts) {
+  if (!ts) return "N/A";
+  const num = typeof ts === "string" ? parseInt(ts, 10) : ts;
+  if (isNaN(num) || num <= 0) return "N/A";
+  const ms = num < 10000000000 ? num * 1000 : num;
+  return new Date(ms).toLocaleString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -24,89 +30,107 @@ function formatTimestamp(ts) {
   });
 }
 
-// Helper: Truncate Ethereum address for UI
 function shortAddress(addr) {
   if (!addr || typeof addr !== "string") return "--";
   if (addr.length < 12) return addr;
   return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
 }
 
-// Helper: Truncate hash for UI
 function shortHash(hash) {
   if (!hash || typeof hash !== "string") return "--";
   if (hash.length < 16) return hash;
-  return `${hash.substring(0, 10)}...${hash.substring(hash.length - 8)}`;
+  return `${hash.substring(0, 8)}...${hash.substring(hash.length - 6)}`;
 }
 
-// Extract batch ID from URL path or search query
-function extractBatchIdFromUrl() {
+// Extract batch ID from URL path or query
+function getTargetBatchId() {
   const pathname = window.location.pathname;
-  // Check /verify/:batchId
   const match = pathname.match(/\/verify\/([^/?#]+)/i);
   if (match && match[1]) {
     return decodeURIComponent(match[1].trim());
   }
-
-  // Check ?batchId=...
-  const urlParams = new URLSearchParams(window.location.search);
-  const paramBatchId = urlParams.get("batchId");
-  if (paramBatchId) {
-    return paramBatchId.trim();
-  }
-
+  const params = new URLSearchParams(window.location.search);
+  const qId = params.get("batchId");
+  if (qId) return qId.trim();
   return "";
 }
 
-// Render Loading Spinner
+// Render Loading View
 function renderLoading(batchId) {
-  verifyDisplayArea.innerHTML = `
-    <div class="verify-card" style="text-align: center; padding: 3rem 1.5rem;">
-      <div class="honey-spinner" style="font-size: 2.5rem; margin-bottom: 1rem; animation: pulse 1.5s infinite;">🍯</div>
-      <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">Verifying Batch Authenticity...</h3>
-      <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 450px; margin: 0 auto;">
-        Querying Ethereum Sepolia smart contract <span class="mono" style="color: var(--primary); font-size: 0.8rem;">0x65af...208d</span> and performing SHA-256 cryptographic audit for <strong class="mono" style="color: var(--text-main);">${batchId}</strong>...
+  const container = document.getElementById("verifyDisplayArea");
+  if (!container) return;
+  container.innerHTML = `
+    <div class="passport-loading">
+      <div class="loading-honey-pot">🍯</div>
+      <h2 class="loading-title">Verifying Honey Jar Authenticity</h2>
+      <p class="loading-sub">
+        Cryptographically verifying Batch <span class="mono bold text-primary">${batchId}</span> against Ethereum Sepolia smart contract & SHA-256 metadata hash...
       </p>
     </div>
   `;
 }
 
-// Render 404 / Error State
-function renderError(batchId, errorMessage, statusCode = 404) {
-  verifyDisplayArea.innerHTML = `
-    <div class="verify-card" style="border-color: rgba(239, 68, 68, 0.4);">
-      <div class="verify-status-banner banner-warning">
-        <div class="status-icon" style="font-size: 2rem;">⚠️</div>
-        <div>
-          <div class="status-title" style="color: #EF4444; font-size: 1.35rem; font-weight: 700;">
-            ${statusCode === 404 ? "PRODUCT NOT FOUND IN REGISTRY" : "VERIFICATION ERROR"}
-          </div>
-          <div class="status-sub">
-            ${errorMessage || `The batch ID '${batchId}' could not be verified in the HoneyChain blockchain registry.`}
-          </div>
-        </div>
-      </div>
-
-      <div style="padding: 1.5rem; background: rgba(0,0,0,0.2); border-radius: 8px; margin-top: 1.25rem;">
-        <h4 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main);">What does this mean for consumers?</h4>
-        <ul style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; padding-left: 1.25rem;">
-          <li>This honey batch may not have been registered by an authorized HoneyChain beekeeper yet.</li>
-          <li>Check that the batch ID matches the exact code printed on the physical jar label.</li>
-          <li>If you suspect counterfeit honey, contact the apiary or retailer directly.</li>
-        </ul>
-      </div>
-
-      <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
-        <a href="/" class="btn btn-primary" style="text-decoration: none; text-align: center;">HoneyChain Home</a>
-        <button type="button" class="btn" onclick="location.reload()" style="background: var(--bg-card-hover); color: var(--text-main); border: 1px solid var(--border-subtle);">
-          Try Again
-        </button>
+// Render Empty State when no batch ID is in the URL
+function renderEmptyState() {
+  const container = document.getElementById("verifyDisplayArea");
+  if (!container) return;
+  container.innerHTML = `
+    <div class="passport-card empty-card">
+      <div class="empty-icon">📱</div>
+      <h2 class="passport-title">Scan Honey Jar QR Code</h2>
+      <p class="empty-desc">
+        This portal provides the instant on-chain certificate of authenticity for physical HoneyChain jars. Please scan the QR code printed on your honey jar label to view its verified provenance.
+      </p>
+      <div class="empty-action-group">
+        <a href="/" class="btn-passport btn-passport-primary">← Return to HoneyChain Home</a>
       </div>
     </div>
   `;
 }
 
-// Render Verified Consumer Provenance UI
-function renderVerificationResult(data) {
+// Render Error / Not Found State
+function renderError(batchId, errorMessage, statusCode = 404) {
+  const container = document.getElementById("verifyDisplayArea");
+  if (!container) return;
+  container.innerHTML = `
+    <div class="passport-card error-card">
+      <div class="passport-hero-badge badge-recalled">
+        <span class="hero-icon">⚠️</span>
+        <div class="hero-text-wrap">
+          <span class="hero-badge-title">UNVERIFIED HONEY BATCH</span>
+          <span class="hero-badge-sub">Product not recognized in HoneyChain registry</span>
+        </div>
+      </div>
+
+      <div class="error-body">
+        <div class="error-batch-code">Scanned Batch ID: <span class="mono bold">${batchId}</span></div>
+        <p class="error-message">
+          ${errorMessage || "This batch code could not be verified on the Ethereum Sepolia smart contract."}
+        </p>
+
+        <div class="consumer-advice-box">
+          <div class="advice-header">🛡️ Consumer Advisory:</div>
+          <ul>
+            <li>Check that the batch code matches the printed label on your physical jar.</li>
+            <li>If the seal is broken or was not registered by an authorized HoneyChain apiary, it may be uncertified.</li>
+            <li>Contact the producing cooperative or retailer for assistance.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="passport-action-bar">
+        <a href="/" class="btn-passport btn-passport-secondary">← Back to Portal</a>
+        <button type="button" class="btn-passport btn-passport-primary" onclick="location.reload()">Retry Scan</button>
+      </div>
+    </div>
+  `;
+}
+
+// Render Full Premium Consumer Digital Product Passport
+function renderPassport(data) {
+  const container = document.getElementById("verifyDisplayArea");
+  if (!container) return;
+
   const {
     batchId,
     tamperProofAudit,
@@ -119,378 +143,336 @@ function renderVerificationResult(data) {
 
   const isRecalled = recall && recall.recalled === true;
   const isIntegrityVerified = tamperProofAudit?.integrityVerified === true;
+  const isPending =
+    !isRecalled &&
+    (!quality?.grade || quality.grade === "None" || blockchain?.status === "Registered");
 
-  // Determine Primary Badge State
-  let badgeClass = "badge-success";
-  let badgeTitle = "✓ AUTHENTIC HONEY";
-  let badgeSubtitle = "Cryptographically anchored on Ethereum Sepolia • 100% Tamper-Proof";
+  // Determine Primary Badge
+  let badgeTheme = "theme-verified";
+  let badgeIcon = "✓";
+  let badgeTitle = "AUTHENTIC & UNADULTERATED";
+  let badgeSubtitle = "100% Pure Honey • Cryptographically Anchored on Ethereum Sepolia";
 
   if (isRecalled) {
-    badgeClass = "badge-recalled";
-    badgeTitle = "⛔ PRODUCT RECALLED";
-    badgeSubtitle = "Official safety / quality recall issued on-chain by authorized auditor";
+    badgeTheme = "theme-recalled";
+    badgeIcon = "⛔";
+    badgeTitle = "CRITICAL WARNING: PRODUCT RECALLED";
+    badgeSubtitle = "Official safety notice issued on-chain by authorized auditor";
+  } else if (isPending) {
+    badgeTheme = "theme-pending";
+    badgeIcon = "⏳";
+    badgeTitle = "HARVEST CONFIRMED • ASSAY PENDING";
+    badgeSubtitle = "Harvest verified on Ethereum Sepolia • Laboratory assay in progress";
   } else if (!isIntegrityVerified) {
-    badgeClass = "badge-warning";
-    badgeTitle = "⚠️ INTEGRITY WARNING";
-    badgeSubtitle = "Cryptographic hash mismatch: Harvest metadata may have been modified!";
+    badgeTheme = "theme-tampered";
+    badgeIcon = "⚠️";
+    badgeTitle = "INTEGRITY WARNING: HASH MISMATCH";
+    badgeSubtitle = "Off-chain harvest metadata does not match on-chain cryptographic anchor!";
   }
 
-  // Build Recall Alert Banner if recalled
-  let recallAlertHtml = "";
+  // Floral Origin & Location Formatting
+  const floralOrigin = harvest?.floralOrigin || "Pure Multifloral Honey";
+  const harvestDate = formatTimestamp(harvest?.harvestTimestamp);
+  const netWeight = harvest?.quantityGrams
+    ? `${(harvest.quantityGrams / 1000).toFixed(1)} kg Harvest Lot`
+    : "Standard Lot";
+  const apiaryRegion = harvest?.apiaryLocation?.region || "Sundarbans Biosphere Reserve";
+  const apiaryCoords =
+    harvest?.apiaryLocation?.latitude && harvest?.apiaryLocation?.longitude
+      ? `${harvest.apiaryLocation.latitude.toFixed(4)}° N, ${harvest.apiaryLocation.longitude.toFixed(4)}° E`
+      : "Protected Geofence";
+
+  // Quality & Moisture Gauge
+  const gradeLabel = isPending ? "Pending Assay" : quality?.grade || "Grade A";
+  const moistureValue = quality?.moisturePercentage || 0;
+  const moisturePercentDisplay = moistureValue > 0 ? `${moistureValue}%` : "Pending Assay";
+
+  // Calculate Moisture Bar Width (0 - 25% scale, 20% is limit)
+  let moistureBarWidth = Math.min(100, Math.max(0, (moistureValue / 25) * 100));
+  let moistureBarColor = "#10B981"; // green
+  if (moistureValue > 18 && moistureValue <= 20) {
+    moistureBarColor = "#F59E0B"; // amber warning
+  } else if (moistureValue > 20) {
+    moistureBarColor = "#EF4444"; // red failure
+  }
+
+  // Recall Banner
+  let recallBannerHtml = "";
   if (isRecalled) {
-    recallAlertHtml = `
-      <div class="recall-alert-box" style="margin-bottom: 1.5rem; padding: 1.25rem; border-radius: 8px; background: rgba(239, 68, 68, 0.15); border: 2px solid #EF4444;">
-        <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
-          <span style="font-size: 1.75rem;">🚨</span>
+    recallBannerHtml = `
+      <div class="passport-recall-banner">
+        <div class="recall-banner-header">
+          <span class="recall-icon">🚨</span>
           <div>
-            <h4 style="color: #EF4444; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;">CRITICAL CONSUMER SAFETY NOTICE: DO NOT CONSUME</h4>
-            <p style="color: var(--text-main); font-size: 0.95rem; margin-bottom: 0.5rem;">
-              <strong>Reason:</strong> ${recall.reason || "Safety recall issued"}
-            </p>
-            <div style="font-size: 0.85rem; color: var(--text-muted);">
-              <span>Recalled By: <span class="mono">${shortAddress(recall.recalledBy)}</span></span>
-              ${recall.recalledAt ? ` • <span>Date: ${formatTimestamp(recall.recalledAt)}</span>` : ""}
-              ${recall.txHash ? ` • <a href="https://sepolia.etherscan.io/tx/${recall.txHash}" target="_blank" rel="noopener noreferrer" class="link">View Recall Tx ↗</a>` : ""}
-            </div>
+            <h3 class="recall-title">CONSUMER ADVISORY: DO NOT CONSUME</h3>
+            <div class="recall-reason">${recall.reason || "Safety recall issued"}</div>
           </div>
+        </div>
+        <div class="recall-meta">
+          <span>Recalled By: <span class="mono">${shortAddress(recall.recalledBy)}</span></span>
+          ${recall.recalledAt ? `<span> • Date: ${formatDateTime(recall.recalledAt)}</span>` : ""}
+          ${recall.txHash ? `<span> • <a href="https://sepolia.etherscan.io/tx/${recall.txHash}" target="_blank" rel="noopener noreferrer" class="link-chain">Sepolia Tx ↗</a></span>` : ""}
         </div>
       </div>
     `;
   }
 
-  // Format Floral Origin and Apiary Location
-  const floralOrigin = harvest?.floralOrigin || "Wild Forest & Multifloral";
-  const harvestDate = formatTimestamp(harvest?.harvestTimestamp);
-  const quantityFormatted = harvest?.quantityGrams
-    ? `${harvest.quantityGrams.toLocaleString()} g (${(harvest.quantityGrams / 1000).toFixed(2)} kg)`
-    : "--";
-  const locationRegion = harvest?.apiaryLocation?.region || "Certified Sanctuary";
-  const locationCoords =
-    harvest?.apiaryLocation?.latitude && harvest?.apiaryLocation?.longitude
-      ? `${harvest.apiaryLocation.latitude.toFixed(4)}° N, ${harvest.apiaryLocation.longitude.toFixed(4)}° E`
-      : "GPS Protected";
-  const sourceHivesList = Array.isArray(harvest?.sourceHives) && harvest.sourceHives.length > 0
-    ? harvest.sourceHives.join(", ")
-    : "Registered Apiary Hives";
-
-  // Quality Grade formatting
-  const qualityGrade = quality?.grade || "Grade A";
-  const moisturePct = quality?.moisturePercentage ? `${quality.moisturePercentage}%` : "Pending Assay";
-
-  // Build Provenance Timeline
-  let timelineItemsHtml = "";
+  // Provenance Timeline Items
+  let timelineStepsHtml = "";
   if (Array.isArray(custodyTimeline) && custodyTimeline.length > 0) {
-    timelineItemsHtml = custodyTimeline
-      .map((evt, idx) => {
-        const timeStr = formatTimestamp(evt.timestamp);
-        const txLink = evt.txHash
-          ? `<a class="link" href="https://sepolia.etherscan.io/tx/${evt.txHash}" target="_blank" rel="noopener noreferrer">Tx: ${shortHash(evt.txHash)} ↗</a>`
+    timelineStepsHtml = custodyTimeline
+      .map((item, idx) => {
+        const timeStr = formatDateTime(item.timestamp);
+        const txLink = item.txHash
+          ? `<a href="https://sepolia.etherscan.io/tx/${item.txHash}" target="_blank" rel="noopener noreferrer" class="tx-badge">Tx: ${shortHash(item.txHash)} ↗</a>`
           : "";
         return `
-          <div class="timeline-step">
-            <div class="timeline-marker">${idx + 1}</div>
-            <div class="timeline-body">
-              <div class="timeline-step-name">${evt.event || "Custody Event"}</div>
-              <div class="timeline-step-meta">
-                <span>${timeStr}</span>
-                ${evt.location ? `• <span>📍 ${evt.location}</span>` : ""}
-                ${txLink ? `• <span>${txLink}</span>` : ""}
+          <div class="step-card">
+            <div class="step-num">${idx + 1}</div>
+            <div class="step-details">
+              <div class="step-header">
+                <span class="step-title">${item.event || "Custody Handoff"}</span>
+                ${txLink}
               </div>
-              ${evt.from && evt.to ? `<div class="timeline-step-detail mono">${shortAddress(evt.from)} → ${shortAddress(evt.to)}</div>` : ""}
+              <div class="step-meta">
+                <span>🕒 ${timeStr}</span>
+                ${item.location ? `<span> • 📍 ${item.location}</span>` : ""}
+              </div>
+              ${item.from && item.to ? `<div class="step-transfer mono">${shortAddress(item.from)} → ${shortAddress(item.to)}</div>` : ""}
             </div>
           </div>
         `;
       })
       .join("");
   } else {
-    timelineItemsHtml = `
-      <div class="timeline-step">
-        <div class="timeline-marker">1</div>
-        <div class="timeline-body">
-          <div class="timeline-step-name">Harvest Registered On-Chain</div>
-          <div class="timeline-step-meta">${harvestDate} • Ethereum Sepolia Confirmed</div>
+    timelineStepsHtml = `
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-details">
+          <div class="step-header">
+            <span class="step-title">Harvest Registered on Ethereum Sepolia</span>
+            <span class="tx-badge">Block Confirmed</span>
+          </div>
+          <div class="step-meta">
+            <span>🕒 ${harvestDate}</span>
+            <span> • 📍 ${apiaryRegion}</span>
+          </div>
         </div>
       </div>
     `;
   }
 
-  // Construct Full HTML
-  verifyDisplayArea.innerHTML = `
-    <div class="verify-card">
+  // Construct Final Passport HTML
+  container.innerHTML = `
+    <div class="passport-card">
       
-      ${recallAlertHtml}
-
-      <!-- Status Header -->
-      <div class="verify-status-banner ${badgeClass}">
-        <div class="status-icon" style="font-size: 2.25rem;">
-          ${isRecalled ? "🛑" : isIntegrityVerified ? "✅" : "⚠️"}
+      <!-- Top Certificate Header -->
+      <div class="certificate-top">
+        <div class="cert-brand">
+          <span class="cert-gold-seal">🍯</span>
+          <div>
+            <div class="cert-subtitle">CERTIFICATE OF PROVENANCE & PURITY</div>
+            <h1 class="cert-batch-title">${batchId}</h1>
+          </div>
         </div>
-        <div>
-          <div class="status-title" style="font-size: 1.4rem; font-weight: 700; letter-spacing: -0.01em;">
-            ${badgeTitle}
-          </div>
-          <div class="status-sub" style="font-size: 0.9rem; opacity: 0.9; margin-top: 0.2rem;">
-            ${badgeSubtitle}
-          </div>
+        <div class="cert-actions no-print">
+          <button type="button" id="btnCopyBatch" class="btn-pill" title="Copy Batch ID">📋 Copy</button>
+          <button type="button" id="btnPrintCert" class="btn-pill" title="Print Certificate">🖨️ Print</button>
+          <button type="button" id="btnShareCert" class="btn-pill btn-pill-accent" title="Share Proof">🔗 Share</button>
         </div>
       </div>
 
-      <!-- Batch Quick Summary Banner -->
-      <div class="batch-summary-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
-        <div>
-          <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-dim); font-weight: 600; letter-spacing: 0.05em;">Jar Batch Identifier</span>
-          <h2 style="font-family: var(--font-mono); font-size: 1.4rem; color: var(--text-main); margin-top: 0.2rem;">${batchId}</h2>
-        </div>
-        <div style="display: flex; gap: 0.5rem; align-items: center;" class="no-print">
-          <button type="button" id="copyIdBtn" class="btn-sm" style="cursor: pointer;" title="Copy Batch ID">📋 Copy ID</button>
-          <button type="button" id="printCertBtn" class="btn-sm" style="cursor: pointer;" title="Print Jar Certificate">🖨️ Print Proof</button>
-          <button type="button" id="shareProofBtn" class="btn-sm" style="cursor: pointer;" title="Share Verification Link">🔗 Share</button>
+      ${recallBannerHtml}
+
+      <!-- Primary Verification Status Banner -->
+      <div class="passport-hero-badge ${badgeTheme}">
+        <div class="hero-badge-icon">${badgeIcon}</div>
+        <div class="hero-text-wrap">
+          <div class="hero-badge-title">${badgeTitle}</div>
+          <div class="hero-badge-sub">${badgeSubtitle}</div>
         </div>
       </div>
 
-      <!-- Comprehensive Data Grid -->
-      <div class="verify-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 1.5rem;">
+      <!-- Honey Harvest & Botanical Identity -->
+      <div class="passport-section">
+        <div class="section-badge-label">🌸 Botanical Origin & Apiculture</div>
+        <div class="floral-hero-name">${floralOrigin}</div>
         
-        <!-- Card 1: Botanical & Harvest Origin -->
-        <div class="data-box">
-          <div class="data-box-title">🌸 Botanical & Harvest Origin</div>
-          <div class="data-row">
-            <span class="data-label">Floral Source</span>
-            <span class="data-val" style="color: var(--primary); font-weight: 600;">${floralOrigin}</span>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">Harvest Date</span>
+            <span class="metric-value">${harvestDate}</span>
           </div>
-          <div class="data-row">
-            <span class="data-label">Harvest Date</span>
-            <span class="data-val">${harvestDate}</span>
+          <div class="metric-card">
+            <span class="metric-label">Sanctuary Region</span>
+            <span class="metric-value">${apiaryRegion}</span>
           </div>
-          <div class="data-row">
-            <span class="data-label">Harvest Volume</span>
-            <span class="data-val">${quantityFormatted}</span>
+          <div class="metric-card">
+            <span class="metric-label">GPS Geofence</span>
+            <span class="metric-value mono">${apiaryCoords}</span>
           </div>
-          <div class="data-row">
-            <span class="data-label">Apiary Sanctuary</span>
-            <span class="data-val">${locationRegion}</span>
-          </div>
-          <div class="data-row">
-            <span class="data-label">GPS Coordinates</span>
-            <span class="data-val mono" style="font-size: 0.8rem;">${locationCoords}</span>
-          </div>
-          <div class="data-row">
-            <span class="data-label">Monitored Hives</span>
-            <span class="data-val mono" style="font-size: 0.8rem;">${sourceHivesList}</span>
+          <div class="metric-card">
+            <span class="metric-label">Monitored Hives</span>
+            <span class="metric-value mono">${Array.isArray(harvest?.sourceHives) && harvest.sourceHives.length > 0 ? harvest.sourceHives.join(", ") : "Certified Apiary"}</span>
           </div>
         </div>
-
-        <!-- Card 2: Laboratory Certification & Purity -->
-        <div class="data-box">
-          <div class="data-box-title">🔬 Certified Quality & Lab Purity</div>
-          <div class="data-row">
-            <span class="data-label">Certified Grade</span>
-            <span class="data-val">
-              <span class="grade-badge" style="background: rgba(245, 158, 11, 0.2); color: var(--primary); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 700;">${qualityGrade}</span>
-            </span>
-          </div>
-          <div class="data-row">
-            <span class="data-label">Moisture Content</span>
-            <span class="data-val" style="color: #10B981; font-weight: 600;">${moisturePct} <span style="font-size: 0.75rem; color: var(--text-dim);">(Max limit: 20%)</span></span>
-          </div>
-          <div class="data-row">
-            <span class="data-label">Assay Certifier</span>
-            <span class="data-val mono" style="font-size: 0.8rem;">
-              <a href="https://sepolia.etherscan.io/address/${quality?.certifiedBy || ''}" target="_blank" rel="noopener noreferrer" class="link">${shortAddress(quality?.certifiedBy)} ↗</a>
-            </span>
-          </div>
-          <div class="data-row">
-            <span class="data-label">Lab Report Hash</span>
-            <span class="data-val mono" style="font-size: 0.75rem;" title="${quality?.labReportHash || ''}">${shortHash(quality?.labReportHash)}</span>
-          </div>
-          <div class="data-row">
-            <span class="data-label">Purity Assay Status</span>
-            <span class="data-val" style="color: #10B981; font-weight: 600;">✓ Unadulterated Raw Honey</span>
-          </div>
-        </div>
-
-        <!-- Card 3: Ethereum Sepolia Blockchain Proof -->
-        <div class="data-box" style="grid-column: 1 / -1;">
-          <div class="data-box-title">⛓️ Ethereum Sepolia Blockchain Provenance</div>
-          <div class="sub-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
-            <div>
-              <div class="data-label">Smart Contract</div>
-              <div class="data-val mono" style="font-size: 0.85rem; margin-top: 0.2rem;">
-                <a href="https://sepolia.etherscan.io/address/${blockchain?.contractAddress || '0x65afF3B44441FfF68171a9a0AA28063BC83C208d'}" target="_blank" rel="noopener noreferrer" class="link">
-                  ${blockchain?.contractAddress || '0x65afF3B44441FfF68171a9a0AA28063BC83C208d'} ↗
-                </a>
-              </div>
-            </div>
-            <div>
-              <div class="data-label">Beekeeper (Producer)</div>
-              <div class="data-val mono" style="font-size: 0.85rem; margin-top: 0.2rem;">
-                <a href="https://sepolia.etherscan.io/address/${blockchain?.producer || harvest?.producer || ''}" target="_blank" rel="noopener noreferrer" class="link">
-                  ${blockchain?.producer || harvest?.producer || '--'} ↗
-                </a>
-              </div>
-            </div>
-            <div>
-              <div class="data-label">Current Legal Custodian</div>
-              <div class="data-val mono" style="font-size: 0.85rem; margin-top: 0.2rem;">
-                <a href="https://sepolia.etherscan.io/address/${blockchain?.currentCustodian || ''}" target="_blank" rel="noopener noreferrer" class="link">
-                  ${blockchain?.currentCustodian || '--'} ↗
-                </a>
-              </div>
-            </div>
-            <div>
-              <div class="data-label">Cryptographic Integrity Match</div>
-              <div class="data-val" style="color: ${isIntegrityVerified ? '#10B981' : '#EF4444'}; font-weight: 600; margin-top: 0.2rem;">
-                ${isIntegrityVerified ? '✓ SHA-256 On-Chain & Off-Chain Match' : '✗ Hash Mismatch Detected'}
-              </div>
-            </div>
-          </div>
-
-          <!-- Hash Comparison Pill -->
-          <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.25); border-radius: 6px; font-family: var(--font-mono); font-size: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem;">
-            <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
-              <span style="color: var(--text-dim);">On-Chain Metadata Hash:</span>
-              <span style="color: var(--text-main);">${tamperProofAudit?.onChainMetadataHash || '--'}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
-              <span style="color: var(--text-dim);">Off-Chain Recomputed Hash:</span>
-              <span style="color: ${isIntegrityVerified ? '#10B981' : '#EF4444'};">${tamperProofAudit?.offChainMetadataHash || '--'}</span>
-            </div>
-          </div>
-        </div>
-
       </div>
 
-      <!-- Chronological Custody Trail -->
-      <div style="margin-top: 2rem;">
-        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
-          <span>📦</span> Chronological Supply Chain Journey
-        </h3>
-        <div class="consumer-timeline">
-          ${timelineItemsHtml}
+      <!-- Laboratory Quality & Purity Assay -->
+      <div class="passport-section">
+        <div class="section-badge-label">🔬 Laboratory Purity & Quality Assay</div>
+        
+        <div class="lab-quality-container">
+          <div class="lab-main-metric">
+            <div class="quality-grade-badge ${isPending ? 'grade-pending' : 'grade-active'}">
+              <span class="grade-label-small">Certified Grade</span>
+              <span class="grade-big-text">${gradeLabel}</span>
+            </div>
+            
+            <div class="moisture-meter-box">
+              <div class="moisture-meter-header">
+                <span class="meter-title">Moisture Content</span>
+                <span class="meter-val-bold" style="color: ${moistureBarColor};">${moisturePercentDisplay}</span>
+              </div>
+              ${moistureValue > 0 ? `
+                <div class="moisture-bar-track">
+                  <div class="moisture-bar-fill" style="width: ${moistureBarWidth}%; background-color: ${moistureBarColor};"></div>
+                </div>
+                <div class="moisture-bar-legend">
+                  <span>0%</span>
+                  <span class="legend-threshold">Max Limit: 20%</span>
+                  <span>25%</span>
+                </div>
+              ` : `
+                <div class="meter-note">Assay report in progress by accredited lab.</div>
+              `}
+            </div>
+          </div>
+
+          <div class="purity-checklist">
+            <div class="check-item ${isRecalled ? 'check-fail' : isPending ? 'check-pending' : 'check-pass'}">
+              <span class="check-icon">${isRecalled ? '✗' : isPending ? '⏳' : '✓'}</span>
+              <span>${isRecalled ? 'Adulteration Markers Detected' : isPending ? 'C3/C4 Sugar Spectrometry In Progress' : '0% Exogenous C3/C4 Sugars (Pure Raw Honey)'}</span>
+            </div>
+            <div class="check-item ${isPending ? 'check-pending' : 'check-pass'}">
+              <span class="check-icon">${isPending ? '⏳' : '✓'}</span>
+              <span>${isPending ? 'Antibiotic & Pesticide Screening' : 'Zero Residues / Non-GMO Certified'}</span>
+            </div>
+            <div class="check-item check-pass">
+              <span class="check-icon">✓</span>
+              <span>100% Traceable Apiculture Production</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Blockchain Proof & Custody Chain -->
+      <div class="passport-section">
+        <div class="section-badge-label">⛓️ Immutable Provenance Journey (Ethereum Sepolia)</div>
+        <div class="provenance-step-list">
+          ${timelineStepsHtml}
+        </div>
+      </div>
+
+      <!-- Cryptographic Proof Footer -->
+      <div class="passport-crypto-footer">
+        <div class="crypto-header">
+          <span class="crypto-icon">🔐</span>
+          <span>Cryptographic Hash Integrity Audit:</span>
+        </div>
+        <div class="crypto-row">
+          <span class="crypto-label">Smart Contract:</span>
+          <a href="https://sepolia.etherscan.io/address/${blockchain?.contractAddress || '0x65afF3B44441FfF68171a9a0AA28063BC83C208d'}" target="_blank" rel="noopener noreferrer" class="crypto-link mono">
+            ${blockchain?.contractAddress || '0x65afF3B44441FfF68171a9a0AA28063BC83C208d'} ↗
+          </a>
+        </div>
+        <div class="crypto-row">
+          <span class="crypto-label">Producer (Beekeeper):</span>
+          <span class="crypto-val mono">${shortAddress(blockchain?.producer || harvest?.producer)}</span>
+        </div>
+        <div class="crypto-row">
+          <span class="crypto-label">SHA-256 Digital Fingerprint:</span>
+          <span class="crypto-val mono" style="color: ${isIntegrityVerified ? '#10B981' : '#EF4444'};">
+            ${isIntegrityVerified ? '✓ Verified Matching Anchor' : '✗ Hash Mismatch'}
+          </span>
         </div>
       </div>
 
     </div>
   `;
 
-  // Attach button event handlers
-  const copyIdBtn = document.getElementById("copyIdBtn");
-  if (copyIdBtn) {
-    copyIdBtn.addEventListener("click", async () => {
+  // Attach Action Button Listeners
+  const btnCopy = document.getElementById("btnCopyBatch");
+  if (btnCopy) {
+    btnCopy.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(batchId);
-        copyIdBtn.textContent = "✓ Copied!";
-        setTimeout(() => (copyIdBtn.textContent = "📋 Copy ID"), 2000);
+        btnCopy.textContent = "✓ Copied";
+        setTimeout(() => (btnCopy.textContent = "📋 Copy"), 2000);
       } catch (e) {
-        copyIdBtn.textContent = "Failed";
+        btnCopy.textContent = "Copied";
       }
     });
   }
 
-  const printCertBtn = document.getElementById("printCertBtn");
-  if (printCertBtn) {
-    printCertBtn.addEventListener("click", () => {
+  const btnPrint = document.getElementById("btnPrintCert");
+  if (btnPrint) {
+    btnPrint.addEventListener("click", () => {
       window.print();
     });
   }
 
-  const shareProofBtn = document.getElementById("shareProofBtn");
-  if (shareProofBtn) {
-    shareProofBtn.addEventListener("click", async () => {
+  const btnShare = document.getElementById("btnShareCert");
+  if (btnShare) {
+    btnShare.addEventListener("click", async () => {
       const shareUrl = window.location.href;
       if (navigator.share) {
         try {
           await navigator.share({
-            title: `HoneyChain Provenance Proof - ${batchId}`,
-            text: `Verify the authentic provenance of HoneyChain Batch ${batchId} on Ethereum Sepolia:`,
+            title: `HoneyChain Certificate - ${batchId}`,
+            text: `Authenticity Certificate for HoneyChain Batch ${batchId} on Ethereum Sepolia:`,
             url: shareUrl,
           });
-        } catch (e) {
-          // User canceled or failed share
-        }
+        } catch (e) {}
       } else {
         try {
           await navigator.clipboard.writeText(shareUrl);
-          shareProofBtn.textContent = "✓ Link Copied!";
-          setTimeout(() => (shareProofBtn.textContent = "🔗 Share"), 2000);
+          btnShare.textContent = "✓ Link Copied";
+          setTimeout(() => (btnShare.textContent = "🔗 Share"), 2000);
         } catch (e) {
-          alert(`Verification Link:\n${shareUrl}`);
+          alert(`Certificate URL:\n${shareUrl}`);
         }
       }
     });
   }
 }
 
-// Execute Verification API Call
-async function performVerification(batchId) {
-  const cleanId = batchId?.trim();
-  if (!cleanId) return;
-
-  renderLoading(cleanId);
-
-  // Update browser URL without reloading if needed
-  if (!window.location.pathname.includes(`/verify/${encodeURIComponent(cleanId)}`)) {
-    try {
-      window.history.pushState(null, "", `/verify/${encodeURIComponent(cleanId)}`);
-    } catch (e) {
-      // Ignore in environments where pushState is restricted
-    }
-  }
+// Initiate verification fetch
+async function startVerification(batchId) {
+  renderLoading(batchId);
 
   try {
-    const res = await fetch(`/api/verify/${encodeURIComponent(cleanId)}`);
+    const res = await fetch(`/api/verify/${encodeURIComponent(batchId)}`);
     const data = await res.json();
 
     if (!res.ok) {
       const msg = data?.error?.message || data?.message || "Batch not found in registry";
-      renderError(cleanId, msg, res.status);
+      renderError(batchId, msg, res.status);
       return;
     }
 
-    renderVerificationResult(data);
+    renderPassport(data);
   } catch (err) {
-    renderError(cleanId, `Network Error: Unable to communicate with backend server (${err.message})`, 500);
+    renderError(batchId, `Network connection error: ${err.message}`, 500);
   }
 }
 
-// Submit button & input listeners
-if (submitVerifyBtn && verifyBatchInput) {
-  submitVerifyBtn.addEventListener("click", () => {
-    performVerification(verifyBatchInput.value);
-  });
-
-  verifyBatchInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      performVerification(verifyBatchInput.value);
-    }
-  });
-}
-
-// Setup sample buttons
-document.querySelectorAll(".sample-verify-chip").forEach((chip) => {
-  chip.addEventListener("click", () => {
-    const id = chip.getAttribute("data-batch");
-    if (verifyBatchInput) verifyBatchInput.value = id;
-    performVerification(id);
-  });
-});
-
-// Auto-run verification on page load if batchId in URL
+// Auto-run on page load
 document.addEventListener("DOMContentLoaded", () => {
-  const initialBatchId = extractBatchIdFromUrl();
-  if (initialBatchId) {
-    if (verifyBatchInput) verifyBatchInput.value = initialBatchId;
-    performVerification(initialBatchId);
+  const batchId = getTargetBatchId();
+  if (batchId) {
+    startVerification(batchId);
   } else {
-    // Show polite initial welcome prompt
-    verifyDisplayArea.innerHTML = `
-      <div class="verify-card" style="text-align: center; padding: 3rem 1.5rem;">
-        <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
-        <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">Scan or Enter a Honey Jar Batch Code</h3>
-        <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 480px; margin: 0 auto;">
-          Enter the Batch ID printed on your honey jar label, or select one of the sample test batches above to view its immutable Ethereum Sepolia provenance trail.
-        </p>
-      </div>
-    `;
+    renderEmptyState();
   }
 });

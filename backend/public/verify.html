@@ -2,75 +2,60 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HoneyChain | Consumer Batch Authenticity Verification</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>HoneyChain | Certificate of Authenticity & Purity</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
 </head>
-<body class="verify-page">
-  <!-- Navigation Header -->
-  <header class="navbar">
-    <div class="nav-container">
-      <a href="/" class="brand" style="text-decoration: none;">
-        <span class="brand-icon">🍯</span>
-        <div class="brand-text">
-          <span class="brand-title">HoneyChain</span>
-          <span class="brand-badge">Consumer Verification</span>
+<body class="consumer-verify-body">
+  
+  <!-- Minimalist Consumer Navbar -->
+  <header class="consumer-nav no-print">
+    <div class="consumer-nav-container">
+      <a href="/" class="consumer-brand">
+        <span class="brand-honey-icon">🍯</span>
+        <div class="brand-headings">
+          <span class="brand-logo-text">HoneyChain</span>
+          <span class="brand-sub-text">Digital Product Passport</span>
         </div>
       </a>
-      <div class="nav-status">
-        <a href="/" class="btn-sm" style="margin-right: 0.75rem;">← Back to Portal</a>
-        <a href="https://sepolia.etherscan.io/address/0x65afF3B44441FfF68171a9a0AA28063BC83C208d" target="_blank" rel="noopener noreferrer" class="btn-sm" style="display: inline-flex; align-items: center; gap: 0.25rem;">
-          <span>Sepolia Contract</span> ↗
-        </a>
+      <div class="consumer-nav-actions">
+        <span class="network-pill">
+          <span class="network-dot"></span>
+          Sepolia Provenance
+        </span>
       </div>
     </div>
   </header>
 
-  <!-- Consumer Verification Container -->
-  <main class="container verify-main">
-    
-    <!-- Top Search Bar (Available for direct lookups or modifying batch ID) -->
-    <section class="search-section no-print">
-      <div class="verify-search-box">
-        <div class="verify-search-title">Verify Honey Provenance</div>
-        <p class="verify-search-sub">
-          Instant cryptographic verification against Ethereum Sepolia smart contract records.
-        </p>
-        <div class="search-input-group" style="margin-top: 1rem;">
-          <input type="text" id="verifyBatchInput" placeholder="Enter Batch ID (e.g. HC-VERIFIED-2026, HC-PENDING-2026, HC-RECALLED-2026)" autofocus>
-          <button type="button" id="submitVerifyBtn" class="btn btn-primary">Verify Now</button>
-        </div>
-        <div class="sample-chips" style="margin-top: 0.75rem;">
-          <span class="chip-label">Try sample batches:</span>
-          <button type="button" class="chip sample-verify-chip" data-batch="HC-VERIFIED-2026">HC-VERIFIED-2026 (100% Verified)</button>
-          <button type="button" class="chip sample-verify-chip" data-batch="HC-PENDING-2026">HC-PENDING-2026 (Pending Lab)</button>
-          <button type="button" class="chip sample-verify-chip" data-batch="HC-RECALLED-2026">HC-RECALLED-2026 (Recalled)</button>
+  <!-- Main Consumer Verification View -->
+  <main class="consumer-main">
+    <div class="consumer-container" id="consumerContainer">
+      <!-- Dynamic Certificate Injected by verify.js -->
+      <div id="verifyDisplayArea">
+        <div class="passport-loading">
+          <div class="loading-honey-pot">🍯</div>
+          <h2 class="loading-title">Verifying Honey Provenance...</h2>
+          <p class="loading-sub">Connecting to Ethereum Sepolia smart contract & cryptographic audit store...</p>
         </div>
       </div>
-    </section>
-
-    <!-- Dynamic Verification Card Area -->
-    <div id="verifyDisplayArea" style="margin-top: 1.5rem;">
-      <!-- Initializing or Verification Content injected here -->
     </div>
-
   </main>
 
-  <!-- Printable Jar Certificate Footer -->
-  <footer class="footer no-print">
-    <div class="container footer-container">
-      <div>
-        <strong>HoneyChain</strong> — Consumer Authenticity & Supply Chain Provenance
+  <!-- Consumer Footer -->
+  <footer class="consumer-footer no-print">
+    <div class="consumer-container footer-inner">
+      <div class="footer-seal">
+        <span class="seal-icon">🛡️</span>
+        <div>
+          <div class="seal-title">Tamper-Proof Apiculture Protocol</div>
+          <div class="seal-desc">Cryptographically anchored on Ethereum Sepolia smart contract <span class="mono">0x65af...208d</span></div>
+        </div>
       </div>
-      <div class="footer-links">
-        <span>Ethereum Sepolia Network</span>
-        <span>•</span>
-        <a href="https://sepolia.etherscan.io/address/0x65afF3B44441FfF68171a9a0AA28063BC83C208d" target="_blank" rel="noopener noreferrer">Smart Contract</a>
-        <span>•</span>
-        <a href="/health">API Health</a>
+      <div class="footer-copyright">
+        &copy; 2026 HoneyChain Protocol • Guaranteed Authentic
       </div>
     </div>
   </footer>
