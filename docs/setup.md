@@ -92,30 +92,25 @@ Key variables configured:
 
 ## 6. Deployment & Role Setup Runbook
 
-### 6.1 Deployer Wallet
-The dedicated testnet deployment wallet for this environment is:
-- **Deployer Public Address**: `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`
-- **Current Balance**: `0.0 ETH`
-- **State**: Pending testnet Sepolia ETH faucet funding.
+### 6.1 Deployed Contract (Ethereum Sepolia)
+- **Contract Address**: `0x65afF3B44441FfF68171a9a0AA28063BC83C208d`
+- **Deployment Transaction**: [`0x59d3d3f5cd1cc37984c17358ae0e071226cafd5b7c423739d5f2a3bf9243dde2`](https://sepolia.etherscan.io/tx/0x59d3d3f5cd1cc37984c17358ae0e071226cafd5b7c423739d5f2a3bf9243dde2)
+- **Block Number**: `11655688`
+- **Gas Used**: `1,118,315`
+- **Deployer / Admin Address**: `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`
+- **Deployment Artifact**: `blockchain/deployments/sepolia/HoneyChainRegistry.json`
 
 ### 6.2 Required Role Wallets
 For multi-actor staging, dedicated testnet wallets should be configured in `blockchain/.env`:
-- **`Admin`**: Receives `DEFAULT_ADMIN_ROLE` at contract construction (`deployer.address`).
+- **`Admin`**: Granted `DEFAULT_ADMIN_ROLE` at deployment (`0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`).
 - **`Beekeeper` (`BEEKEEPER_ADDRESS`)**: Authorized to call `registerBatch`.
 - **`Laboratory` (`LABORATORY_ADDRESS`)**: Authorized to call `certifyBatch`.
 - **`Processor` (`PROCESSOR_ADDRESS`)**: Authorized to accept and forward batch custody.
 - **`Distributor` (`DISTRIBUTOR_ADDRESS`)**: Authorized to receive custody and distribute to retail.
 - **`Auditor` (`AUDITOR_ADDRESS`)**: Authorized to inspect and execute safety recalls.
 
-### 6.3 Deployment Commands
-Once the deployer wallet is funded with testnet Sepolia ETH:
-
-```bash
-cd blockchain
-npm run deploy:sepolia
-```
-
-To assign roles once addresses are configured in `blockchain/.env`:
+### 6.3 Next Step: Role Assignment Command
+Once the desired role addresses are placed into `blockchain/.env`:
 
 ```bash
 cd blockchain

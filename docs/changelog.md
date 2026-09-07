@@ -77,7 +77,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Replaced deployment and role assignment scripts (`deploy.cjs`, `assignRoles.cjs`) to target Sepolia Etherscan and Sepolia ETH.
 - **Wallet Status**:
   - Maintained dedicated testnet deployer wallet: `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`.
-  - Current Sepolia balance: `0.0 ETH` (awaiting faucet funding before deployment).
+
+### Added
+- **Contract Deployment (`blockchain/deployments/sepolia/HoneyChainRegistry.json`)**:
+  - Successfully deployed `HoneyChainRegistry.sol` to **Ethereum Sepolia** at address `0x65afF3B44441FfF68171a9a0AA28063BC83C208d`.
+  - Transaction hash: `0x59d3d3f5cd1cc37984c17358ae0e071226cafd5b7c423739d5f2a3bf9243dde2` (Block: `11655688`, Gas used: `1,118,315`).
+  - Saved deployment artifact containing ABI, address, chain ID, and receipt data.
+
 
 
 

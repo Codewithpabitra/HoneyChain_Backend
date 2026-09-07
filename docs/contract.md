@@ -455,3 +455,17 @@ Executed via `npm test` (`npx hardhat test`):
   16 passing (960ms)
 ```
 
+---
+
+## 10. Live Testnet Deployment (Ethereum Sepolia)
+
+The contract has been deployed to Ethereum Sepolia and verified on-chain:
+
+- **Contract Address**: [`0x65afF3B44441FfF68171a9a0AA28063BC83C208d`](https://sepolia.etherscan.io/address/0x65afF3B44441FfF68171a9a0AA28063BC83C208d)
+- **Deployment Transaction Hash**: [`0x59d3d3f5cd1cc37984c17358ae0e071226cafd5b7c423739d5f2a3bf9243dde2`](https://sepolia.etherscan.io/tx/0x59d3d3f5cd1cc37984c17358ae0e071226cafd5b7c423739d5f2a3bf9243dde2)
+- **Deployment Block**: `11655688`
+- **Deployer / Initial Admin**: `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`
+- **Gas Used**: `1,118,315` units
+- **Deployment Artifact**: [`blockchain/deployments/sepolia/HoneyChainRegistry.json`](file:///home/dhritish/Documents/githubFinal/HoneyChain_Backend/blockchain/deployments/sepolia/HoneyChainRegistry.json)
+
+
