@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
-import { IApiaryLocation } from "./Apiary.js";
+import type { IApiaryLocation } from "./Apiary.js";
 
-export { IApiaryLocation };
+export type { IApiaryLocation };
 
 export interface IQualityDetails {
   grade: "None" | "GradeA" | "GradeB" | "GradeC" | "Substandard";

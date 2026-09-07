@@ -1,8 +1,8 @@
 export * from "./Apiary.js";
 export * from "./Hive.js";
 export * from "./SensorReading.js";
-export {
-  Batch,
+export { Batch } from "./Batch.js";
+export type {
   IBatch,
   IQualityDetails,
   ICustodyRecord,

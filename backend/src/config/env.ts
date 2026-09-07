@@ -1,7 +1,17 @@
+import path from "path";
+import { fileURLToPath } from "url";
 import { z } from "zod";
 import dotenv from "dotenv";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../../blockchain/.env") });
+dotenv.config({ path: path.resolve(process.cwd(), "backend/.env") });
+dotenv.config({ path: path.resolve(process.cwd(), "blockchain/.env") });
+dotenv.config({ path: path.resolve(process.cwd(), "../blockchain/.env") });
 
 const envSchema = z.object({
   PORT: z.string().default("5000"),

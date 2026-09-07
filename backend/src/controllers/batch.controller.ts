@@ -447,8 +447,25 @@ export class BatchController {
       }
 
       // Check on-chain existence and state
-      const onChainBatch = await blockchainService.getBatch(batchId);
-      const onChainHistory = await blockchainService.getBatchHistory(batchId);
+      let onChainBatch;
+      let onChainHistory = [];
+      try {
+        onChainBatch = await blockchainService.getBatch(batchId);
+        onChainHistory = await blockchainService.getBatchHistory(batchId);
+      } catch (chainErr: any) {
+        if (
+          chainErr?.message?.includes("Batch does not exist on blockchain") ||
+          chainErr?.message?.includes("BatchDoesNotExist")
+        ) {
+          return next(
+            new AppError(
+              `Batch '${batchId}' is recorded in the operational database, but has not yet been registered on the Ethereum Sepolia smart contract. Ensure the batch is submitted on-chain by an authorized Beekeeper wallet.`,
+              404
+            )
+          );
+        }
+        throw chainErr;
+      }
 
       // Recompute local SHA-256 hash to detect data tampering
       const computedMetadataHash = blockchainService.generateMetadataHash(

@@ -40,13 +40,14 @@
           Instant cryptographic verification against Ethereum Sepolia smart contract records.
         </p>
         <div class="search-input-group" style="margin-top: 1rem;">
-          <input type="text" id="verifyBatchInput" placeholder="Enter Batch ID (e.g. HC-DEMO-168666, HC-BATCH-2026-001)" autofocus>
+          <input type="text" id="verifyBatchInput" placeholder="Enter Batch ID (e.g. HC-VERIFIED-2026, HC-PENDING-2026, HC-RECALLED-2026)" autofocus>
           <button type="button" id="submitVerifyBtn" class="btn btn-primary">Verify Now</button>
         </div>
         <div class="sample-chips" style="margin-top: 0.75rem;">
           <span class="chip-label">Try sample batches:</span>
-          <button type="button" class="chip sample-verify-chip" data-batch="HC-DEMO-168666">HC-DEMO-168666 (Rehearsal Demo)</button>
-          <button type="button" class="chip sample-verify-chip" data-batch="HC-BATCH-2026-001">HC-BATCH-2026-001 (Sundarbans)</button>
+          <button type="button" class="chip sample-verify-chip" data-batch="HC-VERIFIED-2026">HC-VERIFIED-2026 (100% Verified)</button>
+          <button type="button" class="chip sample-verify-chip" data-batch="HC-PENDING-2026">HC-PENDING-2026 (Pending Lab)</button>
+          <button type="button" class="chip sample-verify-chip" data-batch="HC-RECALLED-2026">HC-RECALLED-2026 (Recalled)</button>
         </div>
       </div>
     </section>
