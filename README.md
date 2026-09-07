@@ -10,7 +10,7 @@ This is a monorepo containing three parts:
 honeychain/
 ├── backend/ # Node + Express + TypeScript API
 ├── frontend/ # Next.js web app
-
+└── mobile/ # React Native / Expo app
 
 Each folder maintains its own setup, docs, and dependencies.
 
