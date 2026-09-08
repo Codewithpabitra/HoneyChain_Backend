@@ -43,6 +43,7 @@ pnpm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 .idea/
+.antigravity/
 *.swp
 *.swo
 
