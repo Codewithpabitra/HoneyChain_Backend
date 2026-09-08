@@ -4,7 +4,11 @@ export type BatchStatus =
   | "InTransit"
   | "Recalled";
 
-export type QualityGrade = "GradeA" | "GradeB" | "GradeC" | "Substandard";
+export type QualityGrade =
+  | "GradeA"
+  | "GradeB"
+  | "GradeC"
+  | "Substandard";
 
 export interface ApiaryLocation {
   latitude: number;
@@ -64,8 +68,22 @@ export interface BatchVerification {
   batchId: string;
   verifiedOnChain: boolean;
   tamperProofAudit: TamperAudit;
-  blockchain: BlockchainInfo & { status: BatchStatus; producer: string; currentCustodian: string };
+  blockchain: BlockchainInfo & {
+    status: BatchStatus;
+    producer: string;
+    currentCustodian: string;
+  };
   quality?: QualityInfo;
   harvest: HarvestInfo;
   custodyTimeline: CustodyEvent[];
+}
+
+export interface CreateBatchPayload {
+  batchId?: string;
+  quantityGrams: number;
+  floralOrigin: string;
+  sourceHives?: string[];
+  apiaryLocation: ApiaryLocation;
+  harvestTimestamp?: number;
+  extraMetadata?: Record<string, unknown>;
 }
