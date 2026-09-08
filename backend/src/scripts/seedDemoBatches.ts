@@ -5,6 +5,7 @@ import { connectDB, disconnectDB } from "../config/db.js";
 import { Apiary, Hive, Batch } from "../models/index.js";
 import blockchainService, {
   QualityGrade,
+  BatchStatus,
 } from "../services/blockchain.service.js";
 
 async function main() {
@@ -114,7 +115,7 @@ async function main() {
   };
   const labReportHash1 = blockchainService.generateLabReportHash(labReportData1);
 
-  if (!onChain1.isCertified) {
+  if (onChain1.qualityGrade === QualityGrade.None) {
     console.log(`  + Certifying Batch 1 on Ethereum Sepolia by Laboratory (Grade A, 17.40% moisture)...`);
     const certTx = await blockchainService.certifyBatch(
       BATCH_1_ID,
@@ -308,7 +309,7 @@ async function main() {
   };
   const labReportHash3 = blockchainService.generateLabReportHash(labReportData3);
 
-  if (!onChain3.isCertified) {
+  if (onChain3.qualityGrade === QualityGrade.None) {
     console.log(`  + Certifying Batch 3 on Ethereum Sepolia as Substandard (21.80% moisture)...`);
     const certTx3 = await blockchainService.certifyBatch(
       BATCH_3_ID,
@@ -321,7 +322,7 @@ async function main() {
   }
 
   let recallTxHash = "";
-  if (!onChain3.isRecalled) {
+  if (onChain3.status !== BatchStatus.Recalled) {
     console.log(`  + Auditor issuing official safety recall on Ethereum Sepolia...`);
     const recallReason =
       "Laboratory Quality Failure: Moisture content 21.80% exceeds legal maximum (20.00%) and exogenous C4 sugar adulteration was detected by spectrometry.";

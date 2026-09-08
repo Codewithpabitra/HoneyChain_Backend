@@ -27,6 +27,7 @@ export const mongooseOptions: mongoose.ConnectOptions = {
   minPoolSize: 10,
   socketTimeoutMS: 45000,
   autoIndex: true, // Build indexes on startup (ideal for dev & single-instance deployments)
+  dbName: env.MONGO_DB_NAME || "honeychain",
 };
 
 let isConnected = false;
@@ -44,7 +45,7 @@ export async function connectDB(uri: string = env.MONGO_URI): Promise<typeof mon
   try {
     // Set up connection event listeners
     mongoose.connection.on("connected", () => {
-      console.log(`[MongoDB] Connected successfully to ${sanitizedUri}`);
+      console.log(`[MongoDB] Connected successfully to ${sanitizedUri} [Database: ${mongoose.connection.db?.databaseName || mongooseOptions.dbName}]`);
     });
 
     mongoose.connection.on("error", (err) => {

@@ -17,6 +17,7 @@ const envSchema = z.object({
   PORT: z.string().default("5000"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   MONGO_URI: z.string().default("mongodb://localhost:27017/honeychain"),
+  MONGO_DB_NAME: z.string().default("honeychain"),
   JWT_SECRET: z.string().default("honeychain_dev_jwt_secret_change_in_production"),
   JWT_EXPIRES_IN: z.string().default("7d"),
   GOOGLE_CLIENT_ID: z.string().default("dev-google-client-id"),
