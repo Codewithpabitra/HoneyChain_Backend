@@ -288,37 +288,6 @@ document.querySelectorAll(".chip").forEach((chip) => {
   });
 });
 
-// Trigger Live Telemetry Cycle
-const triggerSimBtn = document.getElementById("triggerSimBtn");
-const simStatusMessage = document.getElementById("simStatusMessage");
-
-if (triggerSimBtn) {
-  triggerSimBtn.addEventListener("click", async () => {
-    triggerSimBtn.disabled = true;
-    triggerSimBtn.textContent = "Transmitting Telemetry...";
-    simStatusMessage.style.color = "var(--text-muted)";
-    simStatusMessage.textContent = "Sending readings for 5 hives to /api/iot/telemetry...";
-
-    try {
-      const res = await fetch("/api/iot/simulate", { method: "POST" });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        simStatusMessage.style.color = "var(--success)";
-        simStatusMessage.textContent = `✓ ${data.message}`;
-      } else {
-        simStatusMessage.style.color = "var(--danger)";
-        simStatusMessage.textContent = `✗ Failed: ${data?.error?.message || data?.message || "Unknown error"}`;
-      }
-    } catch (err) {
-      simStatusMessage.style.color = "var(--danger)";
-      simStatusMessage.textContent = `✗ Network Error: ${err.message}`;
-    } finally {
-      triggerSimBtn.disabled = false;
-      triggerSimBtn.textContent = "⚡ Trigger Live Telemetry Cycle Now";
-    }
-  });
-}
-
 // Initial health check and periodic polling
 checkHealth();
 setInterval(checkHealth, 15000);
