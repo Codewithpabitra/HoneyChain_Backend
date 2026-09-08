@@ -1,23 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap");
 
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --font-display: "Instrument Serif", serif;
   --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 
-  --color-paper: #FBF7EC;
-  --color-paper-dark: #17130E;
+  --color-paper: #fbf7ec;
+  --color-paper-dark: #17130e;
 
-  --color-ink: #211A12;
-  --color-ink-dark: #F3ECDD;
+  --color-ink: #211a12;
+  --color-ink-dark: #f3ecdd;
 
-  --color-honey: #D69E1F;
-  --color-honey-light: #F0C244;
-  --color-comb: #4A2E12;
+  --color-honey: #d69e1f;
+  --color-honey-light: #f0c244;
+  --color-comb: #4a2e12;
 
-  --color-verified: #4B7B4E;
-  --color-alert: #B23A2E;
+  --color-verified: #4b7b4e;
+  --color-alert: #b23a2e;
 }
 
 @layer base {
@@ -29,7 +31,9 @@
     background-color: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-sans);
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
   }
 
   .dark body {
@@ -49,7 +53,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
