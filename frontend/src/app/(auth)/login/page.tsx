@@ -7,6 +7,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { ROLE_DASHBOARD_PATH } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
+import Link from "next/link";
+import { IconArrowLeft, IconUserPlus } from "@tabler/icons-react";
+import { FEATURES } from "@/config/features";
+
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
@@ -45,12 +49,12 @@ export default function LoginPage() {
         </div>
         <div className="relative z-10 max-w-md">
           <p className="text-3xl leading-snug text-paper/95">
-            Every jar carries the record of where it came from — the hive,
-            the harvest, the hands it passed through.
+            Every jar carries the record of where it came from — the hive, the
+            harvest, the hands it passed through.
           </p>
           <p className="mt-6 text-sm text-paper/60">
-            Sign in with the credentials your organization issued you.
-            New accounts are created by an administrator, not self-serve.
+            Sign in with the credentials your organization issued you. New
+            accounts are created by an administrator, not self-serve.
           </p>
         </div>
       </div>
@@ -124,11 +128,31 @@ export default function LoginPage() {
               disabled={isSubmitting}
               className={cn(
                 "w-full rounded-md bg-honey px-4 py-2.5 text-sm font-medium text-comb transition-colors",
-                "hover:bg-honey-light disabled:cursor-not-allowed disabled:opacity-60"
+                "hover:bg-honey-light disabled:cursor-not-allowed disabled:opacity-60",
               )}
             >
               {isSubmitting ? "Signing in…" : "Sign in"}
             </button>
+
+            <div className="mt-6 flex flex-col gap-3">
+              {FEATURES.register && (
+                <Link
+                  href="/register"
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-black/3 text-sm font-medium text-ink transition hover:bg-black/6 dark:border-white/10 dark:bg-white/4 dark:text-ink-dark dark:hover:bg-white/8"
+                >
+                  <IconUserPlus size={17} stroke={1.8} />
+                  Create an account
+                </Link>
+              )}
+
+              <Link
+                href="/"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-medium text-black/50 transition hover:text-ink dark:text-white/50 dark:hover:text-ink-dark"
+              >
+                <IconArrowLeft size={17} stroke={1.8} />
+                Back to Home
+              </Link>
+            </div>
           </form>
         </div>
       </div>
@@ -159,7 +183,7 @@ function HexPattern() {
               strokeWidth="1"
             />
           );
-        })
+        }),
       )}
     </svg>
   );

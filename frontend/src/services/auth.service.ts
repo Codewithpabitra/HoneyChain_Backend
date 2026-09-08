@@ -5,6 +5,8 @@ import type {
   LoginResponse,
   MeResponse,
   CreateUserRequest,
+  CreateUserResponse,
+  WalletsResponse,
   AuthUser,
 } from "@/types/auth";
 
@@ -28,13 +30,18 @@ export const authService = {
 
   // Admin-only. There is no public self-registration endpoint in the API —
   // see the README note about the (auth)/register page.
-  async createUser(payload: CreateUserRequest) {
-    const { data } = await api.post("/api/auth/users", payload);
+  async createUser(payload: CreateUserRequest): Promise<CreateUserResponse> {
+    const { data } = await api.post<CreateUserResponse>(
+      "/api/auth/users",
+      payload,
+    );
+
     return data;
   },
 
-  async wallets() {
-    const { data } = await api.get("/api/auth/wallets");
+  async wallets(): Promise<WalletsResponse> {
+    const { data } = await api.get<WalletsResponse>("/api/auth/wallets");
+
     return data;
   },
 };

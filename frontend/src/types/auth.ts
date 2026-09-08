@@ -78,3 +78,19 @@ export interface AuthContextValue {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
+
+export interface CreateUserResponse {
+  success: boolean;
+  message: string;
+  user: AuthUser;
+}
+
+export interface WalletsResponse {
+  success: boolean;
+  data: {
+    wallets: Array<{
+      role: Role;
+      walletAddress: string;
+    }>;
+  };
+}

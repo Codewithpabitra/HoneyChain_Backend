@@ -1,4 +1,4 @@
-// src/app/(farmer)/farmer/layout.tsx
+import DashboardShell from "@/components/dashboard/DashboardShell";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 export default function FarmerLayout({
@@ -8,12 +8,9 @@ export default function FarmerLayout({
 }) {
   return (
     <ProtectedRoute allowedRoles={["beekeeper"]}>
-      {/* Swap this div for <DashboardShell> once Sidebar/Topbar exist —
-          same pattern applies to (lab), (processor), (authority) layouts:
-          wrap in ProtectedRoute with that group's role(s). */}
-      <div className="min-h-screen bg-paper dark:bg-paper-dark">
+      <DashboardShell role="beekeeper">
         {children}
-      </div>
+      </DashboardShell>
     </ProtectedRoute>
   );
 }
