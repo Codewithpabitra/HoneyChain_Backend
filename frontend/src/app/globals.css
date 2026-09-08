@@ -1,5 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
 @import "tailwindcss";
 
+@theme {
+  --font-display: "Instrument Serif", serif;
+  --font-sans: "Inter", sans-serif;
 
+  --color-paper: #FBF7EC;
+  --color-paper-dark: #17130E;
 
+  --color-ink: #211A12;
+  --color-ink-dark: #F3ECDD;
 
+  --color-honey: #D69E1F;
+  --color-honey-light: #F0C244;
+  --color-comb: #4A2E12;
+
+  --color-verified: #4B7B4E;
+  --color-alert: #B23A2E;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .dark body {
+    background-color: var(--color-paper-dark);
+    color: var(--color-ink-dark);
+  }
+
+  ::selection {
+    background-color: var(--color-honey);
+    color: var(--color-comb);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-honey);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
