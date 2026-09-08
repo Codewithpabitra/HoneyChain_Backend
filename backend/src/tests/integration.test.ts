@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import app from "../app.js";
 import { Batch } from "../models/Batch.js";
+import { User } from "../models/User.js";
+import authService from "../services/auth.service.js";
 import blockchainService, {
   QualityGrade,
 } from "../services/blockchain.service.js";
@@ -13,6 +15,10 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
   this.timeout(20000);
 
   let mongoServer: MongoMemoryServer;
+  let beekeeperToken: string;
+  let labToken: string;
+  let processorToken: string;
+  let auditorToken: string;
   let originalRegisterBatch: any;
   let originalCertifyBatch: any;
   let originalTransferCustody: any;
@@ -24,6 +30,43 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
     mongoServer = await MongoMemoryServer.create();
     const uri = mongoServer.getUri();
     await mongoose.connect(uri);
+
+    // Create test role users and issue tokens
+    const bk = await User.create({
+      name: "Integration Beekeeper",
+      email: "bk.integration@honeychain.org",
+      passwordHash: "hash123",
+      role: "beekeeper",
+      isActive: true,
+    });
+    beekeeperToken = authService.generateToken(bk);
+
+    const lab = await User.create({
+      name: "Integration Lab",
+      email: "lab.integration@honeychain.org",
+      passwordHash: "hash123",
+      role: "lab",
+      isActive: true,
+    });
+    labToken = authService.generateToken(lab);
+
+    const proc = await User.create({
+      name: "Integration Processor",
+      email: "proc.integration@honeychain.org",
+      passwordHash: "hash123",
+      role: "processor",
+      isActive: true,
+    });
+    processorToken = authService.generateToken(proc);
+
+    const aud = await User.create({
+      name: "Integration Auditor",
+      email: "aud.integration@honeychain.org",
+      passwordHash: "hash123",
+      role: "auditor",
+      isActive: true,
+    });
+    auditorToken = authService.generateToken(aud);
 
     // Save originals for restoration
     originalRegisterBatch = blockchainService.registerBatch;
@@ -110,7 +153,10 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
         },
       };
 
-      const res = await request(app).post("/api/batches").send(payload);
+      const res = await request(app)
+        .post("/api/batches")
+        .set("Authorization", `Bearer ${beekeeperToken}`)
+        .send(payload);
 
       expect(res.status).to.equal(201);
       expect(res.body.success).to.be.true;
@@ -135,7 +181,10 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
         apiaryLocation: { latitude: 21, longitude: 89, region: "Sundarbans" },
       };
 
-      const res = await request(app).post("/api/batches").send(payload);
+      const res = await request(app)
+        .post("/api/batches")
+        .set("Authorization", `Bearer ${beekeeperToken}`)
+        .send(payload);
       expect(res.status).to.equal(400);
       expect(res.body.success).to.be.false;
       expect(res.body.error.message).to.include("positive integer");
@@ -148,7 +197,10 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
         floralOrigin: "Sundarbans",
       };
 
-      const res = await request(app).post("/api/batches").send(payload);
+      const res = await request(app)
+        .post("/api/batches")
+        .set("Authorization", `Bearer ${beekeeperToken}`)
+        .send(payload);
       expect(res.status).to.equal(400);
       expect(res.body.success).to.be.false;
     });
@@ -170,10 +222,16 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
         apiaryLocation: { latitude: 28, longitude: 77, region: "Kashmir" },
       };
 
-      const res1 = await request(app).post("/api/batches").send(payload);
+      const res1 = await request(app)
+        .post("/api/batches")
+        .set("Authorization", `Bearer ${beekeeperToken}`)
+        .send(payload);
       expect(res1.status).to.equal(201);
 
-      const res2 = await request(app).post("/api/batches").send(payload);
+      const res2 = await request(app)
+        .post("/api/batches")
+        .set("Authorization", `Bearer ${beekeeperToken}`)
+        .send(payload);
       expect(res2.status).to.equal(409);
       expect(res2.body.error.message).to.include("already exists");
     });
@@ -190,7 +248,10 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
         apiaryLocation: { latitude: 26, longitude: 80, region: "Punjab" },
       };
 
-      const res = await request(app).post("/api/batches").send(payload);
+      const res = await request(app)
+        .post("/api/batches")
+        .set("Authorization", `Bearer ${beekeeperToken}`)
+        .send(payload);
       expect(res.status).to.equal(500);
 
       // Verify MongoDB does not leave orphan unconfirmed document
@@ -240,6 +301,7 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
 
       const res = await request(app)
         .post("/api/batches/HC-CERT-001/quality")
+        .set("Authorization", `Bearer ${labToken}`)
         .send({
           grade: "GradeA",
           moisturePercentage: 17.5,
@@ -265,6 +327,7 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
     it("returns 404 if batch does not exist", async function () {
       const res = await request(app)
         .post("/api/batches/NON-EXISTENT/quality")
+        .set("Authorization", `Bearer ${labToken}`)
         .send({ grade: "GradeA", moisturePercentage: 18.0 });
 
       expect(res.status).to.equal(404);
@@ -273,6 +336,7 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
     it("returns 400 for invalid quality grade", async function () {
       const res = await request(app)
         .post("/api/batches/HC-CERT-001/quality")
+        .set("Authorization", `Bearer ${labToken}`)
         .send({ grade: "GradeSuperAwesome", moisturePercentage: 18.0 });
 
       expect(res.status).to.equal(400);
@@ -319,6 +383,7 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
 
       const res = await request(app)
         .post("/api/batches/HC-TRANSFER-001/transfer")
+        .set("Authorization", `Bearer ${processorToken}`)
         .send({
           to: processorAddress,
           location: "Kolkata Processing Plant",
@@ -372,6 +437,7 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
 
       const res = await request(app)
         .post("/api/batches/HC-RECALL-001/recall")
+        .set("Authorization", `Bearer ${auditorToken}`)
         .send({
           reason: "Trace antibiotic residue detected in secondary audit assay",
           role: "auditor",
@@ -386,6 +452,7 @@ describe("HoneyChain Backend & Blockchain Integration Test Suite", function () {
       // Verify cannot recall again
       const resDuplicate = await request(app)
         .post("/api/batches/HC-RECALL-001/recall")
+        .set("Authorization", `Bearer ${auditorToken}`)
         .send({ reason: "Repeat recall attempt" });
       expect(resDuplicate.status).to.equal(400);
     });

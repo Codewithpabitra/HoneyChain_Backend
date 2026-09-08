@@ -462,3 +462,159 @@ if (runAiPredictBtn) {
   });
 }
 
+// -------------------------------------------------------------
+// Stakeholder Authentication & Session Management
+// -------------------------------------------------------------
+const authModalBackdrop = document.getElementById("authModalBackdrop");
+const openLoginBtn = document.getElementById("openLoginBtn");
+const authModalClose = document.getElementById("authModalClose");
+const authLoginForm = document.getElementById("authLoginForm");
+const authEmailInput = document.getElementById("authEmailInput");
+const authPasswordInput = document.getElementById("authPasswordInput");
+const authErrorMessage = document.getElementById("authErrorMessage");
+const authSubmitBtn = document.getElementById("authSubmitBtn");
+const userProfilePill = document.getElementById("userProfilePill");
+const navUserName = document.getElementById("navUserName");
+const navUserRole = document.getElementById("navUserRole");
+const logoutBtn = document.getElementById("logoutBtn");
+
+let currentUser = null;
+
+function getAuthToken() {
+  return localStorage.getItem("honeychain_token");
+}
+
+function setAuthToken(token) {
+  if (token) {
+    localStorage.setItem("honeychain_token", token);
+  } else {
+    localStorage.removeItem("honeychain_token");
+  }
+}
+
+function updateAuthUI(user) {
+  currentUser = user;
+  if (user) {
+    if (openLoginBtn) openLoginBtn.style.display = "none";
+    if (userProfilePill) userProfilePill.style.display = "flex";
+    if (navUserName) navUserName.textContent = user.name || user.email;
+    if (navUserRole) navUserRole.textContent = `${user.role}${user.walletAddress ? " • " + user.walletAddress.slice(0, 6) + "..." : ""}`;
+  } else {
+    if (openLoginBtn) openLoginBtn.style.display = "inline-flex";
+    if (userProfilePill) userProfilePill.style.display = "none";
+    if (navUserName) navUserName.textContent = "";
+    if (navUserRole) navUserRole.textContent = "";
+  }
+}
+
+async function checkAuthSession() {
+  const token = getAuthToken();
+  if (!token) {
+    updateAuthUI(null);
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/auth/me", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      updateAuthUI(data.user);
+    } else {
+      setAuthToken(null);
+      updateAuthUI(null);
+    }
+  } catch (err) {
+    console.warn("Auth check failed:", err);
+  }
+}
+
+async function handleLogin(email, password) {
+  if (authErrorMessage) authErrorMessage.style.display = "none";
+  if (authSubmitBtn) {
+    authSubmitBtn.disabled = true;
+    authSubmitBtn.textContent = "Authenticating...";
+  }
+
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data?.error?.message || data?.message || "Invalid email or password");
+    }
+
+    setAuthToken(data.token);
+    updateAuthUI(data.user);
+    if (authModalBackdrop) authModalBackdrop.style.display = "none";
+    if (authLoginForm) authLoginForm.reset();
+  } catch (err) {
+    if (authErrorMessage) {
+      authErrorMessage.textContent = `⚠️ ${err.message}`;
+      authErrorMessage.style.display = "block";
+    }
+  } finally {
+    if (authSubmitBtn) {
+      authSubmitBtn.disabled = false;
+      authSubmitBtn.textContent = "Sign In";
+    }
+  }
+}
+
+if (openLoginBtn) {
+  openLoginBtn.addEventListener("click", () => {
+    if (authErrorMessage) authErrorMessage.style.display = "none";
+    if (authModalBackdrop) authModalBackdrop.style.display = "flex";
+  });
+}
+
+if (authModalClose) {
+  authModalClose.addEventListener("click", () => {
+    if (authModalBackdrop) authModalBackdrop.style.display = "none";
+  });
+}
+
+if (authModalBackdrop) {
+  authModalBackdrop.addEventListener("click", (e) => {
+    if (e.target === authModalBackdrop) {
+      authModalBackdrop.style.display = "none";
+    }
+  });
+}
+
+if (authLoginForm) {
+  authLoginForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    handleLogin(authEmailInput.value, authPasswordInput.value);
+  });
+}
+
+document.querySelectorAll(".demo-login-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const email = btn.getAttribute("data-email");
+    if (authEmailInput) authEmailInput.value = email;
+    handleLogin(email, "Password123!");
+  });
+});
+
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {}
+    setAuthToken(null);
+    updateAuthUI(null);
+  });
+}
+
+// Initial session probe
+checkAuthSession();
+
+

@@ -8,6 +8,7 @@ import {
   Batch,
   AIPrediction,
 } from "../models/index.js";
+import { seedDemoUsers } from "./seedUsers.js";
 
 async function seed() {
   console.log("\n=======================================================");
@@ -567,6 +568,10 @@ async function seed() {
   for (const b of createdBatches) {
     console.log(`  + Batch Created: ${b.batchId} (${b.floralOrigin}, ${b.quantityGrams / 1000} kg) -> Apiary: ${b.apiaryId}`);
   }
+
+  // Seed Demo Users and Organizations
+  console.log("\n>>> [5/5] Seeding Demo Users & Organizations...");
+  await seedDemoUsers();
 
   console.log("\n=======================================================");
   console.log("            DATABASE SEEDING COMPLETED CLEANLY         ");

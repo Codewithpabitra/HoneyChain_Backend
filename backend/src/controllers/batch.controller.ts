@@ -111,6 +111,8 @@ export class BatchController {
         apiaryLocation,
         metadata: metadataToHash,
         metadataHash,
+        createdBy: req.user?._id,
+        organizationId: req.user?.organizationId,
         status: "Registered",
         blockchain: {
           network: "Ethereum Sepolia",
@@ -251,6 +253,7 @@ export class BatchController {
         labReportHash,
         labReportData,
         certifiedBy: labSigner.address,
+        certifiedByUserId: req.user?._id,
         certifiedAt: Math.floor(Date.now() / 1000),
         txHash: txResult.txHash,
       };
@@ -305,9 +308,9 @@ export class BatchController {
         );
       }
 
-      // Determine sender role
-      let senderRole: "beekeeper" | "processor" | "distributor" = role;
-      if (!senderRole) {
+      // Determine sender role from authenticated user or payload
+      let senderRole: string = req.user?.role || role;
+      if (!senderRole || senderRole === "admin") {
         if (batch.status === "Registered" || batch.status === "Certified") {
           senderRole = "beekeeper";
         } else {
@@ -322,7 +325,7 @@ export class BatchController {
         batchId,
         to,
         location,
-        senderRole
+        blockchainService.normalizeRole(senderRole) as any
       );
 
       const transferTimestamp = Math.floor(Date.now() / 1000);
@@ -338,6 +341,7 @@ export class BatchController {
         timestamp: transferTimestamp,
         txHash: txResult.txHash,
         blockNumber: txResult.blockNumber,
+        performedBy: req.user?._id,
       });
 
       await batch.save();
@@ -385,13 +389,14 @@ export class BatchController {
         return next(new AppError("Batch is already recalled", 400));
       }
 
-      const { signer: callerSigner } = blockchainService.getRoleContract(role as RoleName);
+      const recallRole = req.user?.role || role || "auditor";
+      const { signer: callerSigner } = blockchainService.getRoleContract(recallRole as RoleName);
 
       // Execute on-chain recall
       const txResult = await blockchainService.recallBatch(
         batchId,
         reason,
-        role as RoleName
+        blockchainService.normalizeRole(recallRole) as any
       );
 
       const recallTimestamp = Math.floor(Date.now() / 1000);
@@ -402,6 +407,7 @@ export class BatchController {
         recalled: true,
         reason,
         recalledBy: callerSigner.address,
+        performedBy: req.user?._id,
         recalledAt: recallTimestamp,
         txHash: txResult.txHash,
       };

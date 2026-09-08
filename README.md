@@ -27,7 +27,7 @@ HoneyChain/
 │   └── README.md       # Blockchain subsystem overview
 ├── docs/               # System documentation and architecture records
 │   ├── README.md       # Documentation Hub & directory index
-│   ├── api.md          # Complete REST API reference (14 endpoints)
+│   ├── api.md          # Complete REST API reference (19 endpoints)
 │   ├── architecture.md # End-to-end system design and data flow
 │   ├── contract.md     # Smart contract reference (Sepolia)
 │   ├── ml-integration.md # AI/ML inference microservice architecture

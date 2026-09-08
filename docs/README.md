@@ -15,8 +15,8 @@ Welcome to the HoneyChain documentation repository. This directory serves as the
 
 | Document | Description | Key Topics |
 |---|---|---|
-| 📡 **[API Reference](api.md)** | **Complete REST API Documentation** | 14 routes: Batch registration, quality certification, custody transfer, recall, QR generation, consumer verification, IoT telemetry ingest, AI/ML inference, and health probes. |
-| 🏛️ **[System Architecture](architecture.md)** | **End-to-End System Design** | Multi-tier architecture, data flow diagrams, MongoDB vs. Ethereum Sepolia storage boundary, security and key isolation. |
+| 📡 **[API Reference](api.md)** | **Complete REST API Documentation** | 19 routes: Authentication (JWT & RBAC), Batch registration, quality certification, custody transfer, recall, QR generation, consumer verification, IoT telemetry ingest, AI/ML inference, and health probes. |
+| 🏛️ **[System Architecture](architecture.md)** | **End-to-End System Design** | Multi-tier architecture, data flow diagrams, User vs. Blockchain Wallet Decoupling, MongoDB vs. Ethereum Sepolia storage boundary, security and key isolation. |
 | 🛠️ **[Developer Setup](setup.md)** | **Local Environment & Deployment** | Prerequisites, `.env` configurations, database seeding, test execution (`npm test`), and Render cloud deployment. |
 | ⛓️ **[Smart Contract](contract.md)** | **Blockchain & Solidity Spec** | `HoneyChainRegistry.sol` methods, RBAC roles (`BEEKEEPER`, `LABORATORY`, `PROCESSOR`, `DISTRIBUTOR`, `AUDITOR`), emitted events, and Sepolia deployment records. |
 | 🧠 **[AI / ML Integration](ml-integration.md)** | **Hive Health Inference Service** | Multi-tier LightGBM classifier (`T1`-`T48`), feature extraction, IST solar diurnal conversion, health diagnostic mapping, and latency optimizations. |
@@ -33,7 +33,7 @@ HoneyChain/
 ├── backend/            # Express REST API (TypeScript), MongoDB models, ethers.js Sepolia client
 │   ├── src/            # Core backend logic (routes, controllers, services, models)
 │   ├── ml/             # Embedded Python ML inference microservice & pre-trained model weights
-│   └── test/           # Mocha/Chai automated test suite (67 unit & integration tests)
+│   └── test/           # Mocha/Chai automated test suite (87 unit & integration tests)
 ├── blockchain/         # Hardhat suite, Solidity contracts, deployment scripts
 │   ├── contracts/      # HoneyChainRegistry.sol
 │   └── deployments/    # Sepolia contract address & ABI
@@ -53,7 +53,7 @@ npm install
 cp .env.example .env     # Populate MONGODB_URI and Sepolia keys (ask teammate for secrets)
 
 # 3. Run Automated Tests
-npm test                # All 67 tests should pass
+npm test                # All 87 tests should pass
 
 # 4. Start Local Development Server
 npm run dev             # Starts API on http://localhost:5000

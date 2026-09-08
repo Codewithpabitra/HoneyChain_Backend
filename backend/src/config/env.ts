@@ -35,7 +35,11 @@ const envSchema = z.object({
   LAB_PRIVATE_KEY: z.string().optional(),
   PROCESSOR_PRIVATE_KEY: z.string().optional(),
   DISTRIBUTOR_PRIVATE_KEY: z.string().optional(),
+  TRANSPORTER_PRIVATE_KEY: z.string().optional(),
   AUDITOR_PRIVATE_KEY: z.string().optional(),
+
+  // Demo user seeding password
+  DEMO_PASSWORD: z.string().default("Password123!"),
 
   // IoT Telemetry Simulation (hits backend itself over HTTP)
   IOT_TARGET_URL: z.string().optional(),
@@ -59,6 +63,8 @@ export const env = {
   ...parsed.data,
   ADMIN_PRIVATE_KEY: parsed.data.ADMIN_PRIVATE_KEY || parsed.data.DEPLOYER_PRIVATE_KEY,
   LABORATORY_PRIVATE_KEY: parsed.data.LABORATORY_PRIVATE_KEY || parsed.data.LAB_PRIVATE_KEY,
+  TRANSPORTER_PRIVATE_KEY: parsed.data.TRANSPORTER_PRIVATE_KEY || parsed.data.DISTRIBUTOR_PRIVATE_KEY,
+  DISTRIBUTOR_PRIVATE_KEY: parsed.data.DISTRIBUTOR_PRIVATE_KEY || parsed.data.TRANSPORTER_PRIVATE_KEY,
   PUBLIC_BASE_URL: parsed.data.PUBLIC_BASE_URL
     ? parsed.data.PUBLIC_BASE_URL.replace(/\/+$/, "")
     : undefined,

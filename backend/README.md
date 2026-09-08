@@ -39,7 +39,7 @@ backend/
 │   ├── predict.py              # Feature engineering & LightGBM prediction
 │   ├── model/                  # Multi-tier model artifacts (T1 - T48)
 │   └── requirements.txt        # Python dependencies (lightgbm, numpy, pandas)
-├── test/                       # Mocha & Chai automated test suites (67 tests)
+├── test/                       # Mocha & Chai automated test suites (87 tests)
 ├── .env.example                # Template environment configuration
 ├── package.json                # NPM scripts and dependencies
 └── tsconfig.json               # TypeScript compiler options
@@ -69,7 +69,7 @@ Ensure you provide:
 ```bash
 npm test
 ```
-All 67 tests should pass cleanly.
+All 87 tests should pass cleanly (Auth, Batch, IoT, ML, Models, QR).
 
 ### 4. Start Development Server
 ```bash
@@ -95,9 +95,10 @@ Starts internal ML inference server on `http://127.0.0.1:5001`.
 | `npm run dev` | Starts backend development server with hot-reload |
 | `npm run build` | Compiles TypeScript to `dist/` |
 | `npm start` | Runs compiled production server (`node dist/server.js`) |
-| `npm test` | Executes Mocha test suite |
+| `npm test` | Executes Mocha test suite (87 tests) |
 | `npm run test:watch` | Runs test runner in watch mode |
-| `npm run seed` | Seeds initial apiaries, hives, and mock sensor data |
+| `npm run seed` | Seeds initial apiaries, hives, mock sensor data, and demo users |
+| `npm run seed:users` | Seeds 6 demo organizations and users across all stakeholder roles |
 | `npm run simulate:iot` | Runs continuous or one-off IoT telemetry simulation |
 | `npm run demo:rehearsal`| Seeds demo batches and triggers full verification flow |
 

@@ -10,6 +10,7 @@ export interface IQualityDetails {
   labReportHash?: string;
   labReportData?: Record<string, any>;
   certifiedBy?: string;
+  certifiedByUserId?: Types.ObjectId;
   certifiedAt?: number;
   txHash?: string;
 }
@@ -21,12 +22,14 @@ export interface ICustodyRecord {
   timestamp: number;
   txHash?: string;
   blockNumber?: number;
+  performedBy?: Types.ObjectId;
 }
 
 export interface IRecallDetails {
   recalled: boolean;
   reason?: string;
   recalledBy?: string;
+  performedBy?: Types.ObjectId;
   recalledAt?: number;
   txHash?: string;
 }
@@ -56,6 +59,8 @@ export interface IBatch extends Document {
   apiaryLocation: IApiaryLocation;
   metadata: Record<string, any>;
   metadataHash: string;
+  createdBy?: Types.ObjectId;
+  organizationId?: Types.ObjectId;
   status: "Registered" | "Certified" | "InTransit" | "Delivered" | "Recalled";
   quality: IQualityDetails;
   custodyHistory: ICustodyRecord[];
@@ -87,6 +92,7 @@ const QualitySchema = new Schema<IQualityDetails>(
     labReportHash: { type: String },
     labReportData: { type: Schema.Types.Mixed },
     certifiedBy: { type: String },
+    certifiedByUserId: { type: Schema.Types.ObjectId, ref: "User" },
     certifiedAt: { type: Number },
     txHash: { type: String },
   },
@@ -101,6 +107,7 @@ const CustodyRecordSchema = new Schema<ICustodyRecord>(
     timestamp: { type: Number, required: true },
     txHash: { type: String },
     blockNumber: { type: Number },
+    performedBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { _id: false }
 );
@@ -110,6 +117,7 @@ const RecallSchema = new Schema<IRecallDetails>(
     recalled: { type: Boolean, default: false },
     reason: { type: String },
     recalledBy: { type: String },
+    performedBy: { type: Schema.Types.ObjectId, ref: "User" },
     recalledAt: { type: Number },
     txHash: { type: String },
   },
@@ -198,6 +206,18 @@ const BatchSchema = new Schema<IBatch>(
     metadataHash: {
       type: String,
       required: true,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+      index: true,
+    },
+    organizationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: false,
+      index: true,
     },
     status: {
       type: String,

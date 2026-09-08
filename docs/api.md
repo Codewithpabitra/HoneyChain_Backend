@@ -51,9 +51,14 @@ Handled centrally by `backend/src/middlewares/errorHandler.ts`:
 | **System** | `GET` | `/health` | Public | Production liveness & readiness check |
 | **Consumer Web** | `GET` | `/verify` | Public | Consumer QR verification web portal |
 | **Consumer Web** | `GET` | `/verify/:batchId` | Public | Consumer QR verification page for specific batch |
+| **Auth** | `POST` | `/api/auth/login` | Public | Authenticate with email/password; returns JWT |
+| **Auth** | `GET` | `/api/auth/me` | Authenticated | Retrieve authenticated caller profile & role wallet |
+| **Auth** | `POST` | `/api/auth/logout` | Public | Terminate session & clear cookies |
+| **Auth** | `POST` | `/api/auth/users` | Admin | Create new application user with designated role |
+| **Auth** | `GET` | `/api/auth/wallets` | Public | Get public addresses for all 5 stakeholder wallets |
 | **Batches** | `POST` | `/api/batches` | Beekeeper | Register new harvest batch (On-Chain + DB) |
 | **Batches** | `POST` | `/api/batches/:batchId/quality` | Laboratory | Submit quality test & grade (On-Chain + DB) |
-| **Batches** | `POST` | `/api/batches/:batchId/transfer` | Custodian | Transfer custody to processor/distributor |
+| **Batches** | `POST` | `/api/batches/:batchId/transfer` | Custodian | Transfer custody (Beekeeper, Processor, Transporter) |
 | **Batches** | `POST` | `/api/batches/:batchId/recall` | Auditor/Admin | Recall contaminated/adulterated batch |
 | **Batches** | `GET` | `/api/batches/:batchId/qr` | Public | Generate packaging QR code (PNG Data URL + SVG) |
 | **Verification** | `GET` | `/api/verify/:batchId` | Public | On-chain provenance verification & tamper audit |
@@ -120,7 +125,197 @@ Handled centrally by `backend/src/middlewares/errorHandler.ts`:
 
 ---
 
-## 4. Batch & Provenance Endpoints (`/api/batches`)
+## 4. Authentication & Authorization Endpoints (`/api/auth`)
+
+HoneyChain implements role-based access control (RBAC) with JWT tokens. Application users authenticate with email and password to receive a Bearer token. The backend maps the user's role to one of **5 server-managed blockchain stakeholder wallets** (Beekeeper, Laboratory, Processor, Transporter, Auditor). Private keys are never exposed to clients.
+
+### 4.1 Stakeholder Login
+- **Route**: `POST /api/auth/login`
+- **Access**: Public
+- **Description**: Authenticates application users with email and password. Returns a signed JWT valid for 7 days, user details, and the on-chain wallet address bound to their role. Also sets an HTTP-only session cookie.
+
+#### Request Headers
+```http
+Content-Type: application/json
+```
+
+#### Request Body
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | **Required** | User email (case-insensitive). |
+| `password` | string | **Required** | User password. |
+
+#### Example Request
+```json
+{
+  "email": "beekeeper@honeychain.org",
+  "password": "Password123!"
+}
+```
+
+#### Example Response (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "66dd901a1f28bc0012a45678",
+    "name": "Rajesh Kumar (Beekeeper)",
+    "email": "beekeeper@honeychain.org",
+    "role": "beekeeper",
+    "organization": {
+      "_id": "66dd901a1f28bc0012a45600",
+      "name": "Sundarbans Apiary Cooperative",
+      "role": "beekeeper",
+      "walletAddress": "0x446b8472f913dd13e424911d331908c8227b13ef"
+    },
+    "walletAddress": "0x446B8472f913dD13E424911d331908C8227b13eF"
+  }
+}
+```
+
+#### Error Codes
+- `400 Bad Request`: Missing `email` or `password`.
+- `401 Unauthorized`: Invalid credentials or deactivated account.
+
+---
+
+### 4.2 Get Authenticated Profile
+- **Route**: `GET /api/auth/me`
+- **Access**: Authenticated (`Authorization: Bearer <token>`)
+- **Description**: Returns the profile, role, organization, and bound blockchain wallet address of the calling user.
+
+#### Request Headers
+```http
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+#### Example Response (`200 OK`)
+```json
+{
+  "success": true,
+  "user": {
+    "id": "66dd901a1f28bc0012a45678",
+    "name": "Dr. Ananya Sen (Laboratory Analyst)",
+    "email": "lab@honeychain.org",
+    "role": "lab",
+    "organization": {
+      "name": "National Honey Quality Testing Laboratory",
+      "walletAddress": "0x19a0a84d5fb5c82713e7fca3d01ff7871b6a5d29"
+    },
+    "walletAddress": "0x19a0A84D5fB5C82713e7Fca3d01Ff7871b6A5D29",
+    "createdAt": "2026-09-08T15:00:00.000Z"
+  }
+}
+```
+
+#### Error Codes
+- `401 Unauthorized`: Missing, expired, or invalid token.
+
+---
+
+### 4.3 Stakeholder Logout
+- **Route**: `POST /api/auth/logout`
+- **Access**: Public
+- **Description**: Clears HTTP-only `token` and `jwt` authentication cookies.
+
+#### Example Response (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
+
+---
+
+### 4.4 Admin User Provisioning
+- **Route**: `POST /api/auth/users`
+- **Access**: Admin Role (`authorize("admin")`)
+- **Description**: Creates a new application user with a designated role. Non-admin users are strictly forbidden from assigning roles.
+
+#### Request Headers
+```http
+Authorization: Bearer <Admin_JWT_Token>
+Content-Type: application/json
+```
+
+#### Request Body
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | **Required** | User's full name. |
+| `email` | string | **Required** | Unique user email. |
+| `password` | string | **Required** | Initial password (min 6 characters). |
+| `role` | string | **Required** | Must be one of: `"admin"`, `"beekeeper"`, `"processor"`, `"lab"`, `"transporter"`, `"auditor"`. |
+| `organizationId` | string | Optional | MongoDB ObjectId of associated Organization. |
+
+#### Example Response (`201 Created`)
+```json
+{
+  "success": true,
+  "message": "User created successfully",
+  "data": {
+    "id": "66dd915f...",
+    "name": "Vikram Patel",
+    "email": "processor2@honeychain.org",
+    "role": "processor",
+    "isActive": true,
+    "createdAt": "2026-09-08T15:20:00.000Z"
+  }
+}
+```
+
+#### Error Codes
+- `400 Bad Request`: Validation failure (short password, invalid role, missing fields).
+- `401 Unauthorized`: Missing or invalid admin token.
+- `403 Forbidden`: Caller is not an `admin`.
+- `409 Conflict`: Email already registered.
+
+---
+
+### 4.5 Stakeholder Wallets Directory
+- **Route**: `GET /api/auth/wallets`
+- **Access**: Public
+- **Description**: Lists all 5 blockchain stakeholder identities and their public Ethereum Sepolia wallet addresses.
+
+#### Example Response (`200 OK`)
+```json
+{
+  "success": true,
+  "wallets": {
+    "beekeeper": {
+      "role": "beekeeper",
+      "walletAddress": "0x446B8472f913dD13E424911d331908C8227b13eF",
+      "onChainRole": "BEEKEEPER_ROLE"
+    },
+    "lab": {
+      "role": "lab",
+      "walletAddress": "0x19a0A84D5fB5C82713e7Fca3d01Ff7871b6A5D29",
+      "onChainRole": "LABORATORY_ROLE"
+    },
+    "processor": {
+      "role": "processor",
+      "walletAddress": "0x8D34e7768603473001aEDc1b5eD82C05CbaF6C34",
+      "onChainRole": "PROCESSOR_ROLE"
+    },
+    "transporter": {
+      "role": "transporter",
+      "walletAddress": "0x33A9b1405eDb784bA94D4e02951C81180bC23c09",
+      "onChainRole": "DISTRIBUTOR_ROLE"
+    },
+    "auditor": {
+      "role": "auditor",
+      "walletAddress": "0x33A9b1405eDb784bA94D4e02951C81180bC23c09",
+      "onChainRole": "AUDITOR_ROLE"
+    }
+  }
+}
+```
+
+---
+
+## 5. Batch & Provenance Endpoints (`/api/batches`)
 
 ### 4.1 Register Honey Batch
 - **Route**: `POST /api/batches`

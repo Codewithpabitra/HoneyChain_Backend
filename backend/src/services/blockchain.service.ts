@@ -50,8 +50,10 @@ export const QualityGradeNames: Record<number, string> = {
 export type RoleName =
   | "beekeeper"
   | "laboratory"
+  | "lab"
   | "processor"
   | "distributor"
+  | "transporter"
   | "auditor"
   | "admin";
 
@@ -112,12 +114,27 @@ export class BlockchainService {
   }
 
   /**
+   * Normalizes application roles to canonical smart contract roles.
+   */
+  public normalizeRole(role: string): "beekeeper" | "laboratory" | "processor" | "distributor" | "auditor" | "admin" {
+    const lower = role.toLowerCase().trim();
+    if (lower === "lab" || lower === "laboratory") return "laboratory";
+    if (lower === "transporter" || lower === "distributor") return "distributor";
+    if (lower === "beekeeper") return "beekeeper";
+    if (lower === "processor") return "processor";
+    if (lower === "auditor") return "auditor";
+    if (lower === "admin") return "admin";
+    return "beekeeper";
+  }
+
+  /**
    * Resolves a role-connected signer wallet and contract instance.
    */
-  public getRoleContract(role: RoleName): { contract: ethers.Contract; signer: ethers.Wallet } {
+  public getRoleContract(role: RoleName | string): { contract: ethers.Contract; signer: ethers.Wallet } {
     let privateKey: string | undefined;
+    const canonicalRole = this.normalizeRole(role);
 
-    switch (role) {
+    switch (canonicalRole) {
       case "beekeeper":
         privateKey = env.BEEKEEPER_PRIVATE_KEY;
         break;
@@ -128,7 +145,7 @@ export class BlockchainService {
         privateKey = env.PROCESSOR_PRIVATE_KEY;
         break;
       case "distributor":
-        privateKey = env.DISTRIBUTOR_PRIVATE_KEY;
+        privateKey = env.TRANSPORTER_PRIVATE_KEY || env.DISTRIBUTOR_PRIVATE_KEY;
         break;
       case "auditor":
         privateKey = env.AUDITOR_PRIVATE_KEY;
@@ -145,6 +162,44 @@ export class BlockchainService {
     const signer = new ethers.Wallet(privateKey, this.provider);
     const contract = new ethers.Contract(this.contractAddress, this.abi, signer);
     return { contract, signer };
+  }
+
+  /**
+   * Gets the public Ethereum address for a given stakeholder role without exposing private keys.
+   */
+  public getWalletAddressForRole(role: RoleName | string): string {
+    const { signer } = this.getRoleContract(role);
+    return signer.address;
+  }
+
+  /**
+   * Returns a map of all 5 blockchain stakeholder roles to their public wallet addresses.
+   */
+  public getStakeholderWallets(): Record<string, { role: string; walletAddress: string; onChainRole: string }> {
+    const roles = [
+      { key: "beekeeper", onChainRole: "BEEKEEPER_ROLE" },
+      { key: "processor", onChainRole: "PROCESSOR_ROLE" },
+      { key: "lab", onChainRole: "LABORATORY_ROLE" },
+      { key: "transporter", onChainRole: "DISTRIBUTOR_ROLE" },
+      { key: "auditor", onChainRole: "AUDITOR_ROLE" },
+    ];
+
+    const mapping: Record<string, { role: string; walletAddress: string; onChainRole: string }> = {};
+
+    for (const item of roles) {
+      try {
+        const address = this.getWalletAddressForRole(item.key);
+        mapping[item.key] = {
+          role: item.key,
+          walletAddress: address,
+          onChainRole: item.onChainRole,
+        };
+      } catch {
+        // Leave undefined if key is not configured in local environment
+      }
+    }
+
+    return mapping;
   }
 
   /**

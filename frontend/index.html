@@ -26,6 +26,20 @@
           <span id="system-status-text">Connecting to Backend...</span>
         </div>
       </div>
+      <div class="nav-auth" id="navAuthContainer" style="display: flex; align-items: center; gap: 0.75rem;">
+        <button type="button" id="openLoginBtn" class="btn btn-sm" style="background: rgba(245, 158, 11, 0.15); color: var(--primary); border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 600; padding: 0.4rem 0.9rem; border-radius: 9999px; cursor: pointer; font-size: 0.8rem;">
+          🔑 Stakeholder Portal
+        </button>
+        <div id="userProfilePill" style="display: none; align-items: center; gap: 0.75rem; background: rgba(255, 255, 255, 0.05); padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid var(--border-subtle);">
+          <div style="text-align: right; line-height: 1.2;">
+            <div id="navUserName" style="font-weight: 600; font-size: 0.82rem; color: #FFFFFF;">User</div>
+            <div id="navUserRole" style="font-size: 0.7rem; color: var(--primary); font-family: var(--font-mono); text-transform: uppercase;">Role</div>
+          </div>
+          <button type="button" id="logoutBtn" style="background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.2rem 0.5rem; font-size: 0.72rem; border-radius: 6px; cursor: pointer;">
+            Logout
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -395,6 +409,62 @@
           🖨️ Print Label
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Stakeholder Authentication Modal -->
+  <div id="authModalBackdrop" class="qr-modal-backdrop" style="display: none; align-items: center; justify-content: center; z-index: 10000;">
+    <div class="qr-modal-card" style="max-width: 480px; width: 90%; text-align: left;">
+      <div class="qr-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <div>
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: #FFFFFF; margin: 0;">Stakeholder Authentication</h3>
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">Select a demo role or enter your credentials.</div>
+        </div>
+        <button type="button" id="authModalClose" class="qr-close-btn" style="cursor: pointer; background: none; border: none; font-size: 1.5rem; color: var(--text-muted);">&times;</button>
+      </div>
+
+      <!-- Quick 1-Click Demo Logins -->
+      <div style="margin-bottom: 1.25rem; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-subtle); padding: 0.85rem; border-radius: 8px;">
+        <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.6rem;">
+          ⚡ Quick 1-Click Demo Login
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
+          <button type="button" class="btn btn-sm demo-login-btn" data-email="beekeeper@honeychain.org" style="background: rgba(245, 158, 11, 0.15); color: var(--primary); border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.75rem; padding: 0.4rem; border-radius: 6px; cursor: pointer;">
+            🐝 Beekeeper
+          </button>
+          <button type="button" class="btn btn-sm demo-login-btn" data-email="lab@honeychain.org" style="background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.75rem; padding: 0.4rem; border-radius: 6px; cursor: pointer;">
+            🔬 Laboratory
+          </button>
+          <button type="button" class="btn btn-sm demo-login-btn" data-email="processor@honeychain.org" style="background: rgba(59, 130, 246, 0.15); color: #3B82F6; border: 1px solid rgba(59, 130, 246, 0.3); font-size: 0.75rem; padding: 0.4rem; border-radius: 6px; cursor: pointer;">
+            🏭 Processor
+          </button>
+          <button type="button" class="btn btn-sm demo-login-btn" data-email="transporter@honeychain.org" style="background: rgba(168, 85, 247, 0.15); color: #A855F7; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 0.75rem; padding: 0.4rem; border-radius: 6px; cursor: pointer;">
+            🚚 Transporter
+          </button>
+          <button type="button" class="btn btn-sm demo-login-btn" data-email="auditor@honeychain.org" style="background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.75rem; padding: 0.4rem; border-radius: 6px; cursor: pointer;">
+            🛡️ Auditor
+          </button>
+          <button type="button" class="btn btn-sm demo-login-btn" data-email="admin@honeychain.org" style="background: rgba(255, 255, 255, 0.1); color: #FFFFFF; border: 1px solid rgba(255, 255, 255, 0.2); font-size: 0.75rem; padding: 0.4rem; border-radius: 6px; cursor: pointer;">
+            ⚙️ Admin
+          </button>
+        </div>
+      </div>
+
+      <!-- Manual Login Form -->
+      <form id="authLoginForm" style="display: flex; flex-direction: column; gap: 0.85rem;">
+        <div>
+          <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Email Address</label>
+          <input type="email" id="authEmailInput" placeholder="name@honeychain.org" required style="width: 100%; padding: 0.6rem 0.85rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; color: #FFFFFF; font-size: 0.85rem; box-sizing: border-box;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Password</label>
+          <input type="password" id="authPasswordInput" placeholder="••••••••" required value="Password123!" style="width: 100%; padding: 0.6rem 0.85rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; color: #FFFFFF; font-size: 0.85rem; box-sizing: border-box;">
+        </div>
+        <div id="authErrorMessage" style="display: none; color: #EF4444; font-size: 0.8rem;"></div>
+        <button type="submit" id="authSubmitBtn" class="btn btn-primary" style="padding: 0.65rem; font-size: 0.9rem; margin-top: 0.5rem; cursor: pointer;">
+          Sign In
+        </button>
+      </form>
     </div>
   </div>
 

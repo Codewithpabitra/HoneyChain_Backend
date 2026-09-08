@@ -323,6 +323,35 @@ The Hive Health Machine Learning subsystem is integrated as a lightweight intern
    - If the ML service is temporarily offline, cold-starting, or encounters insufficient data (< 1 reading), the Express backend returns a clean, structured `INSUFFICIENT_DATA` or `SERVICE_UNAVAILABLE` response.
    - Core IoT ingestion, Ethereum Sepolia blockchain transactions, batch custody, and QR verification continue without interruption.
 
+---
 
+## 10. Authentication & Stakeholder Identity Architecture
 
+### 10.1 Decoupling Application Users from Blockchain Wallets
 
+A fundamental design tenet of HoneyChain is that **application users and blockchain wallets are distinct identities**:
+
+```text
+Alice (beekeeper user) ─┐
+Bob (beekeeper user)   ─┼──► Beekeeper Blockchain Wallet (0x446B...)
+Carol (beekeeper user) ─┘
+
+Lab technicians ────────────► Laboratory Blockchain Wallet (0x19a0...)
+Processing plant staff ─────► Processor Blockchain Wallet  (0x8D34...)
+Logistics drivers ──────────► Transporter Blockchain Wallet(0x33A9...)
+State safety auditors ──────► Auditor Blockchain Wallet    (0x33A9...)
+```
+
+- **Zero Client Private Keys**: Users never hold or manage private keys, seed phrases, or MetaMask accounts.
+- **Server-Managed Testnet Signers**: The backend securely manages the 5 role-based private keys via isolated environment variables.
+- **Audit Logging**: Every off-chain action records the initiating application user (`createdBy`, `performedBy`), while the blockchain permanently records which stakeholder signed the transaction.
+
+### 10.2 Role-Based Access Control (RBAC)
+- Application users authenticate with email & password to obtain a standard JWT Bearer token.
+- Role checks are enforced strictly on the server:
+  - `admin`: Superuser access; user provisioning via `POST /api/auth/users`.
+  - `beekeeper`: Registers honey batches (`POST /api/batches`).
+  - `lab`: Certifies batch quality assays (`POST /api/batches/:batchId/quality`).
+  - `processor` & `transporter`: Transfers custody across checkpoints (`POST /api/batches/:batchId/transfer`).
+  - `auditor`: Executes emergency safety recalls (`POST /api/batches/:batchId/recall`).
+  - **Public Access**: Consumer verification (`/verify`, `/verify/:batchId`, `GET /api/verify/:batchId`, `GET /api/batches/:batchId/qr`) and IoT edge sensor ingestion (`POST /api/iot/telemetry`) remain public.
