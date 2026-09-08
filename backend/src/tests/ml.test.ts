@@ -2,16 +2,9 @@ import { expect } from "chai";
 import request from "supertest";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import { ChildProcess, spawn } from "child_process";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
 import app from "../app.js";
-import { mlService } from "../services/ml.service.js";
+import { mlService, MLService } from "../services/ml.service.js";
 import { Apiary, Hive, SensorReading, AIPrediction } from "../models/index.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 describe("HoneyChain Hive Health ML Inference Test Suite", function () {
   this.timeout(30000);
@@ -19,7 +12,6 @@ describe("HoneyChain Hive Health ML Inference Test Suite", function () {
   let mongoServer: MongoMemoryServer;
   let testApiaryId: mongoose.Types.ObjectId;
   let testHiveId: mongoose.Types.ObjectId;
-  let pythonProc: ChildProcess | null = null;
   const HIVE_ID = "HIVE-TEST-001";
   const TEST_DEVICE_ID = "DEV-TEST-001";
 
@@ -29,23 +21,6 @@ describe("HoneyChain Hive Health ML Inference Test Suite", function () {
     const uri = mongoServer.getUri();
     await mongoose.disconnect();
     await mongoose.connect(uri);
-
-    // 2. Spawn internal Python ML service on port 5001 if available
-    const venvPython = path.resolve(__dirname, "../../ml/venv/bin/python3");
-    const serviceScript = path.resolve(__dirname, "../../ml/service.py");
-
-    if (fs.existsSync(venvPython) && fs.existsSync(serviceScript)) {
-      pythonProc = spawn(venvPython, [serviceScript, "--port", "5001"], {
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-
-      // Wait up to 10 seconds for service to become healthy
-      for (let i = 0; i < 20; i++) {
-        await new Promise((r) => setTimeout(r, 500));
-        const health = await mlService.checkHealth();
-        if (health.healthy) break;
-      }
-    }
 
     // 3. Seed test Apiary and Hive
     const apiary = await Apiary.create({
@@ -82,10 +57,6 @@ describe("HoneyChain Hive Health ML Inference Test Suite", function () {
   });
 
   after(async () => {
-    if (pythonProc) {
-      pythonProc.kill("SIGTERM");
-      pythonProc = null;
-    }
     await mongoose.disconnect();
     if (mongoServer) {
       await mongoServer.stop();
@@ -318,6 +289,41 @@ describe("HoneyChain Hive Health ML Inference Test Suite", function () {
       expect(res.status).to.equal(404);
       expect(res.body.success).to.be.false;
       expect(res.body.status).to.equal("NOT_FOUND");
+    });
+  });
+
+  describe("5. Decoupled HTTP Client Resilience & Security Tests", () => {
+    it("handles unreachable ML microservice host gracefully without throwing", async () => {
+      const disconnectedService = new MLService();
+      // Point to an inactive port
+      (disconnectedService as any).serviceUrl = "http://127.0.0.1:59999";
+      (disconnectedService as any).timeoutMs = 500;
+
+      const health = await disconnectedService.checkHealth();
+      expect(health.healthy).to.be.false;
+      expect(health.modelLoaded).to.be.false;
+      expect(health.serviceUrl).to.equal("http://127.0.0.1:59999");
+      expect(health.error).to.be.a("string");
+    });
+
+    it("returns SERVICE_UNAVAILABLE when microservice is offline and does not crash Express", async () => {
+      const offlineService = new MLService();
+      (offlineService as any).serviceUrl = "http://127.0.0.1:59999";
+      (offlineService as any).timeoutMs = 500;
+
+      const result = await offlineService.predictForHive(HIVE_ID);
+      expect(result.success).to.be.false;
+      expect(result.status).to.be.oneOf(["SERVICE_UNAVAILABLE", "SERVICE_TIMEOUT"]);
+      expect(result.message).to.be.a("string");
+    });
+
+    it("attaches X-ML-API-Key header when ML_API_KEY is configured", async () => {
+      const securedService = new MLService();
+      (securedService as any).apiKey = "secure-demo-key-xyz";
+
+      const headers = (securedService as any).getHeaders({ "Content-Type": "application/json" });
+      expect(headers).to.have.property("X-ML-API-Key", "secure-demo-key-xyz");
+      expect(headers).to.have.property("Content-Type", "application/json");
     });
   });
 });

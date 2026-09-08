@@ -32,14 +32,15 @@ Welcome to the HoneyChain documentation repository. This directory serves as the
 HoneyChain/
 ├── backend/            # Express REST API (TypeScript), MongoDB models, ethers.js Sepolia client
 │   ├── src/            # Core backend logic (routes, controllers, services, models)
-│   ├── ml/             # Embedded Python ML inference microservice & pre-trained model weights
-│   └── test/           # Mocha/Chai automated test suite (87 unit & integration tests)
+│   └── tests/          # Mocha/Chai automated test suite (90 unit & integration tests)
 ├── blockchain/         # Hardhat suite, Solidity contracts, deployment scripts
 │   ├── contracts/      # HoneyChainRegistry.sol
 │   └── deployments/    # Sepolia contract address & ABI
 ├── docs/               # System documentation (You are here)
 └── frontend/           # Consumer QR verification single-page app (HTML/CSS/JS)
 ```
+
+*(Note: The Python ML inference microservice lives in its own standalone repository `HoneyChain_ML`)*
 
 ### 2. Five-Minute Setup
 ```bash
@@ -50,19 +51,19 @@ cd HoneyChain_Backend
 # 2. Set up Backend
 cd backend
 npm install
-cp .env.example .env     # Populate MONGODB_URI and Sepolia keys (ask teammate for secrets)
+cp .env.example .env     # Populate MONGODB_URI, Sepolia keys, and ML_SERVICE_URL
 
 # 3. Run Automated Tests
-npm test                # All 87 tests should pass
+npm test                # All 90 tests should pass
 
 # 4. Start Local Development Server
 npm run dev             # Starts API on http://localhost:5000
 
-# 5. Start ML Inference Microservice (Optional for ML testing)
-python3 -m venv venv
-source venv/bin/activate
-pip install -r ml/requirements.txt
-python3 ml/inference_server.py  # Starts ML microservice on http://127.0.0.1:5001
+# 5. Start Standalone ML Microservice (in sibling HoneyChain_ML repo)
+cd ../../HoneyChain_ML
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python3 service.py      # Starts ML microservice on http://localhost:5001
 ```
 
 ### 3. Key Services & Links

@@ -7,10 +7,11 @@ This document details the architecture, model specifications, telemetry preproce
 ## 1. Overview & Model Source
 
 - **Model Repository**: [https://github.com/Aditya280805/Hive_Health_model](https://github.com/Aditya280805/Hive_Health_model)
+- **Standalone Microservice Repository**: `HoneyChain_ML` (Standalone Python Microservice)
 - **Model Version**: `1.0.0-hive-health-6tier`
-- **Subsystem Type**: Internal Python HTTP Inference Microservice (Same-Server / Localhost Loopback)
-- **Host / Port**: `http://127.0.0.1:5001` (Configured via `ML_SERVICE_URL`)
-- **Artifacts Included**: 26 pre-trained joblib/pickle scalers, Isolation Forests, XGBoost classifiers, quantile calibrations, and seasonal baselines located under `backend/ml/model/`.
+- **Subsystem Type**: Independent Python HTTP Inference Microservice (Server-to-Server HTTPS)
+- **Host / Port**: `0.0.0.0:${PORT:-5001}` (Configured via `ML_SERVICE_URL` and optional `ML_API_KEY`)
+- **Artifacts Included**: 26 pre-trained joblib/pickle scalers, Isolation Forests, XGBoost classifiers, quantile calibrations, and seasonal baselines located under `HoneyChain_ML/models/`.
 
 > [!IMPORTANT]
 > **Model Integrity Policy**: All 26 model artifacts, feature configurations, and calibration files are external assets owned by the ML team. They are treated as immutable artifacts and loaded without retraining or modification.
@@ -191,31 +192,34 @@ The Node.js backend automatically detects and boots the Python inference microse
 ```bash
 npm test
 ```
-Executes all 67 unit and integration tests including blockchain, IoT ingestion, QR verification, and ML inference.
+Executes all 90 unit and integration tests across Auth, Blockchain, IoT ingestion, QR verification, and ML client resilience.
 
 ---
 
-## 7. Production Deployment (Render)
+## 7. Decoupled Production Deployment (e.g. Render)
 
-Render runs both Node and the internal Python microservice on the same native container.
+The ML service is deployed as an **independent Web Service** in its own repository (`HoneyChain_ML`), separate from the Express backend (`HoneyChain_Backend`).
 
-### Render Configuration
-1. **Root Directory**: `backend`
-2. **Build Command**:
-   ```bash
-   npm install && npm run setup:ml && npm run build
-   ```
-3. **Start Command**:
-   ```bash
-   npm start
-   ```
+### Architecture
+```text
+Express Backend (Node.js/TS) ───[ HTTPS + X-ML-API-Key ]───> Deployed ML Microservice (Python)
+```
 
-When `npm start` executes `dist/server.js`:
-1. Express boots on `PORT` (e.g. `10000`).
-2. Express automatically invokes `mlService.ensureServiceRunning()`.
-3. `mlService` spawns `ml/venv/bin/python3 ml/service.py --port 5001`.
-4. The Python service loads all 26 model artifacts into memory and serves `127.0.0.1:5001/predict`.
-5. On container termination, `mlService.stopService()` cleanly terminates the process.
+### A. Deploying the ML Microservice (`HoneyChain_ML`)
+1. Create a new Web Service on Render from the `HoneyChain_ML` GitHub repository.
+2. **Environment**: Python 3
+3. **Build Command**: `pip install -r requirements.txt`
+4. **Start Command**: `python service.py`
+5. **Health Check Path**: `/health`
+6. **Environment Variables**:
+   - `ML_API_KEY`: *(Secure secret key)*
+   - `PORT`: *(Render automatically injects PORT)*
+
+### B. Configuring the Express Backend (`HoneyChain_Backend`)
+In your Express deployment:
+1. Set `ML_SERVICE_URL` to your deployed ML service URL (e.g. `https://honeychain-ml.onrender.com`).
+2. Set `ML_API_KEY` to match the key configured on the ML service.
+3. Express builds with standard `npm run build` (`tsc && tsc-alias`) with **zero Python runtime prerequisites**.
 
 ---
 
@@ -237,7 +241,9 @@ db.aipredictions.find({ hiveId: "HIVE-KV-201" }).sort({ predictionTimestamp: -1 
 ### Troubleshooting Checklist
 | Symptom | Cause | Solution |
 |---|---|---|
-| `status: "SERVICE_UNAVAILABLE"` | Python service is starting or dependencies missing | Check `npm run setup:ml`. Run `ml/venv/bin/python3 ml/service.py --health-check`. |
+| `status: "SERVICE_UNAVAILABLE"` | ML microservice is unreachable or starting up | Verify `ML_SERVICE_URL` in `.env`. Check ML service `/health` probe. |
+| `status: "UNAUTHORIZED"` | Missing or mismatched `X-ML-API-Key` | Ensure `ML_API_KEY` in Express matches `ML_API_KEY` in `HoneyChain_ML`. |
+| `status: "SERVICE_TIMEOUT"` | ML microservice took longer than `ML_TIMEOUT_MS` | Check network latency or increase `ML_TIMEOUT_MS` (default: 10000ms). |
 | `status: "INSUFFICIENT_DATA"` | Hive has 0 sensor readings in MongoDB | Run `npm run seed` or trigger `/api/iot/simulate` to generate telemetry. |
 | `status: "INCOMPLETE_FEATURES"` | Gaps in sensor readings exceed interpolation limits | Ensure continuous readings without 6h+ temperature or 11h+ weight outages. |
 | Model reports `stressBasis: "anomaly"` | Less than 24 readings available | Normal behavior for T1, T6, and T12 tiers. Feed 25+ hourly readings to activate the T24 XGBoost classifier. |

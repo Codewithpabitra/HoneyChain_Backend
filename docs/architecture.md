@@ -288,26 +288,22 @@ Authenticity & Provenance Report
 ## 9. Hive Health & Disease Risk ML Inference Subsystem
 
 ### 9.1 Architectural Overview
-The Hive Health Machine Learning subsystem is integrated as a lightweight internal inference microservice that lives alongside the Node.js/Express backend on the same server, preserving the unified single-deployment architecture:
+The Hive Health Machine Learning subsystem is deployed as an **independent, stateless HTTP inference microservice** (`HoneyChain_ML`), communicating server-to-server with Express over HTTPS/REST with optional API key security:
 
 ```text
-               ┌────────────────────────────────────────────────────────┐
-               │              Unified HoneyChain Server                 │
-               │                                                        │
-┌───────────┐  │  ┌───────────────────────┐   HTTP (127.0.0.1:5001)     │  ┌─────────────────────────┐
-│           │  │  │                       │ ──────────────────────────► │  │  Python Inference       │
-│  Client / │──┼─►│  Express Backend      │   POST /predict             │  │  Microservice           │
-│ Dashboard │  │  │  (Node.js / TS)       │ ◄────────────────────────── │  │  (backend/ml/service.py)│
-│           │  │  └──────────┬────────────┘   Sub-100ms response        │  └────────────┬────────────┘
-└───────────┘  │             │                                          │               │
-               │             ▼                                          │               ▼
-               │      MongoDB Atlas                                     │     26 Model Artifacts
-               │   (SensorReading & AIPrediction)                       │    (Scalers, Iso, XGB)
-               └────────────────────────────────────────────────────────┘
+┌───────────┐         ┌───────────────────────┐   HTTPS + X-ML-API-Key      ┌─────────────────────────┐
+│           │         │                       │ ──────────────────────────► │  HoneyChain ML          │
+│  Client / │────────►│  Express Backend      │   POST /predict             │  Microservice           │
+│ Dashboard │         │  (Node.js / TS)       │ ◄────────────────────────── │  (Python 3 / 0.0.0.0)   │
+│           │         └──────────┬────────────┘   Sub-100ms response        └────────────┬────────────┘
+└───────────┘                    │                                                       │
+                                 ▼                                                       ▼
+                          MongoDB Atlas                                         26 Model Artifacts
+                       (SensorReading & AIPrediction)                          (Scalers, Iso, XGB)
 ```
 
 ### 9.2 Key Subsystem Characteristics
-1. **Zero External VPS**: Inference runs directly on `127.0.0.1:5001` via a persistent Python microservice loaded once at boot time.
+1. **Independent Deployment**: Deployed independently on Render/cloud containers (`0.0.0.0:${PORT:-5001}`). Express connects via `ML_SERVICE_URL` and optional `ML_API_KEY`.
 2. **Progressive 6-Tier Architecture**:
    - `T1` (1h history): Detects activity anomalies vs seasonal baseline.
    - `T6` (6h history): Detects fast weight drops (robbing / swarming).
@@ -320,7 +316,7 @@ The Hive Health Machine Learning subsystem is integrated as a lightweight intern
    - **Flow Aggregation Rule**: Bee flow is signed integer (`flow = entering - leaving`). It is **hourly summed**, never averaged.
    - **Ambient Fallback**: In the absence of separate apiary ambient weather probes, ambient temperature and humidity seamlessly fallback to in-hive sensors.
 4. **Resilience & Fault Isolation**:
-   - If the ML service is temporarily offline, cold-starting, or encounters insufficient data (< 1 reading), the Express backend returns a clean, structured `INSUFFICIENT_DATA` or `SERVICE_UNAVAILABLE` response.
+   - If the ML microservice is temporarily offline, cold-starting, or encounters network timeouts, the Express backend handles it gracefully with `SERVICE_UNAVAILABLE` or `SERVICE_TIMEOUT` without crashing.
    - Core IoT ingestion, Ethereum Sepolia blockchain transactions, batch custody, and QR verification continue without interruption.
 
 ---

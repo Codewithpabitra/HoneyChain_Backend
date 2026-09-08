@@ -46,7 +46,7 @@ HoneyChain/
 - **REST APIs**: Serves client requests from web portals and mobile apps.
 - **MQTT Ingestion**: Receives telemetry streams from ESP32 apiary gateways.
 - **Operational Database (MongoDB)**: Stores high-frequency sensor readings, hive telemetry, user authentication, apiary records, and laboratory report files.
-- **AI Integration**: Coordinates with external ML models for colony stress detection, disease warning, and honey yield forecasting.
+- **AI Integration**: Connects via HTTPS to the independent Python ML microservice (`HoneyChain_ML`) for colony stress detection, disease warning, and honey yield forecasting.
 - **Blockchain Client (`ethers.js`)**: Securely interfaces with Ethereum Sepolia to register batches, record custody updates, attest lab certifications, and query event logs for verification.
 
 ### 2. `blockchain/` (Immutable Provenance Ledger)

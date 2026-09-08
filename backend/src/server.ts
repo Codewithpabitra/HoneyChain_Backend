@@ -19,16 +19,19 @@ async function startServer() {
       // Hits backend itself over HTTP if IOT_TARGET_URL is provided, or remains idle until configured
       startBackgroundSimulator(env.IOT_TARGET_URL, env.IOT_INTERVAL_MS);
 
-      // Initialize internal Python ML inference microservice
-      mlService.ensureServiceRunning().catch((err) => {
-        console.warn("[HoneyChain] Note: ML inference service not available immediately:", err.message);
+      // Asynchronously probe external ML microservice availability
+      mlService.checkHealth().then((health) => {
+        if (health.healthy) {
+          console.log(`[HoneyChain] Connected to ML microservice at ${health.serviceUrl} (Tiers: ${health.tiers.join(", ")})`);
+        } else {
+          console.log(`[HoneyChain] ML microservice at ${health.serviceUrl} is not reachable yet (${health.error || "offline"})`);
+        }
       });
     });
 
-    // Register graceful shutdown listeners for SIGINT and SIGTERM with simulator and ML cleanup
+    // Register graceful shutdown listeners for SIGINT and SIGTERM with simulator cleanup
     setupGracefulShutdown(server, () => {
       stopBackgroundSimulator();
-      mlService.stopService();
     });
   } catch (err: any) {
     console.error("[HoneyChain] Fatal startup failure:", err.message);

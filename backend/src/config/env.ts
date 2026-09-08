@@ -49,8 +49,10 @@ const envSchema = z.object({
   // Public Base URL for Consumer QR Verification (e.g. https://your-service.onrender.com or http://localhost:5000)
   PUBLIC_BASE_URL: z.string().optional(),
 
-  // Internal Python ML Inference Service (same server localhost)
-  ML_SERVICE_URL: z.string().default("http://127.0.0.1:5001"),
+  // Independent Python ML Inference Microservice (HTTPS in production, localhost in development)
+  ML_SERVICE_URL: z.string().default("http://localhost:5001"),
+  ML_API_KEY: z.string().optional(),
+  ML_TIMEOUT_MS: z.string().default("10000"),
 });
 
 const parsed = envSchema.safeParse(process.env);

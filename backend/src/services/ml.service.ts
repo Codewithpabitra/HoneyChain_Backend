@@ -1,13 +1,6 @@
-import { ChildProcess, spawn } from "child_process";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
 import { env } from "../config/env.js";
 import { SensorReading, Hive, AIPrediction } from "../models/index.js";
 import AppError from "../utils/AppError.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export interface MLModelReadingInput {
   timestamp: string;
@@ -27,11 +20,24 @@ export interface MLServiceHealth {
 
 export class MLService {
   private serviceUrl: string;
-  private pythonProcess: ChildProcess | null = null;
-  private isStartingProcess = false;
+  private apiKey?: string;
+  private timeoutMs: number;
 
   constructor() {
-    this.serviceUrl = env.ML_SERVICE_URL || "http://127.0.0.1:5001";
+    this.serviceUrl = env.ML_SERVICE_URL || "http://localhost:5001";
+    this.apiKey = env.ML_API_KEY && env.ML_API_KEY.trim() ? env.ML_API_KEY.trim() : undefined;
+    this.timeoutMs = parseInt(env.ML_TIMEOUT_MS || "10000", 10) || 10000;
+  }
+
+  /**
+   * Helper to attach optional X-ML-API-Key header for server-to-server security.
+   */
+  private getHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
+    const headers: Record<string, string> = { ...extraHeaders };
+    if (this.apiKey) {
+      headers["X-ML-API-Key"] = this.apiKey;
+    }
+    return headers;
   }
 
   /**
@@ -111,12 +117,13 @@ export class MLService {
   }
 
   /**
-   * Checks the health and availability of the internal Python inference service.
+   * Checks the health and availability of the independent Python ML microservice over HTTP.
    */
   public async checkHealth(): Promise<MLServiceHealth> {
     try {
       const res = await fetch(`${this.serviceUrl}/health`, {
-        signal: AbortSignal.timeout(3000),
+        headers: this.getHeaders(),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
 
       if (res.ok) {
@@ -147,127 +154,8 @@ export class MLService {
   }
 
   /**
-   * Spawns the local Python inference microservice if not already running.
-   */
-  public async ensureServiceRunning(): Promise<boolean> {
-    const initialHealth = await this.checkHealth();
-    if (initialHealth.healthy) {
-      return true;
-    }
-
-    if (this.isStartingProcess) {
-      return false;
-    }
-
-    this.isStartingProcess = true;
-
-    // Determine paths across dist/ and dev environments
-    const serviceScriptCandidates = [
-      path.resolve(__dirname, "../../ml/service.py"),
-      path.resolve(process.cwd(), "ml/service.py"),
-      path.resolve(process.cwd(), "backend/ml/service.py"),
-      path.resolve(__dirname, "../ml/service.py"),
-    ];
-    let serviceScript: string | null = null;
-    for (const cand of serviceScriptCandidates) {
-      if (fs.existsSync(cand)) {
-        serviceScript = cand;
-        break;
-      }
-    }
-
-    if (!serviceScript) {
-      console.warn(`[MLService] Python service script not found in any candidate path`);
-      this.isStartingProcess = false;
-      return false;
-    }
-
-    const venvCandidates = [
-      path.resolve(path.dirname(serviceScript), "venv/bin/python3"),
-      path.resolve(__dirname, "../../ml/venv/bin/python3"),
-      path.resolve(process.cwd(), "ml/venv/bin/python3"),
-      path.resolve(process.cwd(), "backend/ml/venv/bin/python3"),
-    ];
-    let pythonBin = "python3";
-    for (const cand of venvCandidates) {
-      if (fs.existsSync(cand)) {
-        pythonBin = cand;
-        break;
-      }
-    }
-
-    // Self-healing: if venv python not found, try to run setup.sh if present
-    if (pythonBin === "python3") {
-      const setupScript = path.resolve(path.dirname(serviceScript), "setup.sh");
-      if (fs.existsSync(setupScript)) {
-        try {
-          console.log(`[MLService] Venv not detected. Running self-healing setup: ${setupScript}...`);
-          const { execSync } = await import("child_process");
-          execSync(`bash "${setupScript}"`, { stdio: "inherit" });
-          const candidateVenv = path.resolve(path.dirname(serviceScript), "venv/bin/python3");
-          if (fs.existsSync(candidateVenv)) {
-            pythonBin = candidateVenv;
-          }
-        } catch (setupErr: any) {
-          console.warn(`[MLService] Setup script execution notice: ${setupErr.message}`);
-        }
-      }
-    }
-
-    try {
-      console.log(`[MLService] Spawning Python inference service (${pythonBin} ${serviceScript})...`);
-      this.pythonProcess = spawn(pythonBin, [serviceScript, "--port", "5001"], {
-        detached: false,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-
-      this.pythonProcess.stdout?.on("data", (data) => {
-        const msg = data.toString().trim();
-        if (msg) console.log(`[Python-ML] ${msg}`);
-      });
-
-      this.pythonProcess.stderr?.on("data", (data) => {
-        const msg = data.toString().trim();
-        if (msg) console.warn(`[Python-ML-Err] ${msg}`);
-      });
-
-      this.pythonProcess.on("exit", (code, signal) => {
-        console.warn(`[MLService] Python process exited with code ${code}, signal ${signal}`);
-        this.pythonProcess = null;
-      });
-
-      // Poll /health up to 10 seconds for startup
-      for (let i = 0; i < 20; i++) {
-        await new Promise((r) => setTimeout(r, 500));
-        const health = await this.checkHealth();
-        if (health.healthy) {
-          console.log("[MLService] Python inference service is online and healthy.");
-          this.isStartingProcess = false;
-          return true;
-        }
-      }
-    } catch (err: any) {
-      console.error(`[MLService] Failed to start Python service: ${err.message}`);
-    } finally {
-      this.isStartingProcess = false;
-    }
-
-    return false;
-  }
-
-  /**
-   * Shuts down any internally spawned Python process.
-   */
-  public stopService(): void {
-    if (this.pythonProcess) {
-      console.log("[MLService] Stopping internally spawned Python inference service...");
-      this.pythonProcess.kill("SIGTERM");
-      this.pythonProcess = null;
-    }
-  }
-
-  /**
    * Executes inference for a specific hive using historical sensor readings from MongoDB.
+   * Calls the independent Python ML microservice via HTTP/HTTPS.
    * Persists the prediction into MongoDB AIPrediction and updates Hive health summary.
    */
   public async predictForHive(
@@ -306,49 +194,45 @@ export class MLService {
     // 3. Transform readings to model input contract
     const modelInput = this.prepareModelInput(readings, offsetMinutes);
 
-    // 4. Ensure internal Python service is reachable
-    let isHealthy = (await this.checkHealth()).healthy;
-    if (!isHealthy) {
-      isHealthy = await this.ensureServiceRunning();
-    }
-
-    if (!isHealthy) {
-      return {
-        success: false,
-        status: "SERVICE_UNAVAILABLE",
-        message: "Hive health ML inference service is currently offline or starting up.",
-      };
-    }
-
-    // 5. Call Python inference service
+    // 4. Call independent ML inference microservice
     let modelOutput: any;
     try {
       const res = await fetch(`${this.serviceUrl}/predict`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.getHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ hiveId: cleanHiveId, readings: modelInput }),
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
 
       if (!res.ok) {
+        if (res.status === 401) {
+          return {
+            success: false,
+            status: "UNAUTHORIZED",
+            message: "ML microservice authentication failed (invalid or missing X-ML-API-Key)",
+          };
+        }
         const errorBody = (await res.json().catch(() => ({}))) as any;
         return {
           success: false,
           status: errorBody.status || "INFERENCE_ERROR",
-          message: errorBody.message || `Inference service responded with HTTP ${res.status}`,
+          message: errorBody.message || `ML microservice responded with HTTP ${res.status}`,
         };
       }
 
       modelOutput = await res.json();
     } catch (err: any) {
+      const isTimeout = err.name === "TimeoutError" || err.message?.includes("timeout");
       return {
         success: false,
-        status: "SERVICE_TIMEOUT",
-        message: err.message || "Timeout communicating with ML inference service",
+        status: isTimeout ? "SERVICE_TIMEOUT" : "SERVICE_UNAVAILABLE",
+        message: isTimeout
+          ? `Timeout communicating with ML microservice after ${this.timeoutMs}ms`
+          : `Failed to reach ML microservice at ${this.serviceUrl}: ${err.message || "Connection refused"}`,
       };
     }
 
-    // 6. Handle model-level non-OK statuses (e.g. INCOMPLETE_FEATURES, NO_DATA)
+    // 5. Handle model-level non-OK statuses (e.g. INCOMPLETE_FEATURES, NO_DATA)
     if (modelOutput.status !== "OK") {
       return {
         success: false,
@@ -358,7 +242,7 @@ export class MLService {
       };
     }
 
-    // 7. Persist prediction into MongoDB AIPrediction
+    // 6. Persist prediction into MongoDB AIPrediction
     let savedPrediction: any = null;
     if (persist) {
       const predictionId = `PRED-ML-${cleanHiveId}-${Date.now()}`;
