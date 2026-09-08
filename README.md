@@ -26,9 +26,13 @@ HoneyChain/
 │   ├── .env.example    # Blockchain environment variable template
 │   └── README.md       # Blockchain subsystem overview
 ├── docs/               # System documentation and architecture records
+│   ├── README.md       # Documentation Hub & directory index
+│   ├── api.md          # Complete REST API reference (14 endpoints)
 │   ├── architecture.md # End-to-end system design and data flow
-│   ├── decisions.md    # Architecture Decision Records (ADRs)
+│   ├── contract.md     # Smart contract reference (Sepolia)
+│   ├── ml-integration.md # AI/ML inference microservice architecture
 │   ├── setup.md        # Environment setup and developer instructions
+│   ├── decisions.md    # Architecture Decision Records (ADRs)
 │   └── changelog.md    # Phase-by-phase project changelog
 ├── .gitignore          # Repository-wide ignore rules
 └── README.md           # Master repository overview (this document)
@@ -76,7 +80,11 @@ The Express backend connects to Ethereum Sepolia using **`ethers.js` (v6)** over
 
 ## Quick Reference Links
 
-- [System Architecture](docs/architecture.md)
-- [Architecture Decisions (ADRs)](docs/decisions.md)
-- [Developer Setup Guide](docs/setup.md)
-- [Changelog](docs/changelog.md)
+- 📚 [Documentation Hub](docs/README.md)
+- 📡 [REST API Documentation](docs/api.md) *(Mandatory: keep updated whenever endpoints change)*
+- 🏛️ [System Architecture](docs/architecture.md)
+- ⛓️ [Smart Contract Specifications](docs/contract.md)
+- 🧠 [AI / ML Integration](docs/ml-integration.md)
+- 🛠️ [Developer Setup Guide](docs/setup.md)
+- ⚖️ [Architecture Decisions (ADRs)](docs/decisions.md)
+- 📝 [Changelog](docs/changelog.md)
