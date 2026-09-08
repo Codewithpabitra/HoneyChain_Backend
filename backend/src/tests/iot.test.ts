@@ -4,15 +4,6 @@ import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import app from "../app.js";
 import { Hive, Apiary, SensorReading } from "../models/index.js";
-import {
-  resolveTargetEndpoint,
-  resolveIntervalMs,
-  evolveDeviceState,
-  sendTelemetry,
-  startBackgroundSimulator,
-  stopBackgroundSimulator,
-  triggerSimulationCycle,
-} from "../scripts/simulateIoT.js";
 
 describe("HoneyChain IoT Telemetry Ingestion & Simulator Test Suite", function () {
   this.timeout(20000);
@@ -347,138 +338,30 @@ describe("HoneyChain IoT Telemetry Ingestion & Simulator Test Suite", function (
     });
   });
 
-  describe("4. Simulator Architecture & Utility Logic", function () {
-    it("resolveTargetEndpoint formats API endpoint and rejects missing URL", function () {
-      expect(() => resolveTargetEndpoint(undefined)).to.throw(
-        "Missing required environment variable: IOT_TARGET_URL"
-      );
-      expect(() => resolveTargetEndpoint("")).to.throw(
-        "Missing required environment variable: IOT_TARGET_URL"
-      );
+  describe("4. On-Demand Demo Telemetry Generation (Dashboard Support)", function () {
+    it("POST /api/iot/simulate triggers demo readings and persists to MongoDB", async function () {
+      const res = await request(app).post("/api/iot/simulate");
 
-      const endpoint1 = resolveTargetEndpoint("https://honeychain-api.onrender.com");
-      expect(endpoint1).to.equal("https://honeychain-api.onrender.com/api/iot/telemetry");
+      expect(res.status).to.equal(200);
+      expect(res.body.success).to.be.true;
+      expect(res.body.data.total).to.be.at.least(1);
+      expect(res.body.data.successful).to.be.at.least(1);
 
-      // Strips trailing slashes correctly
-      const endpoint2 = resolveTargetEndpoint("https://honeychain-api.onrender.com///");
-      expect(endpoint2).to.equal("https://honeychain-api.onrender.com/api/iot/telemetry");
+      // Verify readings persisted to MongoDB
+      const readings = await SensorReading.find({ hiveId: activeHive.hiveId });
+      expect(readings.length).to.be.at.least(1);
 
-      // Correctly handles already-included endpoint paths without duplication
-      const endpoint3 = resolveTargetEndpoint("https://honeychain-api.onrender.com/api/iot/telemetry");
-      expect(endpoint3).to.equal("https://honeychain-api.onrender.com/api/iot/telemetry");
-
-      const endpoint4 = resolveTargetEndpoint("https://honeychain-api.onrender.com/api/iot");
-      expect(endpoint4).to.equal("https://honeychain-api.onrender.com/api/iot/telemetry");
+      // Verify Hive document was updated
+      const updated = await Hive.findById(activeHive._id);
+      expect(updated?.currentHealthSummary?.latestReadingAt).to.exist;
     });
 
-    it("resolveIntervalMs parses custom intervals and falls back to default", function () {
-      expect(resolveIntervalMs("15000")).to.equal(15000);
-      expect(resolveIntervalMs("10000")).to.equal(10000);
-      // Fallback on missing or invalid
-      expect(resolveIntervalMs(undefined)).to.equal(600000); // 10 minutes
-      expect(resolveIntervalMs("invalid")).to.equal(600000);
-    });
+    it("GET /api/iot/simulate also triggers demo readings successfully", async function () {
+      const res = await request(app).get("/api/iot/simulate");
 
-    it("evolveDeviceState produces realistic stateful values within bounds", function () {
-      const state = {
-        hiveId: "HIVE-SB-101",
-        deviceId: "ESP32-SB-GW-01",
-        temp: 34.8,
-        humidity: 58.2,
-        weightKg: 31.45,
-        batteryPct: 96.5,
-        baseFrequencyHz: 215,
-        cycleCount: 0,
-      };
-
-      const payload = evolveDeviceState(state);
-      expect(payload.hiveId).to.equal("HIVE-SB-101");
-      expect(payload.deviceId).to.equal("ESP32-SB-GW-01");
-      expect(payload.temperature).to.be.within(33.0, 37.0);
-      expect(payload.humidity).to.be.within(45.0, 75.0);
-      expect(payload.weightKg).to.be.within(25.0, 45.0);
-      expect(payload.batteryLevelPct).to.be.within(1, 100);
-      expect(payload.metadata.source).to.equal("simulator");
-      expect(payload.metadata.simulationVersion).to.equal("1.0");
-      expect(state.cycleCount).to.equal(1);
-    });
-
-    it("sendTelemetry handles successful transmission and HTTP errors gracefully", async function () {
-      // Mock global fetch for unit test
-      const originalFetch = global.fetch;
-
-      try {
-        // Test Success
-        global.fetch = async () =>
-          new Response(JSON.stringify({ success: true, duplicate: false }), {
-            status: 201,
-            headers: { "Content-Type": "application/json" },
-          });
-
-        const successRes = await sendTelemetry("http://fake-target/api/iot/telemetry", { test: true });
-        expect(successRes.success).to.be.true;
-        expect(successRes.status).to.equal(201);
-
-        // Test HTTP 400 Failure without crashing
-        global.fetch = async () =>
-          new Response(JSON.stringify({ error: { message: "Invalid sensor reading" } }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-
-        const failRes = await sendTelemetry("http://fake-target/api/iot/telemetry", { test: true });
-        expect(failRes.success).to.be.false;
-        expect(failRes.status).to.equal(400);
-        expect(failRes.message).to.equal("Invalid sensor reading");
-
-        // Test Network Exception without crashing
-        global.fetch = async () => {
-          throw new Error("ECONNREFUSED - Server offline");
-        };
-
-        const netRes = await sendTelemetry("http://fake-target/api/iot/telemetry", { test: true });
-        expect(netRes.success).to.be.false;
-        expect(netRes.message).to.include("ECONNREFUSED");
-      } finally {
-        global.fetch = originalFetch;
-      }
-    });
-
-    it("startBackgroundSimulator stays idle and returns false when IOT_TARGET_URL is unset", function () {
-      const started = startBackgroundSimulator("", 60000);
-      expect(started).to.be.false;
-      stopBackgroundSimulator();
-    });
-
-    it("startBackgroundSimulator activates and stops cleanly when IOT_TARGET_URL is provided", function () {
-      const started = startBackgroundSimulator("http://localhost:5000", 60000);
-      expect(started).to.be.true;
-
-      // Starting again returns true without recreating
-      const secondCall = startBackgroundSimulator("http://localhost:5000", 60000);
-      expect(secondCall).to.be.true;
-
-      // Clean shutdown
-      stopBackgroundSimulator();
-    });
-
-    it("POST /api/iot/simulate triggers an immediate simulation cycle", async function () {
-      const originalFetch = global.fetch;
-      try {
-        global.fetch = async () =>
-          new Response(JSON.stringify({ success: true, duplicate: false }), {
-            status: 201,
-            headers: { "Content-Type": "application/json" },
-          });
-
-        const res = await request(app).post("/api/iot/simulate");
-        expect(res.status).to.equal(200);
-        expect(res.body.success).to.be.true;
-        expect(res.body.data.total).to.equal(5);
-        expect(res.body.data.successful).to.equal(5);
-      } finally {
-        global.fetch = originalFetch;
-      }
+      expect(res.status).to.equal(200);
+      expect(res.body.success).to.be.true;
+      expect(res.body.message).to.include("Simulation cycle completed");
     });
   });
 });

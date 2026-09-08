@@ -684,9 +684,12 @@ Content-Type: application/json
 
 ## 6. IoT Telemetry Endpoints (`/api/iot`)
 
+> [!NOTE]
+> The edge telemetry simulator is maintained as an independent repository at [HoneyChain_IoT_Simulator](https://github.com/Codewithpabitra/HoneyChain_IoT_Simulator). It simulates ESP32-S3 microcontroller sensor suites deployed in apiaries and transmits stateful telemetry payloads to `POST /api/iot/telemetry`.
+
 ### 6.1 Ingest Telemetry Reading
 - **Route**: `POST /api/iot/telemetry`
-- **Access**: Edge Apiary Gateway / ESP32 Device
+- **Access**: Edge Apiary Gateway / ESP32 Device / Standalone Simulator
 - **Description**: 
   1. Validates strict physical boundaries (Temperature `-40°C` to `70°C`, Humidity `0%` to `100%`, Weight `0` to `300 kg`, Battery `0%` to `100%`).
   2. Protects against future clock drift (`<= 10 minutes` into future).

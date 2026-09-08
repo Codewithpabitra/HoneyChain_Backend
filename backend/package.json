@@ -11,8 +11,7 @@
     "demo": "tsx src/scripts/demoRehearsal.ts",
     "seed": "tsx src/scripts/seed.ts",
     "seed:users": "tsx src/scripts/seedUsers.ts",
-    "seed:batches": "tsx src/scripts/seedDemoBatches.ts",
-    "simulate:iot": "tsx src/scripts/simulateIoT.ts"
+    "seed:batches": "tsx src/scripts/seedDemoBatches.ts"
   },
   "repository": {
     "type": "git",

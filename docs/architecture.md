@@ -235,10 +235,10 @@ Network drops and LoRa retransmissions often cause duplicate packets. The databa
 ```
 If an edge gateway retransmits an identical reading, the API responds with `HTTP 200 OK` and `{ success: true, duplicate: true }`, ensuring gateway operations proceed without error while preserving database hygiene.
 
-### 7.4 Transition from Integrated Simulator to Physical Edge Hardware
-1. **Identical Contract**: Both the integrated simulator and physical ESP32 gateways communicate exclusively via `POST /api/iot/telemetry`.
-2. **Decoupled Configuration**: Leaving `IOT_TARGET_URL` unconfigured keeps the integrated simulator idle. When the deployed backend URL is populated, the backend immediately begins self-ingesting simulated telemetry.
-3. **Drop-In Hardware Replacement**: When physical ESP32/LoRa hardware is ready, setting `IOT_TARGET_URL=""` halts the internal simulator while physical gateways take over sending to the exact same endpoint.
+### 7.4 Standalone Edge Simulator & Drop-in Physical Hardware Transition
+1. **Identical Contract**: Both physical ESP32 gateways and the standalone [HoneyChain_IoT_Simulator](https://github.com/Codewithpabitra/HoneyChain_IoT_Simulator) project communicate exclusively via `POST /api/iot/telemetry`.
+2. **Decoupled Edge Microservice**: The simulator is completely decoupled from the Express backend service, operating independently across edge nodes, background workers, or scheduled cron triggers.
+3. **Drop-In Hardware Replacement**: When physical ESP32/LoRa hardware nodes are deployed to apiaries, they transmit to the exact same `POST /api/iot/telemetry` endpoint with zero changes required to backend services.
 
 ---
 

@@ -194,6 +194,96 @@ export class IoTController {
       return next(err);
     }
   };
+
+  /**
+   * POST/GET /api/iot/simulate
+   * Triggers an on-demand demo telemetry cycle for active hives directly within the database.
+   * Preserves compatibility with the web dashboard "Trigger Live Telemetry Cycle" button
+   * without requiring background loops or network loopbacks.
+   */
+  public triggerDemoCycle = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const activeHives = await Hive.find({ status: "active" });
+      if (activeHives.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: "No active hives found to simulate",
+          data: { total: 0, successful: 0, results: [] },
+        });
+      }
+
+      const results: any[] = [];
+      const now = new Date();
+
+      for (const hive of activeHives) {
+        const deviceId = hive.deviceMetadata?.deviceId || `ESP32-${hive.hiveId}`;
+        const temp = Number((34.5 + (Math.random() - 0.5) * 0.8).toFixed(2));
+        const humidity = Number((58.0 + (Math.random() - 0.5) * 4.0).toFixed(1));
+        const weightKg = Number((30.0 + Math.random() * 5.0).toFixed(3));
+        const soundFrequencyHz = Math.round(210 + (Math.random() - 0.5) * 20);
+        const acousticsDb = Number((60.0 + (Math.random() - 0.5) * 6.0).toFixed(1));
+        const batteryLevelPct = Math.max(10, Math.min(100, Math.round(hive.deviceMetadata?.batteryLevelPct || 95) - Math.round(Math.random())));
+        const diurnalFlow = Math.round(15 + Math.random() * 30);
+
+        const newReading = new SensorReading({
+          hiveId: hive.hiveId,
+          hive: hive._id,
+          deviceId,
+          timestamp: now,
+          temperature: temp,
+          humidity,
+          weightKg,
+          flow: diurnalFlow,
+          beeInCount: Math.round(30 + Math.random() * 20),
+          beeOutCount: Math.round(25 + Math.random() * 15),
+          soundFrequencyHz,
+          acousticsDb,
+          batteryLevelPct,
+          ambientTemperature: Number((26.0 + (Math.random() - 0.5) * 4.0).toFixed(1)),
+          ambientHumidity: Number((62.0 + (Math.random() - 0.5) * 6.0).toFixed(1)),
+          metadata: {
+            source: "demo-simulator",
+            simulationCycle: 1,
+            simulationVersion: "2.0",
+          },
+        });
+
+        await newReading.save();
+
+        hive.currentHealthSummary = hive.currentHealthSummary || { status: "healthy" };
+        hive.currentHealthSummary.latestReadingAt = now;
+        hive.deviceMetadata = hive.deviceMetadata || { deviceId };
+        hive.deviceMetadata.lastPingAt = now;
+        hive.deviceMetadata.batteryLevelPct = batteryLevelPct;
+        await hive.save();
+
+        results.push({
+          hiveId: hive.hiveId,
+          deviceId,
+          temperature: temp,
+          humidity,
+          weightKg,
+          success: true,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Simulation cycle completed: ${results.length}/${activeHives.length} readings ingested into MongoDB`,
+        data: {
+          total: activeHives.length,
+          successful: results.length,
+          results,
+        },
+      });
+    } catch (err: any) {
+      return next(err);
+    }
+  };
 }
 
 export const iotController = new IoTController();
