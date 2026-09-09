@@ -16,56 +16,15 @@ import AppError from "./utils/AppError.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/**
- * Resolves the frontend directory path across local dev and containerized deployments.
- */
-export function getFrontendDir(): string | null {
-  const candidates = [
-    path.resolve(process.cwd(), "frontend"),
-    path.resolve(process.cwd(), "../frontend"),
-    path.resolve(process.cwd(), "public"),
-    path.resolve(__dirname, "../../frontend"),
-    path.resolve(__dirname, "../frontend"),
-    path.resolve(__dirname, "../../public"),
-    path.resolve(__dirname, "../public"),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate) && fs.existsSync(path.join(candidate, "index.html"))) {
-      return candidate;
-    }
-  }
-
-  return null;
-}
+import { getNextHandler, getFrontendDir } from "./services/frontend.service.js";
 
 const app = express();
-const frontendDir = getFrontendDir();
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-
-// Serve static frontend assets if directory is resolved
-if (frontendDir) {
-  app.use(express.static(frontendDir, { index: false }));
-}
-
-// Root Information / Landing Page
-app.get("/", (req, res) => {
-  if (frontendDir && fs.existsSync(path.join(frontendDir, "index.html")) && req.accepts("html")) {
-    return res.sendFile(path.join(frontendDir, "index.html"));
-  }
-
-  res.json({
-    success: true,
-    message: "HoneyChain backend is running yehh",
-    version: "1.0.0",
-    network: "Ethereum Sepolia",
-  });
-});
 
 // Dedicated Production Health Check
 app.get("/health", (req, res) => {
@@ -87,6 +46,29 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Root Information / Landing Page
+app.get("/", (req, res, next) => {
+  // If API client explicitly asking for JSON without HTML, return API metadata
+  if (!req.accepts("html") && req.accepts("json")) {
+    return res.json({
+      success: true,
+      message: "HoneyChain backend is running yehh",
+      version: "1.0.0",
+      network: "Ethereum Sepolia",
+    });
+  }
+
+  const nextHandler = getNextHandler();
+  if (nextHandler) {
+    return nextHandler(req, res);
+  }
+
+  // Fast HTML fallback for test/offline environments
+  res.type("html").send(
+    `<!DOCTYPE html><html><head><title>HoneyChain</title></head><body><h1>HoneyChain</h1><p>Ethereum Sepolia Batch Provenance Verification Platform</p></body></html>`
+  );
+});
+
 // Mount Operational & Provenance Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/batches", batchRoutes);
@@ -96,29 +78,31 @@ app.use("/api/ml", mlRoutes);
 
 // Dedicated Consumer QR Verification Web Page Route
 app.get(["/verify", "/verify/:batchId"], (req, res, next) => {
-  if (frontendDir && fs.existsSync(path.join(frontendDir, "verify.html"))) {
-    return res.sendFile(path.join(frontendDir, "verify.html"));
+  const nextHandler = getNextHandler();
+  if (nextHandler) {
+    return nextHandler(req, res);
   }
-  if (frontendDir && fs.existsSync(path.join(frontendDir, "index.html"))) {
-    return res.sendFile(path.join(frontendDir, "index.html"));
-  }
-  return res
+
+  const batchId = (req.params as any)?.batchId || "";
+  res
     .status(200)
     .type("html")
-    .send("<!DOCTYPE html><html><head><title>HoneyChain Verification</title></head><body><h1>HoneyChain Consumer Verification</h1></body></html>");
+    .send(
+      `<!DOCTYPE html><html><head><title>HoneyChain Verification</title></head><body><h1>HoneyChain Consumer Verification</h1><div id="verifyDisplayArea">${batchId}</div></body></html>`
+    );
 });
 
-// Fallback for HTML navigation routes (Express 5 compatible)
+// Next.js Catch-All Handler for all frontend pages and assets (/_next/*, /login, /farmer/*, etc.)
 app.use((req, res, next) => {
-  if (req.method !== "GET") {
-    return next();
-  }
   if (req.path.startsWith("/api") || req.path === "/health") {
     return next();
   }
-  if (frontendDir && fs.existsSync(path.join(frontendDir, "index.html")) && req.accepts("html")) {
-    return res.sendFile(path.join(frontendDir, "index.html"));
+
+  const nextHandler = getNextHandler();
+  if (nextHandler) {
+    return nextHandler(req, res);
   }
+
   next();
 });
 
