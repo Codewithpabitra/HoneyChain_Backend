@@ -32,8 +32,15 @@ export interface AuthUser {
   email: string;
   role: Role;
   isOrgAdmin?: boolean;
-  organization?: Organization | string | any;
-  organizationId?: string | any;
+  organization?:
+    | {
+        id?: string;
+        _id?: string;
+        name?: string;
+        [key: string]: unknown;
+      }
+    | string;
+  organizationId?: string;
   walletAddress?: string;
   createdAt?: string;
 }

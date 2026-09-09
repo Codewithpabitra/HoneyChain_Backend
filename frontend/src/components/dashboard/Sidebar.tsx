@@ -32,8 +32,10 @@ export default function Sidebar({ role }: SidebarProps) {
   ];
 
   const orgName =
-    typeof user?.organization === "object"
-      ? user?.organization?.name
+    typeof user?.organization === "object" && user.organization !== null
+      ? typeof user.organization.name === "string"
+        ? user.organization.name
+        : undefined
       : undefined;
 
   return (
