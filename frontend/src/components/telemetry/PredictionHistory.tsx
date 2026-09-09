@@ -46,7 +46,7 @@ export default function PredictionHistory({
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-black/10 bg-white/70 p-6 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="rounded-2xl border border-black/10 bg-white/70 p-6 dark:border-white/10 dark:bg-white/4">
         <p className="text-sm text-black/50 dark:text-white/50">
           Loading prediction history...
         </p>
@@ -56,7 +56,7 @@ export default function PredictionHistory({
 
   if (predictions.length === 0) {
     return (
-      <div className="rounded-2xl border border-black/10 bg-white/70 p-6 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="rounded-2xl border border-black/10 bg-white/70 p-6 dark:border-white/10 dark:bg-white/4">
         <p className="text-sm text-black/50 dark:text-white/50">
           No prediction history available yet.
         </p>
@@ -65,7 +65,7 @@ export default function PredictionHistory({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/10 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]">
+    <div className="overflow-hidden rounded-2xl border border-black/10 bg-white/70 dark:border-white/10 dark:bg-white/4">
       <div className="border-b border-black/10 px-5 py-4 dark:border-white/10">
         <h3 className="font-semibold">Prediction History</h3>
       </div>
