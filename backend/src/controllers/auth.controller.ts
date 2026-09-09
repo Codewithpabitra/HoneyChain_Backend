@@ -50,6 +50,19 @@ export class AuthController {
         );
       }
 
+      // Check organization status for non-admin users
+      if (user.role !== "admin" && user.organizationId) {
+        const org: any = user.organizationId;
+        if (!org.isActive || (org.status && org.status !== "active")) {
+          return next(
+            new AppError(
+              "Account organization is inactive, suspended, or pending approval. Please contact HoneyChain administration",
+              403
+            )
+          );
+        }
+      }
+
       // Verify password
       const isMatch = await user.comparePassword(password);
       if (!isMatch) {
@@ -85,6 +98,7 @@ export class AuthController {
           name: user.name,
           email: user.email,
           role: user.role,
+          isOrgAdmin: user.isOrgAdmin,
           organization: user.organizationId,
           walletAddress,
         },
@@ -118,6 +132,7 @@ export class AuthController {
           name: req.user.name,
           email: req.user.email,
           role: req.user.role,
+          isOrgAdmin: req.user.isOrgAdmin,
           organization: req.user.organizationId,
           walletAddress,
           createdAt: req.user.createdAt,
@@ -228,6 +243,42 @@ export class AuthController {
       return res.status(200).json({
         success: true,
         wallets,
+        data: wallets,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * POST /api/auth/activate
+   * Public: Activates provisioned Organization Admin account with their chosen password.
+   */
+  public activateAccount = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { token, password } = req.body;
+      const { user, authToken } = await authService.activateAccount(token, password);
+
+      res.cookie("token", authToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as any,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Account activated successfully. Password has been set.",
+        token: authToken,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          isOrgAdmin: user.isOrgAdmin,
+          organization: user.organizationId,
+          isActive: user.isActive,
+        },
       });
     } catch (err) {
       return next(err);

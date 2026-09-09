@@ -2,15 +2,22 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import batchRoutes from "./routes/batch.routes.js";
 import verifyRoutes from "./routes/verify.routes.js";
 import iotRoutes from "./routes/iot.routes.js";
 import mlRoutes from "./routes/ml.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import organizationRoutes from "./routes/organization.routes.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import AppError from "./utils/AppError.js";
 
 import { env } from "./config/env.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const UPLOADS_DIR = path.resolve(__dirname, "../uploads");
 
 const app = express();
 
@@ -99,10 +106,14 @@ app.get("/", (req, res) => {
 
 // Mount Operational & Provenance Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/organizations", organizationRoutes);
 app.use("/api/batches", batchRoutes);
 app.use("/api/verify", verifyRoutes);
 app.use("/api/iot", iotRoutes);
 app.use("/api/ml", mlRoutes);
+
+// Static serving for uploaded verification documents (PDFs)
+app.use("/uploads", express.static(UPLOADS_DIR));
 
 // Dedicated Consumer QR Verification Route
 app.get(["/verify", "/verify/:batchId"], (req, res) => {

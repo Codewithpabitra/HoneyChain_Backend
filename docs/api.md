@@ -54,8 +54,21 @@ Handled centrally by `backend/src/middlewares/errorHandler.ts`:
 | **Auth** | `POST` | `/api/auth/login` | Public | Authenticate with email/password; returns JWT |
 | **Auth** | `GET` | `/api/auth/me` | Authenticated | Retrieve authenticated caller profile & role wallet |
 | **Auth** | `POST` | `/api/auth/logout` | Public | Terminate session & clear cookies |
+| **Auth** | `POST` | `/api/auth/activate` | Public (Token) | Activate Organization Admin account & set password |
 | **Auth** | `POST` | `/api/auth/users` | Admin | Create new application user with designated role |
 | **Auth** | `GET` | `/api/auth/wallets` | Public | Get public addresses for all 5 stakeholder wallets |
+| **Organizations** | `POST` | `/api/organizations/apply` | Public | Submit organization registration application (PENDING) |
+| **Organizations** | `POST` | `/api/organizations/upload-doc` | Public | Upload optional supporting PDF document |
+| **Organizations** | `GET` | `/api/organizations/applications` | Admin | List pending/filtered organization applications |
+| **Organizations** | `GET` | `/api/organizations/applications/:id` | Admin | Retrieve detailed application by id |
+| **Organizations** | `POST` | `/api/organizations/applications/:id/approve` | Admin | Approve application, activate Org & Admin, assign wallet |
+| **Organizations** | `POST` | `/api/organizations/applications/:id/reject` | Admin | Reject application with mandatory reason |
+| **Organizations** | `GET` | `/api/organizations/my` | Authenticated | View current user's organization profile |
+| **Organizations** | `GET` | `/api/organizations/my/members` | Org Admin/Admin | List members of caller's organization |
+| **Organizations** | `POST` | `/api/organizations/my/members` | Org Admin/Admin | Add member to organization (tenant isolated) |
+| **Organizations** | `PATCH` | `/api/organizations/my/members/:userId/status` | Org Admin/Admin | Activate/deactivate organization member |
+| **Organizations** | `GET` | `/api/organizations` | Admin | List all registered organizations |
+| **Organizations** | `PATCH` | `/api/organizations/:id/status` | Admin | Suspend or activate an organization |
 | **Batches** | `POST` | `/api/batches` | Beekeeper | Register new harvest batch (On-Chain + DB) |
 | **Batches** | `POST` | `/api/batches/:batchId/quality` | Laboratory | Submit quality test & grade (On-Chain + DB) |
 | **Batches** | `POST` | `/api/batches/:batchId/transfer` | Custodian | Transfer custody (Beekeeper, Processor, Transporter) |
@@ -230,7 +243,40 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
-### 4.4 Admin User Provisioning
+### 4.4 Account Activation
+- **Route**: `POST /api/auth/activate`
+- **Access**: Public (Token-authorized)
+- **Description**: Activates a newly approved Organization Admin account using the secure one-time activation token issued upon HoneyChain Admin approval. Sets the admin's initial password, sets `isActive = true`, and returns an authentication JWT.
+
+#### Request Body
+```json
+{
+  "token": "4f8a1bc7e2d9483c10a56e7f82b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+  "password": "SecurePassword123!"
+}
+```
+
+#### Example Response (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Account activated successfully. Password has been set.",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "66dd901b...",
+    "name": "Rajesh Kumar",
+    "email": "rajesh.admin@sundarbans.org",
+    "role": "beekeeper",
+    "isOrgAdmin": true,
+    "organization": "66dd901a...",
+    "isActive": true
+  }
+}
+```
+
+---
+
+### 4.5 Admin User Provisioning
 - **Route**: `POST /api/auth/users`
 - **Access**: Admin Role (`authorize("admin")`)
 - **Description**: Creates a new application user with a designated role. Non-admin users are strictly forbidden from assigning roles.
@@ -315,9 +361,195 @@ Content-Type: application/json
 
 ---
 
-## 5. Batch & Provenance Endpoints (`/api/batches`)
+## 5. Organization Onboarding & Governance Endpoints (`/api/organizations`)
 
-### 4.1 Register Honey Batch
+HoneyChain implements decentralized, organization-based onboarding. Public entities cannot directly register standalone user accounts; they must submit a registration application which undergoes verification by a HoneyChain Administrator.
+
+### 5.1 Public Organization Application Submission
+- **Route**: `POST /api/organizations/apply`
+- **Access**: Public
+- **Description**: Submits an application to register a new stakeholder organization. The application begins in `PENDING` status. Public users cannot apply for the platform `admin` role.
+
+#### Request Body
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `organizationName` | string | **Required** | Registered legal/trading name of the organization. |
+| `role` | string | **Required** | One of: `"beekeeper"`, `"processor"`, `"lab"`, `"transporter"`, `"auditor"`. |
+| `registrationNumber` | string | Optional | Business/government/FSSAI registration code. |
+| `contactEmail` | string | **Required** | Official organization contact email. |
+| `contactPhone` | string | Optional | Contact telephone number. |
+| `address` | string | Optional | Physical apiary/plant/office address. |
+| `adminName` | string | **Required** | Full name of the designated Organization Administrator. |
+| `adminEmail` | string | **Required** | Login email for the initial Organization Administrator. |
+| `documents` | array | Optional | Array of supporting document objects (`name`, `url`, `fileType`). |
+
+> [!NOTE]
+> Passwords are **not** collected during public application submission. Upon HoneyChain Admin approval, a secure activation token is generated for the designated administrator to set their password via `POST /api/auth/activate`.
+
+#### Example Request Body
+```json
+{
+  "organizationName": "Sundarbans Apiary Cooperative",
+  "organizationType": "beekeeper",
+  "registrationNumber": "WB-COOP-2026-091",
+  "contactEmail": "info@sundarbans.org",
+  "contactPhone": "+91 98300 11223",
+  "address": "Canning Delta Hub, South 24 Parganas, West Bengal",
+  "adminName": "Rajesh Kumar",
+  "adminEmail": "rajesh.admin@sundarbans.org",
+  "documents": [
+    {
+      "name": "State_Cooperative_Registration.pdf",
+      "url": "/uploads/doc-1725890000000-reg.pdf",
+      "fileType": "application/pdf"
+    }
+  ]
+}
+```
+
+#### Example Response (`201 Created`)
+```json
+{
+  "success": true,
+  "message": "Organization registration application submitted successfully. A HoneyChain Administrator will review your application.",
+  "data": {
+    "applicationId": "APP-ORG-1725890000000-8472",
+    "organizationName": "Sundarbans Apiary Cooperative",
+    "organizationType": "beekeeper",
+    "role": "beekeeper",
+    "status": "PENDING",
+    "adminEmail": "rajesh.admin@sundarbans.org",
+    "createdAt": "2026-09-09T14:00:00.000Z"
+  }
+}
+```
+
+---
+
+### 5.2 Upload Supporting Document
+- **Route**: `POST /api/organizations/upload-doc`
+- **Access**: Public (Requires pending application ID)
+- **Description**: Accepts base64-encoded PDF documents, validates PDF magic bytes (`%PDF-`), enforces a 10MB size limit, saves to local storage, and securely attaches the document record to the designated pending application.
+
+#### Request Body
+```json
+{
+  "applicationId": "APP-ORG-1725890000000-8472",
+  "fileName": "FSSAI_License.pdf",
+  "fileData": "JVBERi0xLjQKJeLjz9MK..."
+}
+```
+
+#### Example Response (`201 Created`)
+```json
+{
+  "success": true,
+  "message": "Document uploaded and attached successfully",
+  "applicationId": "APP-ORG-1725890000000-8472",
+  "document": {
+    "name": "FSSAI_License.pdf",
+    "url": "/uploads/doc-1725890000000-9812-FSSAI_License.pdf",
+    "fileType": "application/pdf",
+    "sizeBytes": 1048576,
+    "uploadedAt": "2026-09-09T14:00:00.000Z"
+  }
+}
+```
+
+---
+
+### 5.3 List Organization Applications
+- **Route**: `GET /api/organizations/applications`
+- **Access**: Admin Role (`authorize("admin")`)
+- **Query Parameters**:
+  - `status` (string, optional): Filter by `"PENDING"`, `"APPROVED"`, or `"REJECTED"`.
+  - `page` (number, default: 1): Pagination page number.
+  - `limit` (number, default: 20): Results per page.
+
+---
+
+### 5.4 Approve Organization Application
+- **Route**: `POST /api/organizations/applications/:id/approve`
+- **Access**: Admin Role (`authorize("admin")`)
+- **Description**: Atomically activates the organization, generates a unique Ethereum blockchain identity (with private key encrypted using AES-256-GCM and never exposed), provisions the initial Organization Admin user with `isOrgAdmin: true` and `isActive: false`, issues a 7-day secure activation token, and marks the application `APPROVED` with auditor metadata.
+
+#### Example Response (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Organization 'Sundarbans Apiary Cooperative' approved successfully with blockchain identity assigned",
+  "data": {
+    "application": {
+      "applicationId": "APP-ORG-1725890000000-8472",
+      "status": "APPROVED",
+      "approvedAt": "2026-09-09T14:15:00.000Z"
+    },
+    "organization": {
+      "_id": "66dd901a...",
+      "name": "Sundarbans Apiary Cooperative",
+      "organizationType": "beekeeper",
+      "role": "beekeeper",
+      "walletAddress": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+      "status": "active",
+      "isActive": true
+    },
+    "adminUser": {
+      "_id": "66dd901b...",
+      "name": "Rajesh Kumar",
+      "email": "rajesh.admin@sundarbans.org",
+      "role": "beekeeper",
+      "isOrgAdmin": true,
+      "isActive": false
+    },
+    "activationToken": "4f8a1bc7e2d9483c10a56e7f82b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+    "activation": {
+      "activationToken": "4f8a1bc7e2d9483c10a56e7f82b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+      "expiresAt": "2026-09-16T14:15:00.000Z",
+      "activationUrl": "/auth/activate?token=4f8a1bc7e2d9483c10a56e7f82b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1"
+    }
+  }
+}
+```
+
+---
+
+### 5.5 Reject Organization Application
+- **Route**: `POST /api/organizations/applications/:id/reject`
+- **Access**: Admin Role (`authorize("admin")`)
+- **Request Body**:
+```json
+{
+  "reason": "Missing state NABL honey testing accreditation certification."
+}
+```
+
+---
+
+### 5.6 View Caller Organization Profile
+- **Route**: `GET /api/organizations/my`
+- **Access**: Authenticated Member / Org Admin
+
+---
+
+### 5.7 Manage Organization Members
+- **Route**: `GET /api/organizations/my/members` — List members in caller's organization.
+- **Route**: `POST /api/organizations/my/members` — Add member to caller's organization.
+  - **Access**: Organization Admin (`isOrgAdmin: true`) or System Admin.
+  - **Tenant Isolation**: Organization Admins can only add members to their own organization. They cannot assign the `admin` role or create members for third-party organizations.
+- **Route**: `PATCH /api/organizations/my/members/:userId/status` — Activate or deactivate a member.
+  - Organization Admins cannot deactivate their own account or members of other organizations.
+
+---
+
+### 5.8 Organization Governance (Platform Admin)
+- **Route**: `GET /api/organizations` — System Admin lists all organizations.
+- **Route**: `PATCH /api/organizations/:id/status` — System Admin updates organization status (`"active"` or `"suspended"`). When suspended, members are automatically blocked from accessing protected HoneyChain operations.
+
+---
+
+## 6. Batch & Provenance Endpoints (`/api/batches`)
+
+### 6.1 Register Honey Batch
 - **Route**: `POST /api/batches`
 - **Access**: Beekeeper Role (Transaction signed by server-side `BEEKEEPER_PRIVATE_KEY`)
 - **Description**: 

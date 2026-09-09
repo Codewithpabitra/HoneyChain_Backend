@@ -8,12 +8,29 @@ export type OrganizationRole =
   | "transporter"
   | "auditor";
 
+export type OrganizationType =
+  | "beekeeper"
+  | "processor"
+  | "lab"
+  | "transporter"
+  | "auditor";
+
+export type OrganizationStatus = "pending" | "active" | "rejected" | "suspended";
+
 export interface IOrganization extends Document {
   _id: Types.ObjectId;
   name: string;
   role: OrganizationRole;
+  organizationType: OrganizationType;
   walletAddress: string;
+  encryptedPrivateKey?: string;
   isActive: boolean;
+  status: OrganizationStatus;
+  applicationId?: Types.ObjectId;
+  adminUserId?: Types.ObjectId;
+  approvedBy?: Types.ObjectId;
+  approvedAt?: Date;
+  rejectionReason?: string;
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
@@ -32,16 +49,52 @@ const OrganizationSchema = new Schema<IOrganization>(
       required: [true, "Organization role/type is required"],
       index: true,
     },
+    organizationType: {
+      type: String,
+      enum: ["beekeeper", "processor", "lab", "transporter", "auditor"],
+      index: true,
+    },
     walletAddress: {
       type: String,
       required: [true, "Wallet address is required"],
       trim: true,
       lowercase: true,
+      unique: true,
       index: true,
+    },
+    encryptedPrivateKey: {
+      type: String,
+      select: false,
     },
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "active", "rejected", "suspended"],
+      default: "active",
+      index: true,
+    },
+    applicationId: {
+      type: Schema.Types.ObjectId,
+      ref: "OrganizationApplication",
+    },
+    adminUserId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+    approvedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+    approvedAt: {
+      type: Date,
+    },
+    rejectionReason: {
+      type: String,
+      trim: true,
     },
     metadata: {
       type: Schema.Types.Mixed,
@@ -50,6 +103,13 @@ const OrganizationSchema = new Schema<IOrganization>(
   },
   {
     timestamps: true,
+    toJSON: {
+      transform(_doc, ret: any) {
+        delete ret.encryptedPrivateKey;
+        delete ret.__v;
+        return ret;
+      },
+    },
   }
 );
 

@@ -11,7 +11,8 @@
     "demo": "tsx src/scripts/demoRehearsal.ts",
     "seed": "tsx src/scripts/seed.ts",
     "seed:users": "tsx src/scripts/seedUsers.ts",
-    "seed:batches": "tsx src/scripts/seedDemoBatches.ts"
+    "seed:batches": "tsx src/scripts/seedDemoBatches.ts",
+    "migrate:orgs": "tsx src/scripts/migrateOrgApplications.ts"
   },
   "repository": {
     "type": "git",

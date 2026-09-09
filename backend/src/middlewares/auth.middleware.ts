@@ -78,7 +78,20 @@ export const authenticate = async (
       );
     }
 
-    // 5. Attach user context to request
+    // 5. Check organization status for organization users
+    if (user.role !== "admin" && user.organizationId) {
+      const org: any = user.organizationId;
+      if (!org.isActive || (org.status && org.status !== "active")) {
+        return next(
+          new AppError(
+            "Access denied: Your organization is inactive, suspended, or pending approval",
+            403
+          )
+        );
+      }
+    }
+
+    // 6. Attach user context to request
     req.user = user;
     req.userId = user._id.toString();
     req.userRole = user.role;
@@ -87,6 +100,33 @@ export const authenticate = async (
   } catch (err) {
     next(err);
   }
+};
+
+/**
+ * Middleware: Requires caller to be an Organization Administrator or HoneyChain Platform Admin.
+ */
+export const requireOrgAdmin = (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) => {
+  if (!req.user) {
+    return next(new AppError("Authentication required before authorization check", 401));
+  }
+
+  // Platform Admin has superuser privileges
+  if (req.user.role === "admin") {
+    return next();
+  }
+
+  // Organization Admin
+  if (req.user.isOrgAdmin) {
+    return next();
+  }
+
+  return next(
+    new AppError("Access denied: Organization Administrator privileges required", 403)
+  );
 };
 
 /**
@@ -124,4 +164,5 @@ export const authorize = (...allowedRoles: string[]) => {
   };
 };
 
-export default { authenticate, authorize };
+export default { authenticate, authorize, requireOrgAdmin };
+

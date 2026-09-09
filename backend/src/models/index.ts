@@ -11,4 +11,5 @@ export type {
 } from "./Batch.js";
 export * from "./AIPrediction.js";
 export * from "./Organization.js";
+export * from "./OrganizationApplication.js";
 export * from "./User.js";

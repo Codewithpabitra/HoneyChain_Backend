@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { env } from "../config/env.js";
-import { IUser } from "../models/User.js";
+import { User, IUser } from "../models/User.js";
 import AppError from "../utils/AppError.js";
 
 export interface TokenPayload {
@@ -66,7 +66,43 @@ export class AuthService {
   public async comparePassword(password: string, hash: string): Promise<boolean> {
     return bcrypt.compare(password, hash);
   }
+
+  /**
+   * Activates a newly approved organization admin account using a secure activation token.
+   * Sets initial password and returns a session token.
+   */
+  public async activateAccount(
+    token: string,
+    newPassword: string
+  ): Promise<{ user: IUser; authToken: string }> {
+    if (!token || typeof token !== "string" || !token.trim()) {
+      throw new AppError("Activation token is required", 400);
+    }
+    if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+      throw new AppError("Password must be at least 6 characters long", 400);
+    }
+
+    const user = await User.findOne({
+      activationToken: token.trim(),
+      activationExpires: { $gt: new Date() },
+    }).select("+activationToken +activationExpires +passwordHash");
+
+    if (!user) {
+      throw new AppError("Invalid or expired activation token", 400);
+    }
+
+    const passwordHash = await this.hashPassword(newPassword);
+    user.passwordHash = passwordHash;
+    user.isActive = true;
+    user.activationToken = undefined;
+    user.activationExpires = undefined;
+    await user.save();
+
+    const authToken = this.generateToken(user);
+    return { user, authToken };
+  }
 }
 
 export const authService = new AuthService();
 export default authService;
+

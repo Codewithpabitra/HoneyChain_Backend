@@ -165,6 +165,45 @@ export class BlockchainService {
   }
 
   /**
+   * Generates a unique Ethereum wallet identity for an approved organization.
+   * Encrypts the private key using AES-256-GCM so it is never stored in plaintext.
+   */
+  public createUniqueOrganizationWallet(): { address: string; encryptedPrivateKey: string } {
+    const wallet = ethers.Wallet.createRandom();
+    const secretKey = crypto.createHash("sha256").update(env.JWT_SECRET).digest();
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv("aes-256-gcm", secretKey, iv);
+    let encrypted = cipher.update(wallet.privateKey, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    const authTag = cipher.getAuthTag().toString("hex");
+    const encryptedPrivateKey = `${iv.toString("hex")}:${authTag}:${encrypted}`;
+
+    return {
+      address: wallet.address,
+      encryptedPrivateKey,
+    };
+  }
+
+  /**
+   * Decrypts an organization's encrypted private key for server-side signing.
+   */
+  public decryptPrivateKey(encryptedPayload: string): string {
+    const parts = encryptedPayload.split(":");
+    if (parts.length !== 3) {
+      throw new AppError("Invalid encrypted private key format", 500);
+    }
+    const [ivHex, authTagHex, encryptedHex] = parts;
+    const secretKey = crypto.createHash("sha256").update(env.JWT_SECRET).digest();
+    const iv = Buffer.from(ivHex, "hex");
+    const authTag = Buffer.from(authTagHex, "hex");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", secretKey, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encryptedHex, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  }
+
+  /**
    * Gets the public Ethereum address for a given stakeholder role without exposing private keys.
    */
   public getWalletAddressForRole(role: RoleName | string): string {

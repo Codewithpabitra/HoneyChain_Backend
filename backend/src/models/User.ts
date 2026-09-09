@@ -13,10 +13,13 @@ export interface IUser extends Document {
   _id: Types.ObjectId;
   name: string;
   email: string;
-  passwordHash: string;
+  passwordHash?: string;
   role: UserRole;
   organizationId?: Types.ObjectId;
+  isOrgAdmin: boolean;
   isActive: boolean;
+  activationToken?: string;
+  activationExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -39,8 +42,17 @@ const UserSchema = new Schema<IUser>(
     },
     passwordHash: {
       type: String,
-      required: [true, "Password hash is required"],
+      required: false,
       select: false, // Omit from queries by default for security
+    },
+    activationToken: {
+      type: String,
+      select: false,
+      index: true,
+    },
+    activationExpires: {
+      type: Date,
+      select: false,
     },
     role: {
       type: String,
@@ -54,6 +66,11 @@ const UserSchema = new Schema<IUser>(
       required: false,
       index: true,
     },
+    isOrgAdmin: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -65,6 +82,8 @@ const UserSchema = new Schema<IUser>(
     toJSON: {
       transform(_doc, ret: any) {
         delete ret.passwordHash;
+        delete ret.activationToken;
+        delete ret.activationExpires;
         delete ret.__v;
         return ret;
       },
@@ -73,6 +92,7 @@ const UserSchema = new Schema<IUser>(
 );
 
 UserSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+  if (!this.passwordHash || !candidatePassword) return false;
   return bcrypt.compare(candidatePassword, this.passwordHash);
 };
 

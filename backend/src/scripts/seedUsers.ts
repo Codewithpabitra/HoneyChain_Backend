@@ -62,6 +62,7 @@ export async function seedDemoUsers(): Promise<DemoUserSeedResult[]> {
         role: orgDef.role,
         walletAddress: orgDef.walletAddress.toLowerCase(),
         isActive: true,
+        status: "active",
       },
       { upsert: true, new: true }
     );
@@ -79,36 +80,42 @@ export async function seedDemoUsers(): Promise<DemoUserSeedResult[]> {
       email: "admin@honeychain.org",
       role: "admin" as const,
       organizationId: orgMap["admin"]._id,
+      isOrgAdmin: false,
     },
     {
       name: "Rajesh Kumar (Beekeeper)",
       email: "beekeeper@honeychain.org",
       role: "beekeeper" as const,
       organizationId: orgMap["beekeeper"]._id,
+      isOrgAdmin: true,
     },
     {
       name: "Dr. Ananya Sen (Laboratory Analyst)",
       email: "lab@honeychain.org",
       role: "lab" as const,
       organizationId: orgMap["lab"]._id,
+      isOrgAdmin: true,
     },
     {
       name: "Vikram Patel (Processing Plant Lead)",
       email: "processor@honeychain.org",
       role: "processor" as const,
       organizationId: orgMap["processor"]._id,
+      isOrgAdmin: true,
     },
     {
       name: "Gurpreet Singh (Transporter)",
       email: "transporter@honeychain.org",
       role: "transporter" as const,
       organizationId: orgMap["transporter"]._id,
+      isOrgAdmin: true,
     },
     {
       name: "Priya Sharma (State Honey Auditor)",
       email: "auditor@honeychain.org",
       role: "auditor" as const,
       organizationId: orgMap["auditor"]._id,
+      isOrgAdmin: true,
     },
   ];
 
@@ -123,10 +130,17 @@ export async function seedDemoUsers(): Promise<DemoUserSeedResult[]> {
         passwordHash,
         role: userDef.role,
         organizationId: userDef.organizationId,
+        isOrgAdmin: userDef.isOrgAdmin,
         isActive: true,
       },
       { upsert: true, new: true }
     );
+
+    // Link admin user to organization
+    if (userDef.isOrgAdmin && orgMap[userDef.role]) {
+      orgMap[userDef.role].adminUserId = user._id;
+      await orgMap[userDef.role].save();
+    }
 
     const wallet = orgMap[userDef.role]?.walletAddress || "N/A";
     const orgName = orgMap[userDef.role]?.name || "Independent";

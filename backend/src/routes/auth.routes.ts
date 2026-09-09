@@ -7,6 +7,7 @@ const router = Router();
 // Public authentication routes
 router.post("/login", authController.login);
 router.post("/logout", authController.logout);
+router.post("/activate", authController.activateAccount);
 router.get("/wallets", authController.getStakeholderWallets);
 
 // Authenticated session profile
