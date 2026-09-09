@@ -46,7 +46,11 @@ const envSchema = z.object({
   IOT_TARGET_URL: z.string().optional(),
   IOT_INTERVAL_MS: z.string().optional(),
 
-  // Public Base URL for Consumer QR Verification (e.g. https://your-service.onrender.com or http://localhost:5000)
+  // Frontend URL / CORS Origin (for separate frontend service, e.g. https://honeychain-frontend.onrender.com or http://localhost:3000)
+  FRONTEND_URL: z.string().optional(),
+  CORS_ORIGIN: z.string().optional(),
+
+  // Public Base URL for Consumer QR Verification (e.g. https://honeychain-frontend.onrender.com or http://localhost:3000)
   PUBLIC_BASE_URL: z.string().optional(),
 
   // Independent Python ML Inference Microservice (HTTPS in production, localhost in development)
@@ -68,7 +72,8 @@ export const env = {
   LABORATORY_PRIVATE_KEY: parsed.data.LABORATORY_PRIVATE_KEY || parsed.data.LAB_PRIVATE_KEY,
   TRANSPORTER_PRIVATE_KEY: parsed.data.TRANSPORTER_PRIVATE_KEY || parsed.data.DISTRIBUTOR_PRIVATE_KEY,
   DISTRIBUTOR_PRIVATE_KEY: parsed.data.DISTRIBUTOR_PRIVATE_KEY || parsed.data.TRANSPORTER_PRIVATE_KEY,
+  FRONTEND_URL: parsed.data.FRONTEND_URL || parsed.data.CORS_ORIGIN,
   PUBLIC_BASE_URL: parsed.data.PUBLIC_BASE_URL
     ? parsed.data.PUBLIC_BASE_URL.replace(/\/+$/, "")
-    : undefined,
+    : (parsed.data.FRONTEND_URL ? parsed.data.FRONTEND_URL.split(",")[0].trim().replace(/\/+$/, "") : undefined),
 };

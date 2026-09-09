@@ -3,12 +3,12 @@ import type { CreateBatchPayload } from "@/types/batch";
 
 export const batchService = {
   async create(data: CreateBatchPayload) {
-    const response = await api.post("/batches", data);
+    const response = await api.post("/api/batches", data);
     return response.data;
   },
 
   async generateQR(batchId: string) {
-    const response = await api.get(`/batches/${batchId}/qr`);
+    const response = await api.get(`/api/batches/${encodeURIComponent(batchId)}/qr`);
     return response.data;
   },
 
@@ -21,7 +21,7 @@ export const batchService = {
     },
   ) {
     const response = await api.post(
-      `/batches/${batchId}/transfer`,
+      `/api/batches/${encodeURIComponent(batchId)}/transfer`,
       data,
     );
     return response.data;
@@ -35,7 +35,7 @@ export const batchService = {
     },
   ) {
     const response = await api.post(
-      `/batches/${batchId}/recall`,
+      `/api/batches/${encodeURIComponent(batchId)}/recall`,
       data,
     );
     return response.data;

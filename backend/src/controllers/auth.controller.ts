@@ -68,11 +68,11 @@ export class AuthController {
         walletAddress = undefined;
       }
 
-      // Set cookie for browser clients
+      // Set cookie for browser clients (sameSite 'none' with secure in production enables cross-domain auth)
       res.cookie("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
 
@@ -134,8 +134,13 @@ export class AuthController {
    */
   public logout = async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      res.clearCookie("token");
-      res.clearCookie("jwt");
+      const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as any,
+      };
+      res.clearCookie("token", cookieOptions);
+      res.clearCookie("jwt", cookieOptions);
       return res.status(200).json({
         success: true,
         message: "Logged out successfully",

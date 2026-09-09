@@ -193,52 +193,78 @@ HoneyChain deploys as a **single unified server** (Express backend). The backend
   - On Render: Set `IOT_TARGET_URL=https://<your-service-name>.onrender.com`.
 - `IOT_INTERVAL_MS` *(optional)*: Telemetry transmission interval in milliseconds (defaults to `600000` / 10 minutes; can be set to `5000` or `10000` for rapid testing).
 
-### 8.3 Render Deployment Runbook (Copy-Paste Settings)
+### 8.3 Render Deployment Runbook (Separate Backend & Frontend Services)
 
-#### Step 1: Create Web Service
+HoneyChain is deployed as **two independent Render Web Services** from this same GitHub repository.
+
+---
+
+#### Service 1: Backend API (`honeychain-backend`)
+
 In your [Render Dashboard](https://dashboard.render.com/):
 1. Click **New +** → **Web Service**.
-2. Select **Build and deploy from a Git repository**.
-3. Choose your repository: `Codewithpabitra/HoneyChain_Backend`.
+2. Select your repository: `Codewithpabitra/HoneyChain_Backend`.
+3. Configure parameters:
+   | Setting | Value to Enter |
+   |---|---|
+   | **Name** | `honeychain-backend` |
+   | **Region** | Closest region (e.g. Frankfurt, Singapore, Ohio) |
+   | **Branch** | `main` |
+   | **Root Directory** | `backend` |
+   | **Runtime** | `Node` |
+   | **Build Command** | `npm install && npm run build` |
+   | **Start Command** | `npm start` |
+   | **Instance Type** | Free or Starter |
+   | **Health Check Path** | `/health` |
 
-#### Step 2: Configure Service Parameters
-| Setting | Value to Enter |
-|---|---|
-| **Name** | `honeychain-backend` (or your preferred name) |
-| **Region** | Select closest region (e.g. Frankfurt, Singapore, Ohio) |
-| **Branch** | `main` |
-| **Root Directory** | `backend` |
-| **Runtime** | `Node` |
-| **Build Command** | `npm install && npm run build:all` |
-| **Start Command** | `npm start` |
-| **Instance Type** | Free or Starter |
-| **Health Check Path** | `/health` |
+4. Add Backend Environment Variables:
+   | Key | Value to Paste | Description |
+   |---|---|---|
+   | `NODE_ENV` | `production` | Production mode |
+   | `PORT` | `10000` | Port injected by Render |
+   | `MONGO_URI` | *(MongoDB Atlas Connection String)* | Database URI |
+   | `SEPOLIA_RPC_URL` | `https://ethereum-sepolia-rpc.publicnode.com` | Sepolia RPC |
+   | `CONTRACT_ADDRESS` | `0x65afF3B44441FfF68171a9a0AA28063BC83C208d` | Sepolia smart contract |
+   | `DEPLOYER_PRIVATE_KEY` | *(Deployer Key)* | Testnet wallet |
+   | `BEEKEEPER_PRIVATE_KEY` | *(Beekeeper Key)* | Testnet wallet |
+   | `LABORATORY_PRIVATE_KEY`| *(Laboratory Key)* | Testnet wallet |
+   | `PROCESSOR_PRIVATE_KEY` | *(Processor Key)* | Testnet wallet |
+   | `DISTRIBUTOR_PRIVATE_KEY`| *(Distributor Key)* | Testnet wallet |
+   | `AUDITOR_PRIVATE_KEY`   | *(Auditor Key)* | Testnet wallet |
+   | `FRONTEND_URL`          | `https://honeychain-frontend.onrender.com` | **Frontend URL for CORS & cookies** |
+   | `PUBLIC_BASE_URL`       | `https://honeychain-frontend.onrender.com` | **Frontend verification URL for QR codes** |
+   | `ML_SERVICE_URL`        | `https://honeychain-ml.onrender.com` | Optional ML microservice |
 
-#### Step 3: Environment Variables Table
-Add these key-value pairs in the **Environment Variables** section on Render:
+---
 
-| Key | Value to Paste | Source in Local Files |
-|---|---|---|
-| `NODE_ENV` | `production` | (Hardcode) |
-| `PORT` | `10000` | (Hardcode) |
-| `MONGO_URI` | *(Your MongoDB Atlas URI)* | Copy from `backend/.env` |
-| `SEPOLIA_RPC_URL` | `https://ethereum-sepolia-rpc.publicnode.com` | Sepolia RPC endpoint |
-| `CONTRACT_ADDRESS` | `0x65afF3B44441FfF68171a9a0AA28063BC83C208d` | Sepolia contract address |
-| `DEPLOYER_PRIVATE_KEY` *(or `ADMIN_PRIVATE_KEY`)* | *(Paste Deployer key)* | Copy `DEPLOYER_PRIVATE_KEY` from `blockchain/.env` |
-| `BEEKEEPER_PRIVATE_KEY` | *(Paste Beekeeper key)* | Copy `BEEKEEPER_PRIVATE_KEY` from `blockchain/.env` |
-| `LABORATORY_PRIVATE_KEY` *(or `LAB_PRIVATE_KEY`)* | *(Paste Laboratory key)* | Copy `LABORATORY_PRIVATE_KEY` from `blockchain/.env` |
-| `PROCESSOR_PRIVATE_KEY` | *(Paste Processor key)* | Copy `PROCESSOR_PRIVATE_KEY` from `blockchain/.env` |
-| `DISTRIBUTOR_PRIVATE_KEY` | *(Paste Distributor key)* | Copy `DISTRIBUTOR_PRIVATE_KEY` from `blockchain/.env` |
-| `AUDITOR_PRIVATE_KEY` | *(Paste Auditor key)* | Copy `AUDITOR_PRIVATE_KEY` from `blockchain/.env` |
-| `IOT_TARGET_URL` | `https://<your-service-name>.onrender.com` | **Set to your Render URL after creation** |
-| `IOT_INTERVAL_MS` | `600000` | 10 minutes interval (or `10000` for fast testing) |
-| `PUBLIC_BASE_URL` | `https://<your-service-name>.onrender.com` | **Set to your Render URL for jar QR verification** |
+#### Service 2: Frontend Web App (`honeychain-frontend`)
+
+In your [Render Dashboard](https://dashboard.render.com/):
+1. Click **New +** → **Web Service**.
+2. Select the same repository: `Codewithpabitra/HoneyChain_Backend`.
+3. Configure parameters:
+   | Setting | Value to Enter |
+   |---|---|
+   | **Name** | `honeychain-frontend` |
+   | **Region** | Same region as backend |
+   | **Branch** | `main` |
+   | **Root Directory** | `frontend` |
+   | **Runtime** | `Node` |
+   | **Build Command** | `npm install && npm run build` |
+   | **Start Command** | `npm start` |
+   | **Instance Type** | Free or Starter |
+
+4. Add Frontend Environment Variables:
+   | Key | Value to Paste | Description |
+   |---|---|---|
+   | `NODE_ENV` | `production` | Production mode |
+   | `NEXT_PUBLIC_API_URL` | `https://honeychain-backend.onrender.com` | **URL of your deployed backend service** |
 
 > [!TIP]
-> When initially creating the service, you can leave `IOT_TARGET_URL` and `PUBLIC_BASE_URL` blank. As soon as Render assigns your URL (e.g., `https://honeychain-backend-trag.onrender.com`), go to **Environment** tab on Render, set:
-> - `IOT_TARGET_URL=https://honeychain-backend-trag.onrender.com`
-> - `PUBLIC_BASE_URL=https://honeychain-backend-trag.onrender.com`
-> and click Save Changes. The backend will automatically restart, stream IoT data, and encode the live URL on all consumer QR codes!
+> **Order of Deployment**:
+> 1. Create the backend service first. Note the assigned URL (e.g. `https://honeychain-backend-trag.onrender.com`).
+> 2. Create the frontend service, setting `NEXT_PUBLIC_API_URL` to your backend URL. Note the assigned frontend URL (e.g. `https://honeychain-frontend-x7q9.onrender.com`).
+> 3. Go to the backend service **Environment** tab, set `FRONTEND_URL` and `PUBLIC_BASE_URL` to your frontend URL, and click **Save Changes**. Cross-origin CORS, cookies, and consumer QR codes will now bind seamlessly!
 
 ### 8.4 Standalone CLI Simulator (Optional)
 If you ever want to run an extra simulated gateway stream locally from the terminal:

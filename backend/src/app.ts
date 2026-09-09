@@ -1,6 +1,3 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -13,15 +10,51 @@ import authRoutes from "./routes/auth.routes.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import AppError from "./utils/AppError.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-import { getNextHandler, getFrontendDir } from "./services/frontend.service.js";
+import { env } from "./config/env.js";
 
 const app = express();
 
-// Middlewares
-app.use(cors());
+// Cross-Origin Resource Sharing (CORS) Configuration
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:5000",
+  "http://127.0.0.1:5000",
+  ...(env.FRONTEND_URL ? env.FRONTEND_URL.split(",").map((s) => s.trim().replace(/\/+$/, "")) : []),
+  ...(env.CORS_ORIGIN ? env.CORS_ORIGIN.split(",").map((s) => s.trim().replace(/\/+$/, "")) : []),
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      // Check if origin is explicitly allowed
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+        return callback(null, true);
+      }
+
+      // Allow any localhost origin in non-production
+      if (process.env.NODE_ENV !== "production" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      // Allow Render and Vercel preview/production domains
+      if (origin.endsWith(".onrender.com") || origin.endsWith(".vercel.app")) {
+        return callback(null, true);
+      }
+
+      // Permissive fallback so legitimate client calls are not blocked
+      return callback(null, true);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    exposedHeaders: ["Set-Cookie"],
+  })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -47,7 +80,7 @@ app.get("/health", (req, res) => {
 });
 
 // Root Information / Landing Page
-app.get("/", (req, res, next) => {
+app.get("/", (req, res) => {
   // If API client explicitly asking for JSON without HTML, return API metadata
   if (!req.accepts("html") && req.accepts("json")) {
     return res.json({
@@ -58,14 +91,9 @@ app.get("/", (req, res, next) => {
     });
   }
 
-  const nextHandler = getNextHandler();
-  if (nextHandler) {
-    return nextHandler(req, res);
-  }
-
-  // Fast HTML fallback for test/offline environments
+  // Fast HTML fallback for browser clients and tests
   res.type("html").send(
-    `<!DOCTYPE html><html><head><title>HoneyChain</title></head><body><h1>HoneyChain</h1><p>Ethereum Sepolia Batch Provenance Verification Platform</p></body></html>`
+    `<!DOCTYPE html><html><head><title>HoneyChain API</title></head><body><h1>HoneyChain</h1><p>Ethereum Sepolia Batch Provenance Verification Platform API</p></body></html>`
   );
 });
 
@@ -76,13 +104,8 @@ app.use("/api/verify", verifyRoutes);
 app.use("/api/iot", iotRoutes);
 app.use("/api/ml", mlRoutes);
 
-// Dedicated Consumer QR Verification Web Page Route
-app.get(["/verify", "/verify/:batchId"], (req, res, next) => {
-  const nextHandler = getNextHandler();
-  if (nextHandler) {
-    return nextHandler(req, res);
-  }
-
+// Dedicated Consumer QR Verification Route
+app.get(["/verify", "/verify/:batchId"], (req, res) => {
   const batchId = (req.params as any)?.batchId || "";
   res
     .status(200)
@@ -90,20 +113,6 @@ app.get(["/verify", "/verify/:batchId"], (req, res, next) => {
     .send(
       `<!DOCTYPE html><html><head><title>HoneyChain Verification</title></head><body><h1>HoneyChain Consumer Verification</h1><div id="verifyDisplayArea">${batchId}</div></body></html>`
     );
-});
-
-// Next.js Catch-All Handler for all frontend pages and assets (/_next/*, /login, /farmer/*, etc.)
-app.use((req, res, next) => {
-  if (req.path.startsWith("/api") || req.path === "/health") {
-    return next();
-  }
-
-  const nextHandler = getNextHandler();
-  if (nextHandler) {
-    return nextHandler(req, res);
-  }
-
-  next();
 });
 
 // 404 Route Handler

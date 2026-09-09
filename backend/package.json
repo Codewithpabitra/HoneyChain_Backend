@@ -6,8 +6,6 @@
   "scripts": {
     "dev": "nodemon",
     "build": "tsc && tsc-alias",
-    "build:frontend": "cd ../frontend && npm install --include=dev && npm run build",
-    "build:all": "npm run build && npm run build:frontend",
     "start": "node dist/server.js",
     "test": "mocha --node-option import=tsx src/tests/**/*.test.ts",
     "demo": "tsx src/scripts/demoRehearsal.ts",
