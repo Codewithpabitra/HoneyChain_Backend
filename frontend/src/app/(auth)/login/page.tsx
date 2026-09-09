@@ -8,8 +8,7 @@ import { ROLE_DASHBOARD_PATH } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 import Link from "next/link";
-import { IconArrowLeft, IconUserPlus } from "@tabler/icons-react";
-import { FEATURES } from "@/config/features";
+import { IconArrowLeft, IconBuildingCommunity } from "@tabler/icons-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,9 +26,10 @@ export default function LoginPage() {
     try {
       const user = await login(email, password);
       router.push(ROLE_DASHBOARD_PATH[user.role]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message =
-        err?.response?.data?.error?.message ??
+        (err as { response?: { data?: { error?: { message?: string } } } })
+          ?.response?.data?.error?.message ??
         "Couldn't sign you in. Check your email and password.";
       setError(message);
     } finally {
@@ -72,7 +72,7 @@ export default function LoginPage() {
             Sign in
           </h1>
           <p className="mt-1.5 text-sm text-ink/60 dark:text-ink-dark/60">
-            Beekeeper, lab, processor, or authority account.
+            Beekeeper, processor, lab, transporter, auditor, or administrator account.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -135,15 +135,18 @@ export default function LoginPage() {
             </button>
 
             <div className="mt-6 flex flex-col gap-3">
-              {FEATURES.register && (
+              <div className="space-y-2">
                 <Link
                   href="/register"
                   className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-black/3 text-sm font-medium text-ink transition hover:bg-black/6 dark:border-white/10 dark:bg-white/4 dark:text-ink-dark dark:hover:bg-white/8"
                 >
-                  <IconUserPlus size={17} stroke={1.8} />
-                  Create an account
+                  <IconBuildingCommunity size={17} stroke={1.8} />
+                  Register your organization
                 </Link>
-              )}
+                <p className="text-center text-xs text-ink/60 dark:text-ink-dark/60">
+                  Is your organization not yet part of HoneyChain? Submit an application for approval.
+                </p>
+              </div>
 
               <Link
                 href="/"

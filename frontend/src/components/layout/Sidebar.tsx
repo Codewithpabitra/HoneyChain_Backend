@@ -1,7 +1,5 @@
-"use client";
-
 import Link from "next/link";
-import { IconLogout } from "@tabler/icons-react";
+import { IconLogout, IconUsers } from "@tabler/icons-react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { ROLE_NAVIGATION } from "@/config/navigation";
@@ -13,9 +11,27 @@ interface SidebarProps {
 
 export default function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
-  const navigation = ROLE_NAVIGATION[role];
+  const baseNavigation = ROLE_NAVIGATION[role] || [];
+  const hasOrgMembersLink = baseNavigation.some((item) => item.href === "/organization/members");
+  const navigation = [
+    ...baseNavigation,
+    ...(user?.isOrgAdmin && !hasOrgMembersLink
+      ? [
+          {
+            label: "Org Members",
+            href: "/organization/members",
+            icon: IconUsers,
+          },
+        ]
+      : []),
+  ];
+
+  const orgName =
+    typeof user?.organization === "object"
+      ? user?.organization?.name
+      : undefined;
 
   return (
     <aside className="hidden w-64 shrink-0 border-r border-black/10 bg-white/60 p-5 backdrop-blur-xl dark:border-white/10 dark:bg-white/3 lg:flex lg:flex-col">
@@ -26,7 +42,13 @@ export default function Sidebar({ role }: SidebarProps) {
 
         <p className="mt-1 text-xs capitalize text-black/50 dark:text-white/50">
           {role}
+          {user?.isOrgAdmin ? " • Org Admin" : ""}
         </p>
+        {orgName && (
+          <p className="mt-0.5 truncate text-[11px] font-medium text-honey">
+            {orgName}
+          </p>
+        )}
       </div>
 
       <nav className="flex-1 space-y-1">

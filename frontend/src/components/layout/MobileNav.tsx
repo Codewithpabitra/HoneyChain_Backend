@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   IconLogout,
   IconMenu2,
+  IconUsers,
   IconX,
 } from "@tabler/icons-react";
 import { useState } from "react";
@@ -19,9 +20,23 @@ interface MobileNavProps {
 export default function MobileNav({ role }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
-  const navigation = ROLE_NAVIGATION[role];
+  const safeRole = role || "beekeeper";
+  const baseNavigation = ROLE_NAVIGATION[safeRole] || [];
+  const hasOrgMembersLink = baseNavigation.some((item) => item.href === "/organization/members");
+  const navigation = [
+    ...baseNavigation,
+    ...(user?.isOrgAdmin && !hasOrgMembersLink
+      ? [
+          {
+            label: "Org Members",
+            href: "/organization/members",
+            icon: IconUsers,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <>
