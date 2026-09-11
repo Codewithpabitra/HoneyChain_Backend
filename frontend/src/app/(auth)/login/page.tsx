@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 import Link from "next/link";
 import { IconArrowLeft, IconBuildingCommunity } from "@tabler/icons-react";
+import { BeeIcon } from "@/components/ui/BeeIcon";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,8 +43,11 @@ export default function LoginPage() {
       {/* Brand panel */}
       <div className="relative hidden overflow-hidden bg-comb px-16 py-14 text-paper lg:flex lg:flex-col lg:justify-between">
         <HexPattern />
-        <div className="relative z-10">
-          <span className="font-mono text-sm tracking-tight text-honey-light">
+        <div className="relative z-10 flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-honey/15 text-honey-light ring-1 ring-honey/30">
+            <BeeIcon size={20} />
+          </div>
+          <span className="font-mono text-sm font-semibold tracking-tight text-honey-light">
             HoneyChain
           </span>
         </div>
@@ -62,8 +66,11 @@ export default function LoginPage() {
       {/* Form panel */}
       <div className="flex items-center justify-center bg-paper px-6 py-12 dark:bg-paper-dark">
         <div className="w-full max-w-sm">
-          <div className="mb-10 lg:hidden">
-            <span className="font-mono text-sm tracking-tight text-honey">
+          <div className="mb-10 flex items-center gap-2.5 lg:hidden">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-honey/10 text-honey ring-1 ring-honey/25">
+              <BeeIcon size={20} />
+            </div>
+            <span className="font-mono text-sm font-semibold tracking-tight text-honey">
               HoneyChain
             </span>
           </div>
@@ -128,7 +135,7 @@ export default function LoginPage() {
               disabled={isSubmitting}
               className={cn(
                 "w-full rounded-md bg-honey px-4 py-2.5 text-sm font-medium text-comb transition-colors",
-                "hover:bg-honey-light disabled:cursor-not-allowed disabled:opacity-60",
+                "hover:bg-honey-light cursor-pointer disabled:cursor-not-allowed disabled:opacity-60",
               )}
             >
               {isSubmitting ? "Signing in…" : "Sign in"}

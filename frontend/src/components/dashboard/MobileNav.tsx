@@ -12,6 +12,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { ROLE_NAVIGATION } from "@/config/navigation";
 import type { Role } from "@/types/auth";
+import { BeeIcon } from "@/components/ui/BeeIcon";
 
 interface MobileNavProps {
   role: string;
@@ -97,9 +98,14 @@ export default function MobileNav({ role }: MobileNavProps) {
                 <Link
                   href="/"
                   onClick={() => setOpen(false)}
-                  className="text-xl font-bold"
+                  className="flex items-center gap-2.5 text-xl font-bold"
                 >
-                  Honey<span className="text-honey">Chain</span>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-honey/10 text-honey ring-1 ring-honey/20">
+                    <BeeIcon size={20} badge />
+                  </div>
+                  <span>
+                    Honey<span className="text-honey">Chain</span>
+                  </span>
                 </Link>
 
                 <button

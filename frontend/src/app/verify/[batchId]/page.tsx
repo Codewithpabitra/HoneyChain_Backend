@@ -13,6 +13,7 @@ import {
   IconShieldCheck,
   IconX,
 } from "@tabler/icons-react";
+import { BeeIcon } from "@/components/ui/BeeIcon";
 
 import TraceabilityTimeline from "@/components/traceability/TraceabilityTimeline";
 import { verificationService } from "@/services/verification.service";
@@ -182,7 +183,7 @@ export default function VerifyBatchPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-white/3">
               <div className="flex items-center gap-3">
-                <IconHexagon size={20} className="text-honey" />
+                <BeeIcon size={20} className="text-honey" />
 
                 <span className="text-sm font-medium">Floral Origin</span>
               </div>

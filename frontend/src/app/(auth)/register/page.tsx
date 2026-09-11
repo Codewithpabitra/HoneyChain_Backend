@@ -16,6 +16,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { organizationService } from "@/services/organization.service";
+import { BeeIcon } from "@/components/ui/BeeIcon";
 import type {
   OrganizationType,
   ProposedMember,
@@ -330,8 +331,11 @@ export default function RegisterOrganizationPage() {
       <div className="relative hidden overflow-hidden bg-comb px-16 py-14 text-paper lg:flex lg:flex-col lg:justify-between">
         <HexPattern />
 
-        <div className="relative z-10">
-          <span className="font-mono text-sm tracking-tight text-honey-light">
+        <div className="relative z-10 flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-honey/15 text-honey-light ring-1 ring-honey/30">
+            <BeeIcon size={20} />
+          </div>
+          <span className="font-mono text-sm font-semibold tracking-tight text-honey-light">
             HoneyChain
           </span>
         </div>
@@ -382,13 +386,24 @@ export default function RegisterOrganizationPage() {
             </Link>
           </div>
 
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold tracking-tight text-ink dark:text-ink-dark">
-              Register your organization
-            </h1>
-            <p className="mt-1.5 text-sm text-ink/60 dark:text-ink-dark/60">
-              Submit an application for HoneyChain network approval.
-            </p>
+          <div className="mb-8 flex items-start justify-between">
+            <div>
+              <div className="mb-3 flex items-center gap-2 lg:hidden">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-honey/10 text-honey ring-1 ring-honey/20">
+                  <BeeIcon size={18} />
+                </div>
+                <span className="font-mono text-sm font-semibold text-honey">HoneyChain</span>
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-ink dark:text-ink-dark">
+                Register your organization
+              </h1>
+              <p className="mt-1.5 text-sm text-ink/60 dark:text-ink-dark/60">
+                Submit an application for HoneyChain network approval.
+              </p>
+            </div>
+            <div className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-honey/10 text-honey ring-1 ring-honey/20">
+              <BeeIcon size={26} badge />
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -728,7 +743,7 @@ export default function RegisterOrganizationPage() {
               disabled={isSubmitting}
               className={cn(
                 "flex h-11 w-full items-center justify-center rounded-xl bg-honey px-4 text-sm font-semibold text-comb transition-colors",
-                "hover:bg-honey-light disabled:cursor-not-allowed disabled:opacity-60"
+                "hover:bg-honey-light cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               )}
             >
               {isSubmitting ? "Submitting application…" : "Submit Application"}

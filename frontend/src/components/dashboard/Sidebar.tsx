@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { ROLE_NAVIGATION } from "@/config/navigation";
 import type { Role } from "@/types/auth";
+import { BeeIcon } from "@/components/ui/BeeIcon";
 
 interface SidebarProps {
   role: string;
@@ -79,11 +80,16 @@ export default function Sidebar({ role }: SidebarProps) {
       <div>
         {/* Logo */}
         <div className="mb-8">
-          <Link href="/" className="text-xl font-bold tracking-tight">
-            Honey<span className="text-honey">Chain</span>
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-honey/10 text-honey ring-1 ring-honey/20 transition-transform group-hover:scale-105">
+              <BeeIcon size={22} badge />
+            </div>
+            <span className="text-xl font-bold tracking-tight">
+              Honey<span className="text-honey">Chain</span>
+            </span>
           </Link>
 
-          <p className="mt-1 text-xs capitalize text-black/50 dark:text-white/50">
+          <p className="mt-2 text-xs capitalize text-black/50 dark:text-white/50">
             {role}
             {user?.isOrgAdmin ? " • Org Admin" : ""}
           </p>
