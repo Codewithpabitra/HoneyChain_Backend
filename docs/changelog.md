@@ -32,7 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Historical telemetry retrieval supporting `raw` and `hourly` resolution aggregations.
   - Device status endpoint reporting online/offline state, battery percentage, last ping, and current metrics.
 - **Dashboard & Regional Cluster Analytics (`/api/analytics/dashboard`, `/api/analytics/clusters`)**:
-  - Real-time MongoDB aggregation pipelines tailored by user role (Beekeeper, Lab, Processor, Transporter, Auditor, Admin).
+  - Real-time MongoDB aggregation pipelines tailored by user role (Beekeeper, Lab, Processor, Distributor, Auditor, Admin).
   - Apiary geographic clustering grouping by region with calculated centroid coordinates (`avgLatitude`, `avgLongitude`), hive coverage, and farmer counts.
 - **Storage Abstraction Service (`backend/src/services/storage.service.ts`)**:
   - PDF verification, SHA-256 digest computation, and dual-backend support (Cloudinary with local static fallback).

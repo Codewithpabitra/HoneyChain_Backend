@@ -334,7 +334,7 @@ Carol (beekeeper user) ─┘
 
 Lab technicians ────────────► Laboratory Blockchain Wallet (0x19a0...)
 Processing plant staff ─────► Processor Blockchain Wallet  (0x8D34...)
-Logistics drivers ──────────► Transporter Blockchain Wallet(0x33A9...)
+Logistics drivers / distributors ─► Distributor Blockchain Wallet(0x33A9...)
 State safety auditors ──────► Auditor Blockchain Wallet    (0x33A9...)
 ```
 
@@ -348,6 +348,6 @@ State safety auditors ──────► Auditor Blockchain Wallet    (0x33A9
   - `admin`: Superuser access; user provisioning via `POST /api/auth/users`.
   - `beekeeper`: Registers honey batches (`POST /api/batches`).
   - `lab`: Certifies batch quality assays (`POST /api/batches/:batchId/quality`).
-  - `processor` & `transporter`: Transfers custody across checkpoints (`POST /api/batches/:batchId/transfer`).
+  - `processor` & `distributor`: Transfers custody across checkpoints (`POST /api/batches/:batchId/transfer`) and records deliveries (`POST /api/batches/:batchId/deliver`).
   - `auditor`: Executes emergency safety recalls (`POST /api/batches/:batchId/recall`).
   - **Public Access**: Consumer verification (`/verify`, `/verify/:batchId`, `GET /api/verify/:batchId`, `GET /api/batches/:batchId/qr`) and IoT edge sensor ingestion (`POST /api/iot/telemetry`) remain public.

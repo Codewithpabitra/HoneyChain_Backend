@@ -1,10 +1,10 @@
-// src/app/(transporter)/transporter/layout.tsx
+// src/app/(distributor)/distributor/layout.tsx
 "use client";
 
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 
-export default function TransporterLayout({
+export default function DistributorLayout({
   children,
 }: {
   children: React.ReactNode;

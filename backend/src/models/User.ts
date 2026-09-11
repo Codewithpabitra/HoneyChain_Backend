@@ -6,6 +6,7 @@ export type UserRole =
   | "beekeeper"
   | "processor"
   | "lab"
+  | "distributor"
   | "transporter"
   | "auditor";
 
@@ -61,7 +62,7 @@ const UserSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ["admin", "beekeeper", "processor", "lab", "transporter", "auditor"],
+      enum: ["admin", "beekeeper", "processor", "lab", "distributor", "transporter", "auditor"],
       required: [true, "User role is required"],
       index: true,
     },

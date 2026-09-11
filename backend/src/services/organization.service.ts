@@ -21,6 +21,7 @@ const VALID_PUBLIC_ROLES: OrganizationType[] = [
   "beekeeper",
   "processor",
   "lab",
+  "distributor",
   "transporter",
   "auditor",
 ];

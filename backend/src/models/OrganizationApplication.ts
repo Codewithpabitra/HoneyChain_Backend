@@ -61,13 +61,13 @@ const OrganizationApplicationSchema = new Schema<IOrganizationApplication>(
     },
     organizationType: {
       type: String,
-      enum: ["beekeeper", "processor", "lab", "transporter", "auditor"],
+      enum: ["beekeeper", "processor", "lab", "distributor", "transporter", "auditor"],
       required: [true, "Valid organization type is required"],
       index: true,
     },
     role: {
       type: String,
-      enum: ["beekeeper", "processor", "lab", "transporter", "auditor"],
+      enum: ["beekeeper", "processor", "lab", "distributor", "transporter", "auditor"],
       index: true,
     },
     registrationNumber: {

@@ -333,6 +333,7 @@ export class BlockchainService {
       { key: "beekeeper", onChainRole: "BEEKEEPER_ROLE" },
       { key: "processor", onChainRole: "PROCESSOR_ROLE" },
       { key: "lab", onChainRole: "LABORATORY_ROLE" },
+      { key: "distributor", onChainRole: "DISTRIBUTOR_ROLE" },
       { key: "transporter", onChainRole: "DISTRIBUTOR_ROLE" },
       { key: "auditor", onChainRole: "AUDITOR_ROLE" },
     ];

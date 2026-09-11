@@ -17,8 +17,8 @@ export default function Header() {
       ? "/lab/dashboard"
       : user?.role === "processor"
       ? "/processor/dashboard"
-      : user?.role === "transporter"
-      ? "/transporter/dashboard"
+      : user?.role === "distributor" || user?.role === "transporter"
+      ? "/distributor/dashboard"
       : "/login";
 
   return (

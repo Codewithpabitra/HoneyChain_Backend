@@ -33,11 +33,11 @@ router.post(
   batchController.uploadCertificate
 );
 
-// 3. Custodians (Beekeeper, Processor, Transporter) transfer batch custody
+// 3. Custodians (Beekeeper, Processor, Distributor) transfer batch custody
 router.post(
   "/:batchId/transfer",
   authenticate,
-  authorize("beekeeper", "processor", "transporter"),
+  authorize("beekeeper", "processor", "distributor", "transporter"),
   batchController.transferCustody
 );
 
@@ -45,7 +45,7 @@ router.post(
 router.post(
   "/:batchId/deliver",
   authenticate,
-  authorize("beekeeper", "processor", "transporter", "admin"),
+  authorize("beekeeper", "processor", "distributor", "transporter", "admin"),
   batchController.deliverBatch
 );
 

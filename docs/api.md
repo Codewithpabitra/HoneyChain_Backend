@@ -71,7 +71,7 @@ Handled centrally by `backend/src/middlewares/errorHandler.ts`:
 | **Organizations** | `PATCH` | `/api/organizations/:id/status` | Admin | Suspend or activate an organization |
 | **Batches** | `POST` | `/api/batches` | Beekeeper | Register new harvest batch (On-Chain + DB) |
 | **Batches** | `POST` | `/api/batches/:batchId/quality` | Laboratory | Submit quality test & grade (On-Chain + DB) |
-| **Batches** | `POST` | `/api/batches/:batchId/transfer` | Custodian | Transfer custody (Beekeeper, Processor, Transporter) |
+| **Batches** | `POST` | `/api/batches/:batchId/transfer` | Custodian | Transfer custody (Beekeeper, Processor, Distributor) |
 | **Batches** | `POST` | `/api/batches/:batchId/recall` | Auditor/Admin | Recall contaminated/adulterated batch |
 | **Batches** | `GET` | `/api/batches/:batchId/qr` | Public | Generate packaging QR code (PNG Data URL + SVG) |
 | **Verification** | `GET` | `/api/verify/:batchId` | Public | On-chain provenance verification & tamper audit |
@@ -140,7 +140,7 @@ Handled centrally by `backend/src/middlewares/errorHandler.ts`:
 
 ## 4. Authentication & Authorization Endpoints (`/api/auth`)
 
-HoneyChain implements role-based access control (RBAC) with JWT tokens. Application users authenticate with email and password to receive a Bearer token. The backend maps the user's role to one of **5 server-managed blockchain stakeholder wallets** (Beekeeper, Laboratory, Processor, Transporter, Auditor). Private keys are never exposed to clients.
+HoneyChain implements role-based access control (RBAC) with JWT tokens. Application users authenticate with email and password to receive a Bearer token. The backend maps the user's role to one of **5 server-managed blockchain stakeholder wallets** (Beekeeper, Laboratory, Processor, Distributor, Auditor). Private keys are never exposed to clients.
 
 ### 4.1 Stakeholder Login
 - **Route**: `POST /api/auth/login`
@@ -293,7 +293,7 @@ Content-Type: application/json
 | `name` | string | **Required** | User's full name. |
 | `email` | string | **Required** | Unique user email. |
 | `password` | string | **Required** | Initial password (min 6 characters). |
-| `role` | string | **Required** | Must be one of: `"admin"`, `"beekeeper"`, `"processor"`, `"lab"`, `"transporter"`, `"auditor"`. |
+| `role` | string | **Required** | Must be one of: `"admin"`, `"beekeeper"`, `"processor"`, `"lab"`, `"distributor"`, `"auditor"` (or `"transporter"` for legacy compatibility). |
 | `organizationId` | string | Optional | MongoDB ObjectId of associated Organization. |
 
 #### Example Response (`201 Created`)
@@ -345,8 +345,8 @@ Content-Type: application/json
       "walletAddress": "0x8D34e7768603473001aEDc1b5eD82C05CbaF6C34",
       "onChainRole": "PROCESSOR_ROLE"
     },
-    "transporter": {
-      "role": "transporter",
+    "distributor": {
+      "role": "distributor",
       "walletAddress": "0x33A9b1405eDb784bA94D4e02951C81180bC23c09",
       "onChainRole": "DISTRIBUTOR_ROLE"
     },
@@ -374,7 +374,7 @@ HoneyChain implements decentralized, organization-based onboarding. Public entit
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `organizationName` | string | **Required** | Registered legal/trading name of the organization. |
-| `role` | string | **Required** | One of: `"beekeeper"`, `"processor"`, `"lab"`, `"transporter"`, `"auditor"`. |
+| `role` | string | **Required** | One of: `"beekeeper"`, `"processor"`, `"lab"`, `"distributor"`, `"auditor"`. |
 | `registrationNumber` | string | Optional | Business/government/FSSAI registration code. |
 | `contactEmail` | string | **Required** | Official organization contact email. |
 | `contactPhone` | string | Optional | Contact telephone number. |
@@ -1292,7 +1292,7 @@ POST /api/ml/predict/HIVE-001
 
 ### 10.4 Deliver Batch
 - **Route**: `POST /api/batches/:batchId/deliver`
-- **Access**: `transporter`, `processor`, `beekeeper`, `admin`
+- **Access**: `distributor`, `processor`, `beekeeper`, `admin`, `transporter`
 - **Description**: Executes final custody delivery on Ethereum Sepolia, transitions status to `Delivered`, and appends custody record with delivery location.
 - **Request Body**:
   - `to` (string, optional): Recipient Ethereum address.

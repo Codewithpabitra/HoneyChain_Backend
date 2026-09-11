@@ -8,7 +8,8 @@ export const ROLE_DASHBOARD_PATH: Record<Role, string> = {
   processor: "/processor/dashboard",
   auditor: "/authority/dashboard",
   admin: "/authority/dashboard",
-  transporter: "/transporter/dashboard",
+  distributor: "/distributor/dashboard",
+  transporter: "/distributor/dashboard",
 };
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -16,6 +17,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   beekeeper: "Beekeeper",
   processor: "Processor",
   lab: "Laboratory Analyst",
-  transporter: "Transporter",
+  distributor: "Distributor",
+  transporter: "Distributor",
   auditor: "Auditor",
 };

@@ -10,6 +10,7 @@ const VALID_ROLES: UserRole[] = [
   "beekeeper",
   "processor",
   "lab",
+  "distributor",
   "transporter",
   "auditor",
 ];
@@ -33,9 +34,20 @@ export class AuthController {
       const normalizedEmail = email.toLowerCase().trim();
 
       // Find user including passwordHash
-      const user = await User.findOne({ email: normalizedEmail })
+      let user = await User.findOne({ email: normalizedEmail })
         .select("+passwordHash")
         .populate("organizationId");
+
+      // Support transporter/distributor email alias
+      if (!user && normalizedEmail === "transporter@honeychain.org") {
+        user = await User.findOne({ email: "distributor@honeychain.org" })
+          .select("+passwordHash")
+          .populate("organizationId");
+      } else if (!user && normalizedEmail === "distributor@honeychain.org") {
+        user = await User.findOne({ email: "transporter@honeychain.org" })
+          .select("+passwordHash")
+          .populate("organizationId");
+      }
 
       if (!user) {
         return next(new AppError("Invalid email or password", 401));

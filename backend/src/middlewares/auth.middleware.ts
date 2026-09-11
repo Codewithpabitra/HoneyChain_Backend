@@ -20,7 +20,7 @@ declare global {
 function normalizeRole(role: string): string {
   const r = role.toLowerCase().trim();
   if (r === "laboratory") return "lab";
-  if (r === "distributor") return "transporter";
+  if (r === "transporter") return "distributor";
   return r;
 }
 

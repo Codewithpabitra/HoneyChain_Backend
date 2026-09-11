@@ -72,7 +72,7 @@ export default function LoginPage() {
             Sign in
           </h1>
           <p className="mt-1.5 text-sm text-ink/60 dark:text-ink-dark/60">
-            Beekeeper, processor, lab, transporter, auditor, or administrator account.
+            Beekeeper, processor, lab, distributor, auditor, or administrator account.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">

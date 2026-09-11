@@ -646,8 +646,8 @@ export class BatchController {
           accessConditions.push({ status: "Registered" });
           accessConditions.push({ "quality.certifiedByUserId": req.user?._id });
         }
-        if (role === "processor" || role === "transporter") {
-          // Processors and transporters see batches available for custody handoff
+        if (role === "processor" || role === "distributor" || role === "transporter") {
+          // Processors and distributors see batches available for custody handoff
           accessConditions.push({ status: "Certified" });
           accessConditions.push({ status: "InTransit" });
         }
@@ -760,8 +760,8 @@ export class BatchController {
       }
 
       const deliveryLocation = location?.trim() || "Retail Distribution Center";
-      let senderRole = req.user?.role || role || "transporter";
-      if (senderRole === "admin") senderRole = "transporter";
+      let senderRole = req.user?.role || role || "distributor";
+      if (senderRole === "admin") senderRole = "distributor";
 
       // Execute on-chain delivery
       const txResult = await blockchainService.deliverBatch(

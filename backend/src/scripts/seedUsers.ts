@@ -37,8 +37,8 @@ export async function seedDemoUsers(): Promise<DemoUserSeedResult[]> {
     },
     {
       name: "SafeHive Cold Chain Logistics",
-      role: "transporter" as const,
-      walletAddress: blockchainService.getWalletAddressForRole("transporter"),
+      role: "distributor" as const,
+      walletAddress: blockchainService.getWalletAddressForRole("distributor"),
     },
     {
       name: "FSSAI Quality & Compliance Bureau",
@@ -70,8 +70,8 @@ export async function seedDemoUsers(): Promise<DemoUserSeedResult[]> {
     console.log(`✓ Organization seeded: ${org.name} (${org.role}) -> Wallet: ${org.walletAddress}`);
   }
 
-  // 2. Define Demo Users for each role
-  const password = env.DEMO_PASSWORD || "Password123!";
+  // 2. Define Demo Role Accounts
+  const password = env.DEMO_PASSWORD;
   const passwordHash = await authService.hashPassword(password);
 
   const userDefinitions = [
@@ -104,10 +104,10 @@ export async function seedDemoUsers(): Promise<DemoUserSeedResult[]> {
       isOrgAdmin: true,
     },
     {
-      name: "Gurpreet Singh (Transporter)",
-      email: "transporter@honeychain.org",
-      role: "transporter" as const,
-      organizationId: orgMap["transporter"]._id,
+      name: "Gurpreet Singh (Distributor)",
+      email: "distributor@honeychain.org",
+      role: "distributor" as const,
+      organizationId: orgMap["distributor"]._id,
       isOrgAdmin: true,
     },
     {

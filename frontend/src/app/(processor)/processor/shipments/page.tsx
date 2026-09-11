@@ -27,7 +27,7 @@ export default function ProcessorShipmentsPage() {
   const [transferBatch, setTransferBatch] = useState<BatchItem | null>(null);
   const [transferTo, setTransferTo] = useState("");
   const [transferLocation, setTransferLocation] = useState("");
-  const [transferRole, setTransferRole] = useState("transporter");
+  const [transferRole, setTransferRole] = useState("distributor");
   const [isTransferring, setIsTransferring] = useState(false);
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferSuccess, setTransferSuccess] = useState(false);
@@ -291,7 +291,7 @@ export default function ProcessorShipmentsPage() {
                     required
                     value={transferTo}
                     onChange={(e) => setTransferTo(e.target.value)}
-                    placeholder="0x... or Transporter Org ID"
+                    placeholder="0x... or Distributor Org ID"
                     className="w-full rounded-xl border border-black/10 bg-transparent px-4 py-2.5 text-sm font-mono outline-none focus:border-honey dark:border-white/10"
                   />
                 </div>
@@ -319,8 +319,7 @@ export default function ProcessorShipmentsPage() {
                     onChange={(e) => setTransferRole(e.target.value)}
                     className="w-full rounded-xl border border-black/10 bg-paper px-4 py-2.5 text-sm text-black outline-none focus:border-honey dark:border-white/10 dark:bg-paper-dark dark:text-white"
                   >
-                    <option value="transporter">Transporter / Fleet</option>
-                    <option value="distributor">Distributor / Retail</option>
+                    <option value="distributor">Distributor / Logistics</option>
                   </select>
                 </div>
 

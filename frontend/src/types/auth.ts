@@ -6,6 +6,7 @@ export type Role =
   | "beekeeper"
   | "processor"
   | "lab"
+  | "distributor"
   | "transporter"
   | "auditor";
 
@@ -14,6 +15,7 @@ export const ROLES: Role[] = [
   "beekeeper",
   "processor",
   "lab",
+  "distributor",
   "transporter",
   "auditor",
 ];

@@ -301,7 +301,7 @@ export default function AuthorityUsersPage() {
                   <option value="beekeeper">Beekeeper (Farmer)</option>
                   <option value="processor">Processor (Plant)</option>
                   <option value="lab">Lab (Testing Analyst)</option>
-                  <option value="transporter">Transporter (Logistics)</option>
+                  <option value="distributor">Distributor (Logistics)</option>
                   <option value="auditor">Auditor (Inspector)</option>
                   <option value="admin">Admin (System Administrator)</option>
                 </select>
@@ -352,7 +352,7 @@ export default function AuthorityUsersPage() {
             <h2 className="font-semibold">Role-based access</h2>
 
             <p className="mt-2 text-sm leading-6 text-black/50 dark:text-white/50">
-              Honey Chain supports role-based access for administrators, beekeepers, processors, laboratory analysts, transporters and auditors.
+              Honey Chain supports role-based access for administrators, beekeepers, processors, laboratory analysts, distributors, and auditors.
             </p>
           </div>
         </div>

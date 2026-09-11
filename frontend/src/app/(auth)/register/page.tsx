@@ -43,9 +43,9 @@ const organizationTypes: Array<{
     description: "Performs chemical, purity, and pollen analysis for certification.",
   },
   {
-    value: "transporter",
-    label: "Logistics / Transporter",
-    description: "Maintains temperature and custody records during transit.",
+    value: "distributor",
+    label: "Distributor / Logistics",
+    description: "Maintains temperature, distribution, and custody records during transit.",
   },
   {
     value: "auditor",

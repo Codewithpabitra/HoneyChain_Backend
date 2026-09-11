@@ -5,6 +5,7 @@ export type OrganizationType =
   | "beekeeper"
   | "processor"
   | "lab"
+  | "distributor"
   | "transporter"
   | "auditor";
 

@@ -99,10 +99,18 @@ export const ROLE_NAVIGATION: Record<Role, NavigationItem[]> = {
     },
   ],
 
+  distributor: [
+    {
+      label: "Dashboard",
+      href: "/distributor/dashboard",
+      icon: IconHome,
+    },
+  ],
+
   transporter: [
     {
       label: "Dashboard",
-      href: "/transporter/dashboard",
+      href: "/distributor/dashboard",
       icon: IconHome,
     },
   ],

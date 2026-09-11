@@ -5,6 +5,7 @@ export type OrganizationRole =
   | "beekeeper"
   | "processor"
   | "lab"
+  | "distributor"
   | "transporter"
   | "auditor";
 
@@ -12,6 +13,7 @@ export type OrganizationType =
   | "beekeeper"
   | "processor"
   | "lab"
+  | "distributor"
   | "transporter"
   | "auditor";
 
@@ -45,13 +47,13 @@ const OrganizationSchema = new Schema<IOrganization>(
     },
     role: {
       type: String,
-      enum: ["admin", "beekeeper", "processor", "lab", "transporter", "auditor"],
+      enum: ["admin", "beekeeper", "processor", "lab", "distributor", "transporter", "auditor"],
       required: [true, "Organization role/type is required"],
       index: true,
     },
     organizationType: {
       type: String,
-      enum: ["beekeeper", "processor", "lab", "transporter", "auditor"],
+      enum: ["beekeeper", "processor", "lab", "distributor", "transporter", "auditor"],
       index: true,
     },
     walletAddress: {
