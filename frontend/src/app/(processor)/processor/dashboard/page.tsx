@@ -1,15 +1,62 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   IconActivity,
   IconArrowRight,
   IconBox,
+  IconLoader2,
   IconPackage,
   IconRoute,
+  IconShieldCheck,
+  IconExternalLink,
 } from "@tabler/icons-react";
 
+import { analyticsService } from "@/services/analytics.service";
+import { batchService } from "@/services/batch.service";
+import type { DashboardStats } from "@/types/analytics";
+import type { BatchItem } from "@/types/batch";
+
 export default function ProcessorDashboardPage() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentBatches, setRecentBatches] = useState<BatchItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const [dashRes, batchRes] = await Promise.allSettled([
+          analyticsService.getDashboardStats(),
+          batchService.getAll({ limit: 5 }),
+        ]);
+
+        if (isMounted) {
+          if (dashRes.status === "fulfilled") {
+            setStats(dashRes.value.data);
+          }
+          if (batchRes.status === "fulfilled") {
+            setRecentBatches(batchRes.value.data);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load processor dashboard data", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const totalBatches = stats?.batches.total ?? recentBatches.length;
+  const inTransit = stats?.batches.inTransit ?? 0;
+  const certified = stats?.batches.tested ?? 0;
+  const created = stats?.batches.created ?? 0;
+
   return (
     <div className="mx-auto max-w-7xl">
       {/* Header */}
@@ -32,25 +79,25 @@ export default function ProcessorDashboardPage() {
         <StatCard
           icon={<IconBox size={20} />}
           label="Active Batches"
-          value="—"
+          value={loading ? "..." : String(totalBatches)}
         />
 
         <StatCard
           icon={<IconActivity size={20} />}
-          label="Processing"
-          value="—"
+          label="Awaiting Processing"
+          value={loading ? "..." : String(created)}
         />
 
         <StatCard
           icon={<IconPackage size={20} />}
-          label="Ready for Packaging"
-          value="—"
+          label="Certified & Ready"
+          value={loading ? "..." : String(certified)}
         />
 
         <StatCard
           icon={<IconRoute size={20} />}
           label="In Transit"
-          value="—"
+          value={loading ? "..." : String(inTransit)}
         />
       </div>
 
@@ -95,6 +142,100 @@ export default function ProcessorDashboardPage() {
         </div>
       </section>
 
+      {/* Recent Batches or Empty state */}
+      {recentBatches.length > 0 ? (
+        <section className="mt-6 rounded-2xl border border-black/10 bg-white/60 p-6 dark:border-white/10 dark:bg-white/3">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold">Recent Batches</h2>
+              <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+                Latest batches registered in the supply chain ledger.
+              </p>
+            </div>
+            <Link
+              href="/processor/batches"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-honey hover:underline"
+            >
+              View all batches
+              <IconArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-black/5 text-xs uppercase tracking-wider text-black/40 dark:border-white/5 dark:text-white/40">
+                  <th className="pb-3 font-medium">Batch ID</th>
+                  <th className="pb-3 font-medium">Floral Origin</th>
+                  <th className="pb-3 font-medium">Quantity</th>
+                  <th className="pb-3 font-medium">Status</th>
+                  <th className="pb-3 font-medium">Custodian</th>
+                  <th className="pb-3 text-right font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/5 dark:divide-white/5">
+                {recentBatches.map((b) => (
+                  <tr key={b.batchId} className="transition hover:bg-black/2 dark:hover:bg-white/2">
+                    <td className="py-3.5 font-mono font-medium text-black dark:text-white">
+                      {b.batchId}
+                    </td>
+                    <td className="py-3.5 text-black/70 dark:text-white/70">
+                      {b.floralOrigin || "Multifloral"}
+                    </td>
+                    <td className="py-3.5 text-black/70 dark:text-white/70">
+                      {(b.quantityKg ?? ((b.quantityGrams || 0) / 1000)).toFixed(1)} kg
+                    </td>
+                    <td className="py-3.5">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          b.status === "Certified"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : b.status === "InTransit"
+                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                            : b.status === "Delivered"
+                            ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                            : "bg-honey/10 text-honey"
+                        }`}
+                      >
+                        {b.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 font-mono text-xs text-black/50 dark:text-white/50">
+                      {b.currentCustodian ? `${b.currentCustodian.slice(0, 10)}...` : "Producer"}
+                    </td>
+                    <td className="py-3.5 text-right">
+                      <Link
+                        href={`/verify/${encodeURIComponent(b.batchId)}`}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-honey hover:underline"
+                      >
+                        Verify
+                        <IconExternalLink size={12} />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : (
+        <section className="mt-6 rounded-2xl border border-dashed border-black/10 p-10 text-center dark:border-white/10">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-black/3 text-black/40 dark:bg-white/3 dark:text-white/40">
+            <IconBox size={23} />
+          </div>
+
+          <h2 className="mt-4 font-semibold">
+            {loading ? "Loading processing activity..." : "No processing activity yet"}
+          </h2>
+
+          <p className="mx-auto mt-2 max-w-md text-sm text-black/45 dark:text-white/45">
+            {loading
+              ? "Connecting to the blockchain network..."
+              : "Once batches are registered or transferred to your facility, their lifecycle will appear here."}
+          </p>
+        </section>
+      )}
+
       {/* Shipments */}
       <section className="mt-6 rounded-2xl border border-black/10 bg-white/60 p-6 dark:border-white/10 dark:bg-white/3">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -123,22 +264,6 @@ export default function ProcessorDashboardPage() {
           </Link>
         </div>
       </section>
-
-      {/* Empty state */}
-      <section className="mt-6 rounded-2xl border border-dashed border-black/10 p-10 text-center dark:border-white/10">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-black/3 text-black/40 dark:bg-white/3 dark:text-white/40">
-          <IconBox size={23} />
-        </div>
-
-        <h2 className="mt-4 font-semibold">
-          No processing activity yet
-        </h2>
-
-        <p className="mx-auto mt-2 max-w-md text-sm text-black/45 dark:text-white/45">
-          Once batches are assigned to your processing facility, their
-          lifecycle will appear here.
-        </p>
-      </section>
     </div>
   );
 }
@@ -153,20 +278,17 @@ function StatCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-black/10 bg-white/60 p-5 dark:border-white/10 dark:bg-white/3">
-      <div className="flex items-center justify-between">
+    <div className="rounded-2xl border border-black/10 bg-white/60 p-6 dark:border-white/10 dark:bg-white/3">
+      <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-honey/10 text-honey">
           {icon}
         </div>
 
-        <span className="text-2xl font-bold tracking-tight">
-          {value}
-        </span>
+        <div>
+          <p className="text-xs text-black/40 dark:text-white/40">{label}</p>
+          <p className="text-2xl font-bold">{value}</p>
+        </div>
       </div>
-
-      <p className="mt-5 text-sm text-black/50 dark:text-white/50">
-        {label}
-      </p>
     </div>
   );
 }
@@ -185,24 +307,13 @@ function WorkflowCard({
   return (
     <Link
       href={href}
-      className="group rounded-xl border border-black/10 p-5 transition hover:-translate-y-0.5 hover:border-honey/40 hover:bg-honey/3 dark:border-white/10 dark:hover:border-honey/40 dark:hover:bg-honey/3"
+      className="group rounded-2xl border border-black/10 bg-white/60 p-6 transition hover:border-honey/40 hover:bg-honey/3 dark:border-white/10 dark:bg-white/3 dark:hover:border-honey/40"
     >
-      <span className="font-mono text-xs text-honey">
-        {number}
-      </span>
-
-      <h3 className="mt-4 font-semibold">
-        {title}
-      </h3>
-
-      <p className="mt-2 text-xs leading-5 text-black/45 dark:text-white/45">
+      <span className="text-xs font-bold text-honey">{number}</span>
+      <h3 className="mt-3 font-semibold group-hover:text-honey">{title}</h3>
+      <p className="mt-1 text-xs text-black/45 dark:text-white/45">
         {description}
       </p>
-
-      <div className="mt-5 flex items-center gap-1 text-xs font-medium text-honey opacity-0 transition group-hover:opacity-100">
-        Open
-        <IconArrowRight size={14} />
-      </div>
     </Link>
   );
 }

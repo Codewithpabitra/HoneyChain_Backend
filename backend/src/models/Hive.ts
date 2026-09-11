@@ -39,6 +39,8 @@ export interface IHive extends Document {
   status: "active" | "inactive" | "swarmed" | "collapsed" | "quarantined";
   deviceMetadata?: IDeviceMetadata;
   currentHealthSummary?: ICurrentHealthSummary;
+  organizationId?: Types.ObjectId;
+  createdBy?: Types.ObjectId;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -157,6 +159,16 @@ const HiveSchema = new Schema<IHive>(
     notes: {
       type: String,
       trim: true,
+    },
+    organizationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      index: true,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
     },
   },
   {

@@ -15,10 +15,13 @@ import {
   IconShieldCheck,
   IconUsers,
   IconX,
+  IconBox,
 } from "@tabler/icons-react";
 
 import { useAuth } from "@/components/providers/AuthProvider";
 import { organizationService } from "@/services/organization.service";
+import { analyticsService } from "@/services/analytics.service";
+import type { DashboardStats } from "@/types/analytics";
 import type {
   OrganizationApplication,
   ApplicationStatus,
@@ -56,6 +59,8 @@ const auditorModules = [
 export default function AuthorityDashboardPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
 
   // Organization requests state (Admin)
   const [applications, setApplications] = useState<OrganizationApplication[]>([]);
@@ -116,6 +121,13 @@ export default function AuthorityDashboardPage() {
       active = false;
     };
   }, [isAdmin, statusFilter]);
+
+  useEffect(() => {
+    analyticsService
+      .getDashboardStats()
+      .then((res) => setDashboardStats(res.data))
+      .catch((err) => console.error("Failed to load dashboard stats", err));
+  }, []);
 
   // Open review modal
   function handleOpenReview(app: OrganizationApplication) {
@@ -215,6 +227,57 @@ export default function AuthorityDashboardPage() {
             Refresh
           </button>
         )}
+      </div>
+
+      {/* Network Overview Stats */}
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-black/50 dark:text-white/50">Active Hives</p>
+              <p className="mt-2 text-2xl font-bold">{dashboardStats ? dashboardStats.hives.active : "—"}</p>
+            </div>
+            <div className="rounded-xl bg-honey/10 p-2.5 text-honey">
+              <IconHexagon size={20} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-black/50 dark:text-white/50">Healthy Colonies</p>
+              <p className="mt-2 text-2xl font-bold">{dashboardStats ? dashboardStats.hives.healthy : "—"}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-600 dark:text-emerald-400">
+              <IconShieldCheck size={20} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-black/50 dark:text-white/50">Verified Batches</p>
+              <p className="mt-2 text-2xl font-bold">{dashboardStats ? dashboardStats.batches.total : "—"}</p>
+            </div>
+            <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600 dark:text-blue-400">
+              <IconBox size={20} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-black/50 dark:text-white/50">System Alerts</p>
+              <p className="mt-2 text-2xl font-bold">{dashboardStats ? dashboardStats.alerts.active : "—"}</p>
+            </div>
+            <div className="rounded-xl bg-red-500/10 p-2.5 text-red-500">
+              <IconAlertTriangle size={20} />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Admin Organization Requests Section */}

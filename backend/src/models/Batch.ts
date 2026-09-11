@@ -8,6 +8,7 @@ export interface IQualityDetails {
   moisturePercentage?: number;
   moistureBasisPoints?: number;
   labReportHash?: string;
+  labReportUrl?: string;
   labReportData?: Record<string, any>;
   certifiedBy?: string;
   certifiedByUserId?: Types.ObjectId;
@@ -90,6 +91,7 @@ const QualitySchema = new Schema<IQualityDetails>(
     moisturePercentage: { type: Number },
     moistureBasisPoints: { type: Number },
     labReportHash: { type: String },
+    labReportUrl: { type: String },
     labReportData: { type: Schema.Types.Mixed },
     certifiedBy: { type: String },
     certifiedByUserId: { type: Schema.Types.ObjectId, ref: "User" },

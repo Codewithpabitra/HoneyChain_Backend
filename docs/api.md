@@ -1215,8 +1215,168 @@ POST /api/ml/predict/HIVE-001
 
 ---
 
-## 8. Development & Rule Enforcement
+## 9. Apiary & Hive Management Endpoints (`/api/apiaries`, `/api/hives`, `/hives`)
+
+### 9.1 Create Apiary
+- **Route**: `POST /api/apiaries`
+- **Access**: `beekeeper`, `admin`
+- **Description**: Registers a new apiary sanctuary with GeoJSON coordinates. Binds to the user's organization for multi-tenant isolation.
+- **Request Body**:
+  - `name` (string, required): Name of apiary.
+  - `location` (object, required): `{ latitude: number, longitude: number, region: string, address?: string }`.
+  - `floraType` (string[], optional): Dominant flora (e.g. `["Mangrove", "Mustard"]`).
+  - `capacity` (number, optional): Maximum hive capacity (default: 20).
+- **Response**: `201 Created` with created apiary data.
+
+### 9.2 List Apiaries
+- **Route**: `GET /api/apiaries`
+- **Access**: Authenticated
+- **Description**: Returns tenant-isolated list of apiaries (or all for admin/auditor). Supports `page`, `limit`, `region` query filters.
+- **Response**: `200 OK` with paginated apiaries.
+
+### 9.3 Get Apiary Details
+- **Route**: `GET /api/apiaries/:id`
+- **Access**: Authenticated (tenant-scoped)
+- **Description**: Returns apiary profile with child hives populated.
+
+### 9.4 Update Apiary
+- **Route**: `PATCH /api/apiaries/:id`
+- **Access**: `beekeeper`, `admin`
+- **Description**: Updates apiary name, capacity, floraType, or notes.
+
+### 9.5 Hive Management (`/api/hives` & `/hives`)
+- **Route**: `POST /api/hives`
+  - **Access**: `beekeeper`, `admin`
+  - **Description**: Registers a new hive linked to an apiary. Inherits beekeeper and organization, initializes health summary.
+- **Route**: `GET /api/hives` (Alias: `GET /hives`)
+  - **Access**: Authenticated
+  - **Description**: Lists hives with filters (`apiaryId`, `status`, `healthStatus`, `search`) and populated parent apiary.
+- **Route**: `GET /api/hives/:hiveId` (Alias: `GET /hives/:hiveId`)
+  - **Access**: Authenticated
+  - **Description**: Returns hive details with populated apiary.
+- **Route**: `PATCH /api/hives/:hiveId`
+  - **Access**: `beekeeper`, `admin`
+  - **Description**: Updates hive status, queen details, hardware metadata, and notes.
+- **Route**: `DELETE /api/hives/:hiveId`
+  - **Access**: `beekeeper`, `admin`
+  - **Description**: Deletes hive and unlinks from parent apiary.
+
+---
+
+## 10. Extended Batch Operations (`/api/batches`)
+
+### 10.1 List Batches (Paginated & Filtered)
+- **Route**: `GET /api/batches`
+- **Access**: Authenticated
+- **Query Parameters**:
+  - `page` (number, default: 1)
+  - `limit` (number, default: 20, max: 100)
+  - `status` (`Registered` | `Certified` | `InTransit` | `Delivered` | `Recalled`)
+  - `search` (string: matches batchId or floralOrigin)
+  - `organizationId` (string: admin/auditor filter)
+- **Response**: `200 OK` with `{ success: true, data: Batch[], pagination: { total, page, limit, totalPages } }`.
+
+### 10.2 Inspect Batch Details
+- **Route**: `GET /api/batches/:batchId`
+- **Access**: Authenticated
+- **Description**: Retrieves full batch document including quality analysis, custody history, blockchain metadata, and populated apiary/hives.
+
+### 10.3 Laboratory Certificate PDF Upload
+- **Route**: `POST /api/batches/:batchId/certificate`
+- **Access**: `lab`, `admin`
+- **Description**: Uploads lab certificate PDF assay. Validates `%PDF-` magic bytes, calculates SHA-256 hash, stores file (Cloudinary or local static storage), and updates `batch.quality.labReportUrl` and `batch.quality.labReportHash`.
+- **Request Body (JSON)**:
+  - `fileName` (string, required): e.g. `purity_assay.pdf`
+  - `fileData` (string, required): Base64-encoded PDF content.
+- **Response**: `201 Created` with `{ success: true, labReportHash, labReportUrl, sizeBytes }`.
+
+### 10.4 Deliver Batch
+- **Route**: `POST /api/batches/:batchId/deliver`
+- **Access**: `transporter`, `processor`, `beekeeper`, `admin`
+- **Description**: Executes final custody delivery on Ethereum Sepolia, transitions status to `Delivered`, and appends custody record with delivery location.
+- **Request Body**:
+  - `to` (string, optional): Recipient Ethereum address.
+  - `location` (string, optional): Delivery destination (default: `Retail Distribution Center`).
+- **Response**: `200 OK` with updated batch and blockchain transaction receipt.
+
+---
+
+## 11. Harvest Workflow (`/api/harvests`, `/harvests`)
+
+### 11.1 Create Harvest
+- **Route**: `POST /api/harvests` (Alias: `POST /harvests`)
+- **Access**: `beekeeper`, `admin`
+- **Description**: Records raw honey extraction from a registered hive.
+- **Request Body**:
+  - `hiveId` (string, required)
+  - `quantityGrams` (number, required)
+  - `harvestTimestamp` (number, optional)
+  - `floralOrigin` (string, optional)
+  - `batchId` (string, optional)
+  - `notes` (string, optional)
+- **Response**: `201 Created` with created harvest record.
+
+### 11.2 List Harvests
+- **Route**: `GET /api/harvests` (Alias: `GET /harvests`)
+- **Access**: Authenticated (tenant-scoped)
+- **Description**: Returns paginated harvests with filters for `hiveId`, `batchId`, `floralOrigin`.
+
+### 11.3 Get Harvest Details
+- **Route**: `GET /api/harvests/:harvestId` (Alias: `GET /harvests/:harvestId`)
+- **Access**: Authenticated
+
+---
+
+## 12. Alert System & IoT Diagnostics
+
+### 12.1 List Alerts
+- **Route**: `GET /api/alerts`
+- **Access**: Authenticated
+- **Description**: Queries active and historical alerts for the user's organization. Supports filters: `severity`, `alertType`, `hiveId`, `isResolved`.
+
+### 12.2 Resolve Alert
+- **Route**: `PATCH /api/alerts/:id/resolve`
+- **Access**: Authenticated
+- **Description**: Marks alert as resolved and records resolver user ID and resolution timestamp.
+
+### 12.3 Hive Telemetry History
+- **Route**: `GET /api/iot/telemetry/:hiveId`
+- **Access**: Authenticated
+- **Query Parameters**:
+  - `resolution`: `raw` (default) or `hourly` (averages metrics by hour).
+  - `limit`: default 50, max 500.
+
+### 12.4 Device Status & Diagnostics
+- **Route**: `GET /api/iot/devices/:deviceId/status`
+- **Access**: Authenticated
+- **Description**: Returns hardware connectivity status (`online` / `offline`), battery percentage, last ping timestamp, and latest sensor metrics.
+
+---
+
+## 13. Dashboard & Regional Cluster Analytics (`/api/analytics`)
+
+### 13.1 Role-Based Dashboard Metrics
+- **Route**: `GET /api/analytics/dashboard`
+- **Access**: Authenticated
+- **Description**: Returns real-time MongoDB aggregated statistics customized for the requesting user's role:
+  - Hives (total, active, inactive, healthy, average health score)
+  - Alerts (active, critical, warning, info)
+  - Batches (total, created, in transit, delivered, recalled, tested, total quantity)
+  - Harvests (total extractions, total grams, total kg)
+  - Telemetry (total readings, 24-hour activity)
+  - AI predictions (total predictions, anomalies detected, high stress count)
+  - Organizations (total count for admin/auditor)
+
+### 13.2 Regional Apiary Clusters
+- **Route**: `GET /api/analytics/clusters`
+- **Access**: Authenticated
+- **Description**: Aggregates apiaries by region, calculating geographic centroid coordinates (`avgLatitude`, `avgLongitude`), total hives covered, and unique farmers count.
+
+---
+
+## 14. Development & Rule Enforcement
 
 > [!IMPORTANT]
 > **To all developers and AI coding agents:**  
 > If you create a new route in `backend/src/routes/` or modify parameters/responses in `backend/src/controllers/`, you **MUST update this document (`docs/api.md`)** before pushing or opening a PR. Keep table summaries, schema types, query parameters, and JSON payloads in sync!
+

@@ -10,6 +10,11 @@ import iotRoutes from "./routes/iot.routes.js";
 import mlRoutes from "./routes/ml.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import organizationRoutes from "./routes/organization.routes.js";
+import apiaryRoutes from "./routes/apiary.routes.js";
+import hiveRoutes from "./routes/hive.routes.js";
+import harvestRoutes from "./routes/harvest.routes.js";
+import alertRoutes from "./routes/alert.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import AppError from "./utils/AppError.js";
 
@@ -111,6 +116,13 @@ app.use("/api/batches", batchRoutes);
 app.use("/api/verify", verifyRoutes);
 app.use("/api/iot", iotRoutes);
 app.use("/api/ml", mlRoutes);
+app.use("/api/apiaries", apiaryRoutes);
+app.use("/api/hives", hiveRoutes);
+app.use("/hives", hiveRoutes); // Frontend compatibility alias
+app.use("/api/harvests", harvestRoutes);
+app.use("/harvests", harvestRoutes); // Frontend compatibility alias
+app.use("/api/alerts", alertRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 // Static serving for uploaded verification documents (PDFs)
 app.use("/uploads", express.static(UPLOADS_DIR));

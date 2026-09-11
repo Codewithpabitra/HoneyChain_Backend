@@ -5,6 +5,7 @@ import blockchainService, {
   RoleName,
 } from "../services/blockchain.service.js";
 import qrService from "../services/qr.service.js";
+import storageService from "../services/storage.service.js";
 import AppError from "../utils/AppError.js";
 
 /**
@@ -580,6 +581,279 @@ export class BatchController {
         verificationUrl: qrResult.verificationUrl,
         dataUrl: qrResult.dataUrl,
         svg: qrResult.svg,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * GET /api/batches
+   * Retrieves paginated list of batches with filters, search, and tenant isolation.
+   */
+  public getBatches = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const {
+        status,
+        producer,
+        currentCustodian,
+        organizationId,
+        search,
+        page,
+        limit,
+      } = req.query as any;
+
+      const pageNum = Math.max(1, Number(page) || 1);
+      const limitNum = Math.max(1, Math.min(100, Number(limit) || 20));
+      const skip = (pageNum - 1) * limitNum;
+
+      const query: Record<string, any> = {};
+
+      if (status) {
+        query.status = status;
+      }
+      if (producer) {
+        query.producer = { $regex: new RegExp(producer.trim(), "i") };
+      }
+      if (currentCustodian) {
+        query.currentCustodian = { $regex: new RegExp(currentCustodian.trim(), "i") };
+      }
+      if (search) {
+        query.$or = [
+          { batchId: { $regex: new RegExp(search.trim(), "i") } },
+          { floralOrigin: { $regex: new RegExp(search.trim(), "i") } },
+        ];
+      }
+
+      // Tenant isolation: non-platform admins and non-auditors
+      const isAdminOrAuditor = req.user?.role === "admin" || req.user?.role === "auditor";
+      const userOrgId = (req.user?.organizationId as any)?._id || req.user?.organizationId;
+
+      if (!isAdminOrAuditor) {
+        const userWallet = req.user?.walletAddress?.toLowerCase();
+        const role = req.user?.role;
+
+        const accessConditions: any[] = [];
+        if (userOrgId) accessConditions.push({ organizationId: userOrgId });
+        if (userWallet) {
+          accessConditions.push({ producer: { $regex: new RegExp(`^${userWallet}$`, "i") } });
+          accessConditions.push({ currentCustodian: { $regex: new RegExp(`^${userWallet}$`, "i") } });
+        }
+        if (role === "lab") {
+          // Lab technicians see registered batches awaiting testing or tested by them
+          accessConditions.push({ status: "Registered" });
+          accessConditions.push({ "quality.certifiedByUserId": req.user?._id });
+        }
+        if (role === "processor" || role === "transporter") {
+          // Processors and transporters see batches available for custody handoff
+          accessConditions.push({ status: "Certified" });
+          accessConditions.push({ status: "InTransit" });
+        }
+
+        if (accessConditions.length > 0) {
+          if (query.$or) {
+            query.$and = [{ $or: query.$or }, { $or: accessConditions }];
+            delete query.$or;
+          } else {
+            query.$or = accessConditions;
+          }
+        }
+      } else if (organizationId) {
+        query.organizationId = organizationId;
+      }
+
+      const [batches, total] = await Promise.all([
+        Batch.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum)
+          .populate("apiary", "name location floraType")
+          .populate("hives", "hiveId beeSpecies currentHealthSummary")
+          .populate("organizationId", "name walletAddress")
+          .lean(),
+        Batch.countDocuments(query),
+      ]);
+
+      return res.status(200).json({
+        success: true,
+        data: batches,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * GET /api/batches/:batchId
+   * Stakeholder inspection endpoint returning the full batch document with relationships.
+   */
+  public getBatchById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const batchId = (Array.isArray(req.params.batchId)
+        ? req.params.batchId[0]
+        : req.params.batchId) as string;
+
+      if (!batchId || !batchId.trim()) {
+        return next(new AppError("batchId is required", 400));
+      }
+
+      const cleanBatchId = batchId.trim();
+      const batch = await Batch.findOne({
+        $or: [
+          { batchId: cleanBatchId },
+          ...(cleanBatchId.startsWith("0x") ? [{ batchIdBytes32: cleanBatchId }] : []),
+        ],
+      })
+        .populate("apiary")
+        .populate("hives")
+        .populate("organizationId", "name walletAddress role")
+        .populate("createdBy", "name email");
+
+      if (!batch) {
+        return next(new AppError(`Batch '${cleanBatchId}' not found`, 404));
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: batch,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * POST /api/batches/:batchId/deliver
+   * Custodian delivers the batch to final retail or distribution point.
+   * Executes custody transition on Ethereum Sepolia and marks status Delivered.
+   */
+  public deliverBatch = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const batchId = (Array.isArray(req.params.batchId)
+        ? req.params.batchId[0]
+        : req.params.batchId) as string;
+      const { to, location, role } = req.body;
+
+      const batch = await Batch.findOne({ batchId: batchId.trim() });
+      if (!batch) {
+        return next(new AppError(`Batch '${batchId}' not found in database`, 404));
+      }
+      if (batch.status === "Recalled") {
+        return next(new AppError("Cannot deliver a batch that has been recalled", 400));
+      }
+      if (batch.status === "Delivered") {
+        return next(new AppError("Batch has already been delivered", 400));
+      }
+
+      // Determine recipient address - default to distributor wallet if not provided
+      let recipientAddress = to;
+      if (!recipientAddress) {
+        recipientAddress = blockchainService.getWalletAddressForRole("distributor");
+      }
+
+      const deliveryLocation = location?.trim() || "Retail Distribution Center";
+      let senderRole = req.user?.role || role || "transporter";
+      if (senderRole === "admin") senderRole = "transporter";
+
+      // Execute on-chain delivery
+      const txResult = await blockchainService.deliverBatch(
+        batch.batchId,
+        recipientAddress,
+        deliveryLocation,
+        blockchainService.normalizeRole(senderRole) as any
+      );
+
+      const deliveryTimestamp = Math.floor(Date.now() / 1000);
+
+      // Update MongoDB record
+      const previousCustodian = batch.currentCustodian;
+      batch.currentCustodian = recipientAddress;
+      batch.status = "Delivered";
+      batch.custodyHistory.push({
+        from: previousCustodian,
+        to: recipientAddress,
+        location: `DELIVERED: ${deliveryLocation}`,
+        timestamp: deliveryTimestamp,
+        txHash: txResult.txHash,
+        blockNumber: txResult.blockNumber,
+        performedBy: req.user?._id,
+      });
+
+      await batch.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Batch delivered successfully on Ethereum Sepolia",
+        data: batch,
+        blockchain: {
+          txHash: txResult.txHash,
+          blockNumber: txResult.blockNumber,
+          gasUsed: txResult.gasUsed,
+          etherscanUrl: `https://sepolia.etherscan.io/tx/${txResult.txHash}`,
+        },
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * POST /api/batches/:batchId/certificate
+   * Laboratory uploads certified assay PDF report.
+   * Validates PDF magic bytes, calculates SHA-256 digest, stores file, and links to batch.
+   */
+  public uploadCertificate = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const batchId = (Array.isArray(req.params.batchId)
+        ? req.params.batchId[0]
+        : req.params.batchId) as string;
+      const { fileName, fileData } = req.body;
+
+      if (!fileName || typeof fileName !== "string") {
+        return next(new AppError("File name is required", 400));
+      }
+      if (!fileData || typeof fileData !== "string") {
+        return next(new AppError("File data (base64 string) is required", 400));
+      }
+
+      const batch = await Batch.findOne({ batchId: batchId.trim() });
+      if (!batch) {
+        return next(new AppError(`Batch '${batchId}' not found`, 404));
+      }
+      if (batch.status === "Recalled") {
+        return next(new AppError("Cannot upload certificate for a recalled batch", 400));
+      }
+
+      // Strip data URI header if present
+      const base64Clean = fileData.replace(/^data:application\/pdf;base64,/, "");
+      const buffer = Buffer.from(base64Clean, "base64");
+
+      if (buffer.length === 0) {
+        return next(new AppError("Uploaded file is empty", 400));
+      }
+
+      // Validate PDF magic bytes and store file using storage abstraction
+      const stored = await storageService.storePdf(buffer, fileName, "certificates");
+
+      // Update batch quality details with calculated SHA-256 and URL
+      batch.quality = batch.quality || { grade: "None" };
+      batch.quality.labReportHash = stored.sha256Hash;
+      batch.quality.labReportUrl = stored.url;
+      await batch.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Laboratory certificate uploaded and verified successfully",
+        batchId: batch.batchId,
+        labReportHash: stored.sha256Hash,
+        labReportUrl: stored.url,
+        sizeBytes: stored.sizeBytes,
       });
     } catch (err) {
       return next(err);

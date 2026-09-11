@@ -236,6 +236,13 @@ export class OrganizationService {
     const uniqueWallet = blockchainService.createUniqueOrganizationWallet();
     const orgType = (application.organizationType || application.role) as OrganizationType;
 
+    // Grant on-chain role to organization wallet on Ethereum Sepolia
+    try {
+      await blockchainService.grantRoleOnChain(orgType, uniqueWallet.address);
+    } catch (grantErr: any) {
+      console.warn(`[OrganizationService] On-chain role grant deferred or skipped: ${grantErr.message}`);
+    }
+
     // 2. Create and activate Organization
     const organization = new Organization({
       name: application.organizationName,

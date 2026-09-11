@@ -14,6 +14,7 @@ export interface IUser extends Document {
   name: string;
   email: string;
   passwordHash?: string;
+  walletAddress?: string;
   role: UserRole;
   organizationId?: Types.ObjectId;
   isOrgAdmin: boolean;
@@ -39,6 +40,10 @@ const UserSchema = new Schema<IUser>(
       trim: true,
       lowercase: true,
       index: true,
+    },
+    walletAddress: {
+      type: String,
+      trim: true,
     },
     passwordHash: {
       type: String,

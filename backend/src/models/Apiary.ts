@@ -30,6 +30,8 @@ export interface IApiary extends Document {
   status: "active" | "inactive" | "quarantined";
   capacity: number;
   hives: Types.ObjectId[];
+  organizationId?: Types.ObjectId;
+  createdBy?: Types.ObjectId;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -160,6 +162,16 @@ const ApiarySchema = new Schema<IApiary>(
     notes: {
       type: String,
       trim: true,
+    },
+    organizationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      index: true,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
     },
   },
   {

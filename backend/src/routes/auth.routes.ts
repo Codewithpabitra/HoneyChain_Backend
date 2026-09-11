@@ -14,6 +14,7 @@ router.get("/wallets", authController.getStakeholderWallets);
 router.get("/me", authenticate, authController.getMe);
 
 // Admin-only user management
+router.get("/users", authenticate, authorize("admin"), authController.getUsers);
 router.post("/users", authenticate, authorize("admin"), authController.createUser);
 
 export default router;

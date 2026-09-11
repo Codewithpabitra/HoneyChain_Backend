@@ -4,6 +4,10 @@ import { authenticate, authorize } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
+// Batch retrieval & listing - Authenticated
+router.get("/", authenticate, batchController.getBatches);
+router.get("/:batchId", authenticate, batchController.getBatchById);
+
 // Batch lifecycle write operations - Role Protected
 // 1. Beekeeper registers new harvest batch
 router.post(
@@ -21,6 +25,14 @@ router.post(
   batchController.certifyBatch
 );
 
+// 2b. Laboratory uploads certified assay PDF report
+router.post(
+  "/:batchId/certificate",
+  authenticate,
+  authorize("lab", "admin"),
+  batchController.uploadCertificate
+);
+
 // 3. Custodians (Beekeeper, Processor, Transporter) transfer batch custody
 router.post(
   "/:batchId/transfer",
@@ -29,11 +41,19 @@ router.post(
   batchController.transferCustody
 );
 
+// 3b. Custodians deliver batch to final retail / distribution destination
+router.post(
+  "/:batchId/deliver",
+  authenticate,
+  authorize("beekeeper", "processor", "transporter", "admin"),
+  batchController.deliverBatch
+);
+
 // 4. Auditor initiates emergency recall
 router.post(
   "/:batchId/recall",
   authenticate,
-  authorize("auditor"),
+  authorize("auditor", "admin"),
   batchController.recallBatch
 );
 

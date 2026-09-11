@@ -164,5 +164,8 @@ export const authorize = (...allowedRoles: string[]) => {
   };
 };
 
-export default { authenticate, authorize, requireOrgAdmin };
+export const protect = authenticate;
+export const restrictTo = authorize;
+
+export default { authenticate, authorize, requireOrgAdmin, protect, restrictTo };
 

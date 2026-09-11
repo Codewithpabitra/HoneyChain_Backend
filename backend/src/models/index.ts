@@ -13,3 +13,5 @@ export * from "./AIPrediction.js";
 export * from "./Organization.js";
 export * from "./OrganizationApplication.js";
 export * from "./User.js";
+export * from "./Alert.js";
+export * from "./Harvest.js";

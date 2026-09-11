@@ -1,5 +1,6 @@
 import { env } from "../config/env.js";
 import { SensorReading, Hive, AIPrediction } from "../models/index.js";
+import alertService from "./alert.service.js";
 import AppError from "../utils/AppError.js";
 
 export interface MLModelReadingInput {
@@ -326,6 +327,26 @@ export class MLService {
         modelOutput.abnormalityRisk !== undefined ? modelOutput.abnormalityRisk / 100 : 0;
       hive.currentHealthSummary.lastAIPredictionId = predictionId;
       await hive.save();
+
+      // Trigger critical alert when high colony stress risk is predicted
+      if (modelOutput.stressRisk === "HIGH") {
+        await alertService
+          .createAlertWithCooldown({
+            hiveId: cleanHiveId,
+            apiaryId: hive.apiaryId,
+            organizationId: (hive as any).organizationId,
+            severity: "critical",
+            alertType: "high_ml_stress_risk",
+            message: `AI Diagnostics identified HIGH colony stress risk for hive ${cleanHiveId} (Health Score: ${modelOutput.healthScore}, Tier: ${modelOutput.tier}). Recommendation: ${modelOutput.recommendation || "Immediate apiary inspection recommended"}`,
+            metadata: {
+              healthScore: modelOutput.healthScore,
+              tier: modelOutput.tier,
+              drivers: modelOutput.drivers,
+            },
+            cooldownMinutes: 120,
+          })
+          .catch((e) => console.warn(`[MLService] Could not record stress alert: ${e.message}`));
+      }
     }
 
     return {

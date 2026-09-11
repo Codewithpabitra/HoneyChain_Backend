@@ -4,6 +4,46 @@ All notable changes to the HoneyChain backend and blockchain subsystems will be 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Phase 8: Complete HoneyChain Backend & Enterprise Capabilities] - 2026-09-11
+
+### Added
+- **Apiary & Hive Management Subsystem (`/api/apiaries`, `/api/hives`, `/hives`)**:
+  - Full CRUD operations with multi-tenant organization scoping and RBAC (`beekeeper`, `admin`).
+  - Automatic GeoJSON 2dsphere point coordinate generation and bounds validation (`latitude` [-90, 90], `longitude` [-180, 180]).
+  - Hive registration with parent apiary reference, hardware device metadata, and initialized health summaries.
+  - Express route alias `/hives` for complete frontend service compatibility.
+- **Harvest Management Subsystem (`/api/harvests`, `/harvests`, `Harvest.ts`)**:
+  - New Mongoose `Harvest` model tracking `harvestId`, `hiveId`, `apiaryId`, `beekeeperId`, `organizationId`, `quantityGrams`, and `floralOrigin`.
+  - CRUD controller and routes (`POST`, `GET /`, `GET /:harvestId`) with tenant scoping and frontend alias `/harvests`.
+- **Extended Batch Lifecycle & Provenance Operations (`/api/batches`)**:
+  - `GET /api/batches`: Multi-tenant paginated batch retrieval with filters (`status`, `search`, `organizationId`).
+  - `GET /api/batches/:batchId`: Detailed batch inspection with populated relations (`apiary`, `hives`, `organizationId`, `createdBy`).
+  - `POST /api/batches/:batchId/certificate`: Laboratory assay report upload with `%PDF-` magic byte validation, SHA-256 hash generation, storage abstraction, and `quality.labReportHash` / `quality.labReportUrl` tracking.
+  - `POST /api/batches/:batchId/deliver`: Physical and on-chain batch delivery handoff on Ethereum Sepolia, transitioning status to `Delivered` with recorded custody checkpoints.
+- **Organization Onboarding & Smart Contract Wallet Synchronization**:
+  - Automatic on-chain role granting (`grantRoleOnChain`) upon organization application approval.
+  - Smart gas checking and test runner detection preventing testnet block mining stalls and zero-balance wallet failures.
+- **Automated Threshold Alert Subsystem (`/api/alerts`, `Alert.ts`, `alert.service.ts`)**:
+  - New `Alert` model with compound indexes for rapid query and deduplication.
+  - 60-minute deduplication cooldown window preventing alert spam.
+  - Automated triggers from IoT sensor metrics: hypothermia (<32°C), hyperthermia (>37.5°C), rapid weight drops (>1.5kg drop), and low battery (<15%).
+  - Automated triggers from ML inference when high stress risk is detected.
+- **IoT Diagnostics & Historical Telemetry (`/api/iot/telemetry/:hiveId`, `/api/iot/devices/:deviceId/status`)**:
+  - Historical telemetry retrieval supporting `raw` and `hourly` resolution aggregations.
+  - Device status endpoint reporting online/offline state, battery percentage, last ping, and current metrics.
+- **Dashboard & Regional Cluster Analytics (`/api/analytics/dashboard`, `/api/analytics/clusters`)**:
+  - Real-time MongoDB aggregation pipelines tailored by user role (Beekeeper, Lab, Processor, Transporter, Auditor, Admin).
+  - Apiary geographic clustering grouping by region with calculated centroid coordinates (`avgLatitude`, `avgLongitude`), hive coverage, and farmer counts.
+- **Storage Abstraction Service (`backend/src/services/storage.service.ts`)**:
+  - PDF verification, SHA-256 digest computation, and dual-backend support (Cloudinary with local static fallback).
+- **Comprehensive Integration Test Suites**:
+  - `src/tests/apiaryHive.test.ts`: Apiary/Hive CRUD, GeoJSON, and tenant isolation tests.
+  - `src/tests/batchExtended.test.ts`: Batch listing, filters, certificate upload, and delivery tests.
+  - `src/tests/alertsAnalytics.test.ts`: Alert cooldown, harvest workflow, IoT telemetry history, and analytics aggregations.
+  - All 149 test cases passing cleanly.
+
+---
+
 ## [Phase 7: Hive Health & Disease Risk ML Inference Subsystem] - 2026-09-08
 
 ### Added

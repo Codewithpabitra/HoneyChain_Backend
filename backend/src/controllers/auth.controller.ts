@@ -284,6 +284,22 @@ export class AuthController {
       return next(err);
     }
   };
+
+  /**
+   * GET /api/auth/users
+   * Admin-only: Returns all registered platform users.
+   */
+  public getUsers = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const users = await User.find().select("-passwordHash").sort({ createdAt: -1 });
+      return res.status(200).json({
+        success: true,
+        data: users,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
 }
 
 export const authController = new AuthController();
