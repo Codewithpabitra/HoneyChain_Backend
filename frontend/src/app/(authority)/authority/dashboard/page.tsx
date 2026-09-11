@@ -277,7 +277,11 @@ export default function AuthorityDashboardPage() {
         {isAdmin && (
           <button
             type="button"
-            onClick={fetchApplications}
+            onClick={() => {
+              clearApiCache();
+              fetchApplications();
+              analyticsService.getDashboardStats().then((res) => setDashboardStats(res.data));
+            }}
             disabled={isLoadingApps}
             className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white/70 px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-black/5 dark:border-white/10 dark:bg-white/4 dark:text-ink-dark dark:hover:bg-white/8"
           >
@@ -288,55 +292,96 @@ export default function AuthorityDashboardPage() {
       </div>
 
       {/* Network Overview Stats */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-black/50 dark:text-white/50">Active Hives</p>
-              <p className="mt-2 text-2xl font-bold">{dashboardStats ? dashboardStats.hives.active : "—"}</p>
-            </div>
-            <div className="rounded-xl bg-honey/10 p-2.5 text-honey">
-              <IconHexagon size={20} />
+      <StaggerContainer className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs text-black/50 dark:text-white/50">Active Hives</p>
+                  <LivePulse color="emerald" />
+                </div>
+                <p className="mt-2 text-2xl font-bold">
+                  {dashboardStats ? (
+                    <AnimatedNumber value={dashboardStats.hives.active} />
+                  ) : (
+                    <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                  )}
+                </p>
+              </div>
+              <div className="rounded-xl bg-honey/10 p-2.5 text-honey">
+                <IconHexagon size={20} />
+              </div>
             </div>
           </div>
-        </div>
+        </StaggerItem>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-black/50 dark:text-white/50">Healthy Colonies</p>
-              <p className="mt-2 text-2xl font-bold">{dashboardStats ? dashboardStats.hives.healthy : "—"}</p>
-            </div>
-            <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-600 dark:text-emerald-400">
-              <IconShieldCheck size={20} />
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs text-black/50 dark:text-white/50">Healthy Colonies</p>
+                  <LivePulse color="emerald" />
+                </div>
+                <p className="mt-2 text-2xl font-bold">
+                  {dashboardStats ? (
+                    <AnimatedNumber value={dashboardStats.hives.healthy} />
+                  ) : (
+                    <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                  )}
+                </p>
+              </div>
+              <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-600 dark:text-emerald-400">
+                <IconShieldCheck size={20} />
+              </div>
             </div>
           </div>
-        </div>
+        </StaggerItem>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-black/50 dark:text-white/50">Verified Batches</p>
-              <p className="mt-2 text-2xl font-bold">{dashboardStats ? dashboardStats.batches.total : "—"}</p>
-            </div>
-            <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600 dark:text-blue-400">
-              <IconBox size={20} />
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-black/50 dark:text-white/50">Verified Batches</p>
+                <p className="mt-2 text-2xl font-bold">
+                  {dashboardStats ? (
+                    <AnimatedNumber value={dashboardStats.batches.total} />
+                  ) : (
+                    <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                  )}
+                </p>
+              </div>
+              <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600 dark:text-blue-400">
+                <IconBox size={20} />
+              </div>
             </div>
           </div>
-        </div>
+        </StaggerItem>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-black/50 dark:text-white/50">System Alerts</p>
-              <p className="mt-2 text-2xl font-bold">{dashboardStats ? dashboardStats.alerts.active : "—"}</p>
-            </div>
-            <div className="rounded-xl bg-red-500/10 p-2.5 text-red-500">
-              <IconAlertTriangle size={20} />
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs text-black/50 dark:text-white/50">System Alerts</p>
+                  {(dashboardStats?.alerts?.active ?? 0) > 0 && <LivePulse color="rose" />}
+                </div>
+                <p className="mt-2 text-2xl font-bold">
+                  {dashboardStats ? (
+                    <AnimatedNumber value={dashboardStats.alerts.active} />
+                  ) : (
+                    <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                  )}
+                </p>
+              </div>
+              <div className="rounded-xl bg-red-500/10 p-2.5 text-red-500">
+                <IconAlertTriangle size={20} />
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </StaggerItem>
+      </StaggerContainer>
 
       {/* Admin Organization Requests Section */}
       {isAdmin && (
