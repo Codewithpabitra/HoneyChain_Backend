@@ -630,11 +630,12 @@ export class BatchController {
       const userOrgId = (req.user?.organizationId as any)?._id || req.user?.organizationId;
 
       if (!isAdminOrAuditor) {
-        const userWallet = req.user?.walletAddress?.toLowerCase();
+        const userWallet = (req.user?.walletAddress || (req.user?.organizationId as any)?.walletAddress)?.toLowerCase();
         const role = req.user?.role;
 
         const accessConditions: any[] = [];
         if (userOrgId) accessConditions.push({ organizationId: userOrgId });
+        if (req.user?._id) accessConditions.push({ createdBy: req.user._id });
         if (userWallet) {
           accessConditions.push({ producer: { $regex: new RegExp(`^${userWallet}$`, "i") } });
           accessConditions.push({ currentCustodian: { $regex: new RegExp(`^${userWallet}$`, "i") } });

@@ -28,8 +28,16 @@ export class AnalyticsController {
 
       // 1. Apiary & Hive Metrics
       const hiveMatch: Record<string, any> = {};
-      if (!isAuthorityOrAdmin && userOrgId) {
-        hiveMatch.organizationId = userOrgId;
+      if (!isAuthorityOrAdmin) {
+        const tenantOr: any[] = [];
+        if (userOrgId) tenantOr.push({ organizationId: userOrgId });
+        if (user?.email) tenantOr.push({ beekeeper: user.email });
+        const wallet = (user as any)?.walletAddress || (user?.organizationId as any)?.walletAddress;
+        if (wallet) tenantOr.push({ beekeeper: { $regex: new RegExp(`^${wallet}$`, "i") } });
+        if (user?._id) tenantOr.push({ createdBy: user._id });
+        if (tenantOr.length > 0) {
+          hiveMatch.$or = tenantOr;
+        }
       }
 
       const [hiveStats] = await Hive.aggregate([
@@ -87,12 +95,21 @@ export class AnalyticsController {
 
       // 3. Batch Metrics
       const batchMatch: Record<string, any> = {};
-      if (!isAuthorityOrAdmin && user?.walletAddress) {
-        const addrLower = user.walletAddress.toLowerCase();
-        batchMatch.$or = [
-          { creatorAddress: { $regex: new RegExp(`^${addrLower}$`, "i") } },
-          { currentOwner: { $regex: new RegExp(`^${addrLower}$`, "i") } },
-        ];
+      if (!isAuthorityOrAdmin) {
+        const wallet = (user as any)?.walletAddress || (user?.organizationId as any)?.walletAddress;
+        const batchOr: any[] = [];
+        if (userOrgId) batchOr.push({ organizationId: userOrgId });
+        if (wallet) {
+          const addrLower = wallet.toLowerCase();
+          batchOr.push({ producer: { $regex: new RegExp(`^${addrLower}$`, "i") } });
+          batchOr.push({ creatorAddress: { $regex: new RegExp(`^${addrLower}$`, "i") } });
+          batchOr.push({ currentCustodian: { $regex: new RegExp(`^${addrLower}$`, "i") } });
+          batchOr.push({ currentOwner: { $regex: new RegExp(`^${addrLower}$`, "i") } });
+        }
+        if (user?._id) batchOr.push({ createdBy: user._id });
+        if (batchOr.length > 0) {
+          batchMatch.$or = batchOr;
+        }
       }
 
       const [batchStats] = await Batch.aggregate([
@@ -129,8 +146,14 @@ export class AnalyticsController {
 
       // 4. Harvest Metrics
       const harvestMatch: Record<string, any> = {};
-      if (!isAuthorityOrAdmin && userOrgId) {
-        harvestMatch.organizationId = userOrgId;
+      if (!isAuthorityOrAdmin) {
+        const harvestOr: any[] = [];
+        if (userOrgId) harvestOr.push({ organizationId: userOrgId });
+        if (user?.email) harvestOr.push({ beekeeperId: user.email });
+        if (user?._id) harvestOr.push({ beekeeperId: user._id.toString() });
+        if (harvestOr.length > 0) {
+          harvestMatch.$or = harvestOr;
+        }
       }
 
       const [harvestStats] = await Harvest.aggregate([

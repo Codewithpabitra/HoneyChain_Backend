@@ -109,9 +109,26 @@ export class ApiaryController {
       // Tenant isolation: non-admins are scoped to their organization
       const isAdmin = req.user?.role === "admin" || req.user?.role === "auditor";
       const userOrgId = (req.user?.organizationId as any)?._id || req.user?.organizationId;
+      const userWallet = (req.user as any)?.walletAddress || (req.user?.organizationId as any)?.walletAddress;
+      const userEmail = req.user?.email;
 
-      if (!isAdmin && userOrgId) {
-        query.$or = [{ organizationId: userOrgId }, { beekeeper: req.user?.email }];
+      if (!isAdmin) {
+        const tenantConditions: any[] = [];
+        if (userOrgId) tenantConditions.push({ organizationId: userOrgId });
+        if (userEmail) tenantConditions.push({ beekeeper: userEmail });
+        if (userWallet) {
+          tenantConditions.push({ beekeeper: { $regex: new RegExp(`^${userWallet}$`, "i") } });
+        }
+        if (req.user?._id) tenantConditions.push({ createdBy: req.user._id });
+
+        if (tenantConditions.length > 0) {
+          if (query.$or) {
+            query.$and = [{ $or: tenantConditions }, { $or: query.$or }];
+            delete query.$or;
+          } else {
+            query.$or = tenantConditions;
+          }
+        }
       }
 
       const [apiaries, total] = await Promise.all([

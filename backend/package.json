@@ -12,7 +12,8 @@
     "seed": "tsx src/scripts/seed.ts",
     "seed:users": "tsx src/scripts/seedUsers.ts",
     "seed:batches": "tsx src/scripts/seedDemoBatches.ts",
-    "migrate:orgs": "tsx src/scripts/migrateOrgApplications.ts"
+    "migrate:orgs": "tsx src/scripts/migrateOrgApplications.ts",
+    "fix:relations": "tsx src/scripts/fixDatabaseRelations.ts"
   },
   "repository": {
     "type": "git",

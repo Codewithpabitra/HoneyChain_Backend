@@ -130,6 +130,7 @@ export async function seedDemoUsers(): Promise<DemoUserSeedResult[]> {
         passwordHash,
         role: userDef.role,
         organizationId: userDef.organizationId,
+        walletAddress: orgMap[userDef.role]?.walletAddress,
         isOrgAdmin: userDef.isOrgAdmin,
         isActive: true,
       },
