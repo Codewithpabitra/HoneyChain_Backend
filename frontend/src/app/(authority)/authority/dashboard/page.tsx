@@ -129,6 +129,61 @@ export default function AuthorityDashboardPage() {
       .catch((err) => console.error("Failed to load dashboard stats", err));
   }, []);
 
+  // Handle hash scrolling on load or hashchange
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const handleScrollToHash = () => {
+      if (typeof window !== "undefined" && window.location.hash === "#requests") {
+        const el = document.getElementById("requests");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      }
+    };
+
+    const timer = setTimeout(handleScrollToHash, 150);
+    window.addEventListener("hashchange", handleScrollToHash);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("hashchange", handleScrollToHash);
+    };
+  }, [isAdmin]);
+
+  // Synchronize menu indicator as the user scrolls into / out of Organization Requests
+  useEffect(() => {
+    if (!isAdmin) return;
+    const requestsEl = document.getElementById("requests");
+    if (!requestsEl) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting) {
+          if (window.location.hash !== "#requests") {
+            window.history.replaceState(null, "", "#requests");
+            window.dispatchEvent(new Event("hashchange"));
+          }
+        } else {
+          const rect = requestsEl.getBoundingClientRect();
+          if (rect.top > 150 && window.location.hash === "#requests") {
+            window.history.replaceState(null, "", window.location.pathname);
+            window.dispatchEvent(new Event("hashchange"));
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin: "-100px 0px -40% 0px",
+        threshold: 0.05,
+      }
+    );
+
+    observer.observe(requestsEl);
+    return () => observer.disconnect();
+  }, [isAdmin]);
+
   // Open review modal
   function handleOpenReview(app: OrganizationApplication) {
     setSelectedApp(app);
