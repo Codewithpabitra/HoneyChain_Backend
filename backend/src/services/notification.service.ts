@@ -82,14 +82,25 @@ export class NotificationService {
   }
 
   /**
-   * Formats a Date into IST (UTC+05:30): "11 Sep 2026, 21:45 IST"
+   * Formats a Date into short IST (UTC+05:30): "11 Sep, 21:45 IST"
    */
   public formatIstTime(date: Date = new Date()): string {
     const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
     const istMs = utcMs + 330 * 60000;
     const d = new Date(istMs);
-    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} IST`;
+    return `${d.getDate()} ${months[d.getMonth()]}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} IST`;
+  }
+
+  /**
+   * Sanitizes string to GSM-7 compatible plain text (strips emojis, replaces degree symbols with C).
+   */
+  private toGsm7(text: string): string {
+    return text
+      .replace(/°C/gi, "C")
+      .replace(/°/g, "")
+      .replace(/[^\x20-\x7E\n\r]/g, "")
+      .trim();
   }
 
   /**
@@ -247,15 +258,18 @@ export class NotificationService {
       return { success: false, error: "No recipient phone numbers available" };
     }
 
+    const cleanActual = this.toGsm7(String(actualValue));
+    const cleanRange = this.toGsm7(String(expectedRange));
     const timeFormatted = this.formatIstTime(timestamp);
+
     const body = [
-      "🚨 HoneyChain Alert",
+      "HoneyChain Alert",
       `Hive: ${hiveId}`,
       `Device: ${deviceId}`,
-      `Abnormal ${sensorName} reading: ${actualValue}`,
-      `Expected range: ${expectedRange}`,
+      `Abnormal ${sensorName}: ${cleanActual}`,
+      `Expected: ${cleanRange}`,
       `Time: ${timeFormatted}`,
-      "Please inspect the hive/device.",
+      "Inspect hive/device.",
     ].join("\n");
 
     let overallSuccess = false;

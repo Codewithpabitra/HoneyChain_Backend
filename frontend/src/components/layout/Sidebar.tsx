@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { ROLE_NAVIGATION } from "@/config/navigation";
 import type { Role } from "@/types/auth";
+import { useUnresolvedAlertsCount } from "@/hooks/useUnresolvedAlertsCount";
 
 interface SidebarProps {
   role: Role;
@@ -14,6 +15,7 @@ export default function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [currentHash, setCurrentHash] = useState("");
+  const { count: unresolvedAlertsCount } = useUnresolvedAlertsCount();
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -116,7 +118,12 @@ export default function Sidebar({ role }: SidebarProps) {
                 }`}
               >
                 <Icon size={19} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.label === "Alerts" && unresolvedAlertsCount > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-black/40 animate-pulse">
+                    {unresolvedAlertsCount > 99 ? "99+" : unresolvedAlertsCount}
+                  </span>
+                )}
               </Link>
             );
           })}

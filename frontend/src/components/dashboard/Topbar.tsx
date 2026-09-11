@@ -1,12 +1,20 @@
 "use client";
 
-import { IconSun, IconMoon, IconLogout } from "@tabler/icons-react";
+import Link from "next/link";
+import { IconSun, IconMoon, IconLogout, IconAlertTriangle } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useUnresolvedAlertsCount } from "@/hooks/useUnresolvedAlertsCount";
 
 export default function Topbar() {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { count: alertCount } = useUnresolvedAlertsCount();
+
+  const alertsHref =
+    user?.role === "admin" || user?.role === "auditor"
+      ? "/authority/alerts"
+      : "/farmer/alerts";
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-black/10 bg-white/70 px-5 backdrop-blur-xl dark:border-white/10 dark:bg-black/20 md:px-8">
@@ -20,6 +28,24 @@ export default function Topbar() {
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Alert Button with Dynamic Badge */}
+        <Link
+          href={alertsHref}
+          className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-black/10 bg-white/70 transition hover:bg-black/5 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+          title={alertCount > 0 ? `${alertCount} active alerts` : "Alerts"}
+          aria-label="Alerts"
+        >
+          <IconAlertTriangle
+            size={18}
+            className={alertCount > 0 ? "text-amber-500" : "text-black/60 dark:text-white/60"}
+          />
+          {alertCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-black animate-pulse">
+              {alertCount > 99 ? "99+" : alertCount}
+            </span>
+          )}
+        </Link>
+
         {/* Theme */}
         <button
           type="button"

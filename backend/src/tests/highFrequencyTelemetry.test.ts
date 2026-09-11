@@ -89,6 +89,7 @@ describe("HoneyChain High-Frequency IoT Telemetry & Twilio SMS Alert Test Suite"
   beforeEach(async function () {
     await SensorReading.deleteMany({});
     await ActiveAlertState.deleteMany({});
+    await Hive.updateMany({}, { status: "active", "currentHealthSummary.status": "healthy" });
     iotController.clearPersistenceCache();
     sentSmsList = [];
   });
@@ -300,11 +301,12 @@ describe("HoneyChain High-Frequency IoT Telemetry & Twilio SMS Alert Test Suite"
       expect(res.body.success).to.be.false;
       expect(res.body.error.message).to.include("temperature is required and must be a valid number");
 
-      // Verify SMS was triggered
+      // Verify SMS was triggered (plain text GSM-7)
       expect(sentSmsList.length).to.equal(1);
-      expect(sentSmsList[0].body).to.include("🚨 HoneyChain Alert");
-      expect(sentSmsList[0].body).to.include("Abnormal temperature reading: NaN");
-      expect(sentSmsList[0].body).to.include("Expected range: -40°C to 70°C");
+      expect(sentSmsList[0].body).to.include("HoneyChain Alert");
+      expect(sentSmsList[0].body).to.not.include("🚨");
+      expect(sentSmsList[0].body).to.include("Abnormal temperature: NaN");
+      expect(sentSmsList[0].body).to.include("Expected: -40C to 70C");
 
       // Verify NOT persisted to MongoDB
       expect(await SensorReading.countDocuments({})).to.equal(0);
@@ -326,7 +328,8 @@ describe("HoneyChain High-Frequency IoT Telemetry & Twilio SMS Alert Test Suite"
       expect(res.status).to.equal(400);
       expect(res.body.success).to.be.false;
       expect(sentSmsList.length).to.equal(1);
-      expect(sentSmsList[0].body).to.include("Abnormal humidity reading");
+      expect(sentSmsList[0].body).to.include("Abnormal humidity");
+      expect(sentSmsList[0].body).to.not.include("🚨");
       expect(await SensorReading.countDocuments({})).to.equal(0);
     });
 
@@ -377,16 +380,17 @@ describe("HoneyChain High-Frequency IoT Telemetry & Twilio SMS Alert Test Suite"
       expect(res.status).to.equal(400);
       expect(res.body.error.message).to.include("temperature out of plausible range");
 
-      // Verify SMS message formatting
+      // Verify SMS message formatting (plain-text, GSM-7 compatible, no emojis)
       expect(sentSmsList.length).to.equal(1);
       const sms = sentSmsList[0];
-      expect(sms.body).to.include("🚨 HoneyChain Alert");
+      expect(sms.body).to.include("HoneyChain Alert");
+      expect(sms.body).to.not.include("🚨");
       expect(sms.body).to.include("Hive: HIVE-HF-01");
       expect(sms.body).to.include("Device: ESP32-HF-01");
-      expect(sms.body).to.include("Abnormal temperature reading: 100°C");
-      expect(sms.body).to.include("Expected range: -40°C to 70°C");
+      expect(sms.body).to.include("Abnormal temperature: 100C");
+      expect(sms.body).to.include("Expected: -40C to 70C");
       expect(sms.body).to.include("IST");
-      expect(sms.body).to.include("Please inspect the hive/device.");
+      expect(sms.body).to.include("Inspect hive/device.");
 
       // Verify reading was NOT saved in database
       expect(await SensorReading.countDocuments({})).to.equal(0);
@@ -408,8 +412,8 @@ describe("HoneyChain High-Frequency IoT Telemetry & Twilio SMS Alert Test Suite"
       expect(res.status).to.equal(400);
       expect(res.body.error.message).to.include("humidity out of plausible range");
       expect(sentSmsList.length).to.equal(1);
-      expect(sentSmsList[0].body).to.include("Abnormal humidity reading: 125%");
-      expect(sentSmsList[0].body).to.include("Expected range: 0% to 100%");
+      expect(sentSmsList[0].body).to.include("Abnormal humidity: 125%");
+      expect(sentSmsList[0].body).to.include("Expected: 0% to 100%");
       expect(await SensorReading.countDocuments({})).to.equal(0);
     });
 
@@ -429,8 +433,8 @@ describe("HoneyChain High-Frequency IoT Telemetry & Twilio SMS Alert Test Suite"
       expect(res.status).to.equal(400);
       expect(res.body.error.message).to.include("weightKg out of plausible range");
       expect(sentSmsList.length).to.equal(1);
-      expect(sentSmsList[0].body).to.include("Abnormal weight reading: -12.5kg");
-      expect(sentSmsList[0].body).to.include("Expected range: 0kg to 300kg");
+      expect(sentSmsList[0].body).to.include("Abnormal weight: -12.5kg");
+      expect(sentSmsList[0].body).to.include("Expected: 0kg to 300kg");
       expect(await SensorReading.countDocuments({})).to.equal(0);
     });
 
@@ -587,6 +591,66 @@ describe("HoneyChain High-Frequency IoT Telemetry & Twilio SMS Alert Test Suite"
         });
       expect(resAbnormal.status).to.equal(400);
       expect(resAbnormal.body.error.message).to.include("temperature out of plausible range");
+    });
+
+    it("marks hive as inactive/alert state on abnormal reading and automatically restores active state upon receiving normal data", async function () {
+      // 1. Initial hive state is active
+      const initialHive = await Hive.findOne({ hiveId: "HIVE-HF-01" });
+      expect(initialHive?.status).to.equal("active");
+
+      // 2. Trigger critical abnormal temperature
+      const resAbnormal = await request(app)
+        .post("/api/iot/telemetry")
+        .send({
+          deviceId: "ESP32-HF-01",
+          hiveId: "HIVE-HF-01",
+          timestamp: new Date().toISOString(),
+          temperature: 99.5,
+          humidity: 58.0,
+          weightKg: 30.0,
+          batteryLevelPct: 90,
+        });
+      expect(resAbnormal.status).to.equal(400);
+
+      // Verify hive is now marked Inactive with critical health summary
+      const alertHive = await Hive.findOne({ hiveId: "HIVE-HF-01" });
+      expect(alertHive?.status).to.equal("inactive");
+      expect(alertHive?.currentHealthSummary?.status).to.equal("critical");
+
+      // 3. Subsequent reading while still abnormal: remains inactive
+      const resStillAbnormal = await request(app)
+        .post("/api/iot/telemetry")
+        .send({
+          deviceId: "ESP32-HF-01",
+          hiveId: "HIVE-HF-01",
+          timestamp: new Date(Date.now() + 15000).toISOString(),
+          temperature: 101.0,
+          humidity: 58.0,
+          weightKg: 30.0,
+          batteryLevelPct: 90,
+        });
+      expect(resStillAbnormal.status).to.equal(400);
+      const stillAlertHive = await Hive.findOne({ hiveId: "HIVE-HF-01" });
+      expect(stillAlertHive?.status).to.equal("inactive");
+
+      // 4. Ingest valid/normal sensor data -> Hive automatically recovers to active state!
+      const resNormal = await request(app)
+        .post("/api/iot/telemetry")
+        .send({
+          deviceId: "ESP32-HF-01",
+          hiveId: "HIVE-HF-01",
+          timestamp: new Date(Date.now() + 30000).toISOString(),
+          temperature: 34.5,
+          humidity: 58.0,
+          weightKg: 30.0,
+          batteryLevelPct: 90,
+        });
+      expect(resNormal.status).to.be.oneOf([200, 201]);
+
+      // Verify hive is now automatically restored to active and healthy!
+      const recoveredHive = await Hive.findOne({ hiveId: "HIVE-HF-01" });
+      expect(recoveredHive?.status).to.equal("active");
+      expect(recoveredHive?.currentHealthSummary?.status).to.equal("healthy");
     });
   });
 

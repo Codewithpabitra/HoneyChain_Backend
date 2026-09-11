@@ -47,6 +47,9 @@ export default function AuthorityAlertsPage() {
     try {
       setResolvingId(id);
       await alertService.resolveAlert(id);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("honeychain:alerts-updated"));
+      }
       setAlerts((prev) =>
         prev.map((a) =>
           a._id === id

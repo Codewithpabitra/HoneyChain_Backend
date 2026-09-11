@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { SensorReading, Hive } from "../models/index.js";
+import { SensorReading, Hive, ActiveAlertState } from "../models/index.js";
 import alertService from "../services/alert.service.js";
 import notificationService from "../services/notification.service.js";
 import { env } from "../config/env.js";
@@ -83,13 +83,17 @@ export class IoTController {
       const cleanHiveId = hiveId.trim();
       const cleanDeviceId = deviceId.trim();
 
-      // 3. Verify hive exists and is active in database
+      // 3. Verify hive exists and check status
       const hive = await Hive.findOne({ hiveId: cleanHiveId });
       if (!hive) {
         return next(new AppError(`Hive '${cleanHiveId}' not found in registry`, 404));
       }
 
-      if (hive.status === "inactive" || hive.status === "collapsed") {
+      // Check if hive is currently inactive due to an active alert state vs permanently collapsed/inactive
+      const hasActiveAlertCondition = await ActiveAlertState.exists({ hiveId: cleanHiveId, isActive: true });
+      const isAlertInactive = Boolean(hasActiveAlertCondition || hive.currentHealthSummary?.status === "critical");
+
+      if (hive.status === "collapsed" || (hive.status === "inactive" && !isAlertInactive)) {
         return next(
           new AppError(
             `Cannot ingest telemetry for hive '${cleanHiveId}' with status '${hive.status}'`,
@@ -97,6 +101,26 @@ export class IoTController {
           )
         );
       }
+
+      // Helper to mark hive as Inactive / Alert state when critical/abnormal alerts fire
+      const markHiveAlertInactive = async () => {
+        try {
+          hive.status = "inactive";
+          hive.currentHealthSummary = hive.currentHealthSummary || { status: "critical" };
+          hive.currentHealthSummary.status = "critical";
+          await Hive.updateOne(
+            { hiveId: cleanHiveId },
+            {
+              $set: {
+                status: "inactive",
+                "currentHealthSummary.status": "critical",
+              },
+            }
+          );
+        } catch (err: any) {
+          console.warn(`[IoTController] Could not set hive alert state: ${err.message}`);
+        }
+      };
 
       // 4. Immediate Sensor Value Validation (NaN, Infinity, null, non-numeric, physical bounds)
       // Uses STATEFUL alerting — SMS fires on NEW abnormal, suppressed for CONTINUING conditions,
@@ -106,12 +130,13 @@ export class IoTController {
 
       // ── Temperature (-40°C to 70°C) ────────────────────────────────────────
       if (isInvalidNumber(temperature)) {
+        await markHiveAlertInactive();
         await notificationService
           .sendAbnormalReadingAlert({
             hiveId: cleanHiveId, deviceId: cleanDeviceId,
             sensorName: "temperature",
             actualValue: String(temperature),
-            expectedRange: "-40°C to 70°C",
+            expectedRange: "-40C to 70C",
             alertType: "abnormal_temperature",
             conditionDirection: "malformed",
             timestamp: parsedTimestamp,
@@ -133,13 +158,14 @@ export class IoTController {
       }
 
       if (temperature < -40 || temperature > 70) {
+        await markHiveAlertInactive();
         const dir = temperature > 70 ? "high" : "low";
         await notificationService
           .sendAbnormalReadingAlert({
             hiveId: cleanHiveId, deviceId: cleanDeviceId,
             sensorName: "temperature",
-            actualValue: `${temperature}°C`,
-            expectedRange: "-40°C to 70°C",
+            actualValue: `${temperature}C`,
+            expectedRange: "-40C to 70C",
             alertType: "abnormal_temperature",
             conditionDirection: dir,
             timestamp: parsedTimestamp,
@@ -167,6 +193,7 @@ export class IoTController {
 
       // ── Humidity (0% to 100%) ───────────────────────────────────────────────
       if (isInvalidNumber(humidity)) {
+        await markHiveAlertInactive();
         await notificationService
           .sendAbnormalReadingAlert({
             hiveId: cleanHiveId, deviceId: cleanDeviceId,
@@ -194,6 +221,7 @@ export class IoTController {
       }
 
       if (humidity < 0 || humidity > 100) {
+        await markHiveAlertInactive();
         const dir = humidity > 100 ? "high" : "low";
         await notificationService
           .sendAbnormalReadingAlert({
@@ -228,6 +256,7 @@ export class IoTController {
 
       // ── Weight (0 kg to 300 kg) ─────────────────────────────────────────────
       if (isInvalidNumber(weightKg)) {
+        await markHiveAlertInactive();
         await notificationService
           .sendAbnormalReadingAlert({
             hiveId: cleanHiveId, deviceId: cleanDeviceId,
@@ -255,6 +284,7 @@ export class IoTController {
       }
 
       if (weightKg < 0 || weightKg > 300) {
+        await markHiveAlertInactive();
         const dir = weightKg > 300 ? "high" : "low";
         await notificationService
           .sendAbnormalReadingAlert({
@@ -314,11 +344,28 @@ export class IoTController {
         }
       }
 
-
       if (ambientHumidity !== undefined) {
         if (typeof ambientHumidity !== "number" || isNaN(ambientHumidity) || ambientHumidity < 0 || ambientHumidity > 100) {
           return next(new AppError("ambientHumidity out of plausible range (0% to 100%)", 400));
         }
+      }
+
+      // Safe sensor readings validated — check if any active abnormal conditions remain for this hive
+      const remainingActiveAlerts = await ActiveAlertState.exists({ hiveId: cleanHiveId, isActive: true });
+      if (!remainingActiveAlerts && (hive.status === "inactive" || hive.currentHealthSummary?.status === "critical")) {
+        // Safe state restored: automatically restore hive status to active
+        hive.status = "active";
+        hive.currentHealthSummary = hive.currentHealthSummary || { status: "healthy" };
+        hive.currentHealthSummary.status = "healthy";
+        await Hive.updateOne(
+          { hiveId: cleanHiveId },
+          {
+            $set: {
+              status: "active",
+              "currentHealthSummary.status": "healthy",
+            },
+          }
+        ).catch(() => {});
       }
 
       // 5. Idempotency Check: Prevent duplicate insertions on exact network retries
@@ -465,6 +512,11 @@ export class IoTController {
         this.lastPersistedMap.set(hiveDeviceKey, currentReadingMs);
 
         // Update Hive summary
+        if (!remainingActiveAlerts) {
+          hive.status = "active";
+          hive.currentHealthSummary = hive.currentHealthSummary || { status: "healthy" };
+          hive.currentHealthSummary.status = "healthy";
+        }
         hive.currentHealthSummary = hive.currentHealthSummary || { status: "healthy" };
         hive.currentHealthSummary.latestReadingAt = parsedTimestamp;
         hive.deviceMetadata = hive.deviceMetadata || { deviceId: cleanDeviceId };
@@ -482,6 +534,11 @@ export class IoTController {
       }
 
       // 8. Case B: High-frequency reading within the 10-minute window (processed in memory, not stored)
+      if (!remainingActiveAlerts) {
+        hive.status = "active";
+        hive.currentHealthSummary = hive.currentHealthSummary || { status: "healthy" };
+        hive.currentHealthSummary.status = "healthy";
+      }
       hive.deviceMetadata = hive.deviceMetadata || { deviceId: cleanDeviceId };
       hive.deviceMetadata.lastPingAt = new Date();
       hive.deviceMetadata.batteryLevelPct = batteryLevelPct;

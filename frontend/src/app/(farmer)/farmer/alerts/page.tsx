@@ -54,6 +54,9 @@ export default function FarmerAlertsPage() {
     setResolvingId(id);
     try {
       await alertService.resolveAlert(id);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("honeychain:alerts-updated"));
+      }
       await fetchAlerts();
     } catch {
       alert("Failed to resolve alert. Please try again.");

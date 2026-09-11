@@ -247,7 +247,10 @@ export default function HivesPage() {
                     </div>
                   </div>
 
-                  <StatusBadge status={hive.status} />
+                  <StatusBadge
+                    status={hive.status}
+                    isAlert={healthStatus === "critical" || healthStatus === "attention_needed"}
+                  />
                 </div>
 
                 <div className="mt-4 space-y-2 border-t border-black/5 pt-3 dark:border-white/5">
@@ -308,7 +311,14 @@ export default function HivesPage() {
   );
 }
 
-function StatusBadge({ status }: { status: HiveStatus }) {
+function StatusBadge({ status, isAlert }: { status: HiveStatus; isAlert?: boolean }) {
+  if (status === "inactive" && isAlert) {
+    return (
+      <span className="rounded-full bg-red-500/15 px-2.5 py-0.5 text-xs font-semibold text-red-600 dark:text-red-400 ring-1 ring-red-500/30 animate-pulse">
+        Inactive / Alert
+      </span>
+    );
+  }
   if (status === "active") {
     return (
       <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
