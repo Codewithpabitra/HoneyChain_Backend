@@ -207,7 +207,7 @@ describe("HoneyChain Organization-Based Onboarding & Multi-Tenant RBAC Test Suit
       expect(res.status).to.equal(201);
       expect(res.body.success).to.be.true;
       expect(res.body.document).to.have.property("url");
-      expect(res.body.document.url).to.include("/uploads/doc-");
+      expect(res.body.document.url).to.match(/(\/uploads\/|cloudinary\.com\/)/);
       expect(res.body.document.fileType).to.equal("application/pdf");
       expect(res.body.applicationId).to.equal(createdAppId);
     });

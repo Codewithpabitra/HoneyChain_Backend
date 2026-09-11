@@ -31,10 +31,20 @@ export class StorageService {
 
   /**
    * Validates if buffer starts with PDF magic bytes: %PDF- (0x25 0x50 0x44 0x46 0x2D).
+   * Also optionally validates MIME type matches application/pdf.
    */
-  public isValidPdf(buffer: Buffer): boolean {
+  public isValidPdf(buffer: Buffer, mimeType?: string): boolean {
+    if (mimeType && mimeType.toLowerCase().trim() !== "application/pdf") {
+      return false;
+    }
     if (!buffer || buffer.length < 5) return false;
-    return buffer.toString("utf8", 0, 5) === "%PDF-";
+    return (
+      buffer[0] === 0x25 && // %
+      buffer[1] === 0x50 && // P
+      buffer[2] === 0x44 && // D
+      buffer[3] === 0x46 && // F
+      buffer[4] === 0x2d    // -
+    );
   }
 
   /**
@@ -46,14 +56,28 @@ export class StorageService {
   }
 
   /**
-   * Stores a PDF document using Cloudinary (if configured) or local protected uploads directory.
+   * Normalizes folder path to ensure strict isolation under HoneyChain root folder.
+   * Prevents accidental writes or overwrites to external assets in shared Cloudinary accounts.
+   */
+  public normalizeFolderPath(folder: string): string {
+    const cleaned = folder.replace(/^\/+|\/+$/g, "");
+    if (cleaned.startsWith("HoneyChain")) {
+      return cleaned;
+    }
+    return `HoneyChain/${cleaned}`;
+  }
+
+  /**
+   * Stores a PDF document using Cloudinary (under HoneyChain/...) or fallback local storage.
+   * Enforces that PDFs are NOT stored on the backend filesystem in production.
    */
   public async storePdf(
     buffer: Buffer,
     originalName: string,
-    subfolder: string = "certificates"
+    folder: string = "certificates",
+    mimeType: string = "application/pdf"
   ): Promise<StoredFileResult> {
-    if (!this.isValidPdf(buffer)) {
+    if (!this.isValidPdf(buffer, mimeType)) {
       throw new AppError("Invalid file content: Only valid PDF documents are accepted", 400);
     }
 
@@ -65,11 +89,20 @@ export class StorageService {
     const sha256Hash = this.computeSha256(buffer);
     const sanitizedName = path.basename(originalName).replace(/[^a-zA-Z0-9._-]/g, "_");
     const uniqueFileName = `${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}-${sanitizedName}`;
+    const normalizedFolder = this.normalizeFolderPath(folder);
+    const isProduction = process.env.NODE_ENV === "production";
 
-    // 1. Cloudinary Integration (if configured in environment)
-    if (process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME) {
+    // 1. Cloudinary Integration
+    const hasCloudinary = Boolean(
+      process.env.CLOUDINARY_URL ||
+        (process.env.CLOUDINARY_CLOUD_NAME &&
+          process.env.CLOUDINARY_API_KEY &&
+          process.env.CLOUDINARY_API_SECRET)
+    );
+
+    if (hasCloudinary) {
       try {
-        const cloudUrl = await this.uploadToCloudinary(buffer, uniqueFileName, subfolder);
+        const cloudUrl = await this.uploadToCloudinary(buffer, uniqueFileName, normalizedFolder);
         return {
           url: cloudUrl,
           sha256Hash,
@@ -77,18 +110,29 @@ export class StorageService {
           fileName: sanitizedName,
         };
       } catch (cloudErr: any) {
-        console.warn(`[StorageService] Cloudinary upload failed, falling back to local storage: ${cloudErr.message}`);
+        if (isProduction) {
+          throw new AppError(
+            `Cloud storage upload failed: ${cloudErr.message || "Unknown error"}. Filesystem storage is disabled in production.`,
+            500
+          );
+        }
+        console.warn(`[StorageService] Cloudinary upload failed in dev/test, falling back to local storage: ${cloudErr.message}`);
       }
+    } else if (isProduction) {
+      throw new AppError(
+        "Cloudinary storage configuration is missing in production environment. Filesystem storage is disabled.",
+        500
+      );
     }
 
-    // 2. Local uploads storage abstraction
-    const targetDir = path.join(this.uploadsDir, subfolder);
+    // 2. Local uploads storage abstraction (only permitted in development / testing fallback)
+    const targetDir = path.join(this.uploadsDir, normalizedFolder);
     this.ensureDirectory(targetDir);
 
     const filePath = path.join(targetDir, uniqueFileName);
     await fs.promises.writeFile(filePath, buffer);
 
-    const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
+    const relativeUrl = `/uploads/${normalizedFolder}/${uniqueFileName}`;
 
     return {
       url: relativeUrl,
@@ -99,7 +143,8 @@ export class StorageService {
   }
 
   /**
-   * Optional Cloudinary upload via standard HTTPS API without requiring heavy external SDK.
+   * Cloudinary upload via standard HTTPS API without requiring heavy external SDK.
+   * Signs and uploads raw PDF files strictly under the specified HoneyChain folder.
    */
   private async uploadToCloudinary(
     buffer: Buffer,
@@ -122,17 +167,21 @@ export class StorageService {
     }
 
     const timestamp = Math.floor(Date.now() / 1000).toString();
-    const publicId = `${folder}/${fileName.replace(/\.pdf$/i, "")}`;
+    const publicId = `${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}-${fileName.replace(/\.pdf$/i, "")}`;
+
+    // Alphabetical parameter sorting required for Cloudinary signature
     const toSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
     const signature = crypto.createHash("sha1").update(toSign).digest("hex");
 
     const formData = new FormData();
     const blob = new Blob([new Uint8Array(buffer)], { type: "application/pdf" });
-    formData.append("file", blob, fileName);
+    const uploadFileName = fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`;
+
+    formData.append("file", blob, uploadFileName);
     formData.append("api_key", apiKey);
     formData.append("timestamp", timestamp);
-    formData.append("public_id", publicId);
     formData.append("folder", folder);
+    formData.append("public_id", publicId);
     formData.append("signature", signature);
 
     const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`, {

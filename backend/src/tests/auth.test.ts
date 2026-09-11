@@ -345,7 +345,7 @@ describe("HoneyChain Authentication & Role Authorization Test Suite", function (
       expect(res.body.error.message).to.include("auditor");
     });
 
-    it("keeps consumer QR generation GET /api/batches/:id/qr public without authentication", async function () {
+    it("enforces Processor role for packaging QR generation GET /api/batches/:id/qr and keeps /verify/:id public", async function () {
       // Create a batch first
       await Batch.create({
         batchId: "HC-PUBLIC-QR-TEST",
@@ -367,11 +367,28 @@ describe("HoneyChain Authentication & Role Authorization Test Suite", function (
         },
       });
 
-      const res = await request(app).get("/api/batches/HC-PUBLIC-QR-TEST/qr");
-      expect(res.status).to.equal(200);
-      expect(res.body.success).to.be.true;
-      expect(res.body).to.have.property("dataUrl");
-      expect(res.body).to.have.property("verificationUrl");
+      // 1. Unauthenticated caller is rejected with 401
+      const unauthRes = await request(app).get("/api/batches/HC-PUBLIC-QR-TEST/qr");
+      expect(unauthRes.status).to.equal(401);
+
+      // 2. Non-processor (e.g. beekeeper) is rejected with 403
+      const nonProcRes = await request(app)
+        .get("/api/batches/HC-PUBLIC-QR-TEST/qr")
+        .set("Authorization", `Bearer ${beekeeperToken}`);
+      expect(nonProcRes.status).to.equal(403);
+
+      // 3. Processor generates QR code with 200 OK
+      const procRes = await request(app)
+        .get("/api/batches/HC-PUBLIC-QR-TEST/qr")
+        .set("Authorization", `Bearer ${processorToken}`);
+      expect(procRes.status).to.equal(200);
+      expect(procRes.body.success).to.be.true;
+      expect(procRes.body).to.have.property("dataUrl");
+      expect(procRes.body).to.have.property("verificationUrl");
+
+      // 4. Consumer verification route remains public without auth
+      const verifyRes = await request(app).get("/verify/HC-PUBLIC-QR-TEST");
+      expect(verifyRes.status).to.equal(200);
     });
   });
 

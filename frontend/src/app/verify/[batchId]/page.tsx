@@ -266,6 +266,31 @@ export default function VerifyBatchPage() {
                   </p>
                 </div>
               </div>
+
+              {quality.labReportUrl && (
+                <div className="mt-6 flex flex-col gap-3 border-t border-black/10 pt-5 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
+                  <div>
+                    <p className="text-xs text-black/40 dark:text-white/40">
+                      Laboratory Assay Certificate
+                    </p>
+                    {quality.labReportHash && (
+                      <p className="mt-1 max-w-md break-all font-mono text-xs text-black/60 dark:text-white/60">
+                        {quality.labReportHash}
+                      </p>
+                    )}
+                  </div>
+                  <a
+                    href={quality.labReportUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    id="viewLabReportBtn"
+                    className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-honey px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-honey/90"
+                  >
+                    View Lab Report
+                    <IconExternalLink size={16} />
+                  </a>
+                </div>
+              )}
             </div>
           </section>
         )}

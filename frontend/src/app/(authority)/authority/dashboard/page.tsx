@@ -27,6 +27,9 @@ import type {
   ApplicationStatus,
   ProposedMember,
 } from "@/types/organization";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { StaggerContainer, StaggerItem, LivePulse } from "@/components/ui/MotionComponents";
+import { clearApiCache } from "@/lib/apiCache";
 
 // Auditor default modules
 const auditorModules = [

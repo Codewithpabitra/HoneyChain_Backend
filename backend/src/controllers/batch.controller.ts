@@ -520,6 +520,7 @@ export class BatchController {
           certifiedBy: onChainBatch.certifier,
           certificationTimestamp: onChainBatch.certificationTimestamp,
           labReportHash: onChainBatch.labReportHash,
+          labReportUrl: batch.quality?.labReportUrl,
           labReportData: batch.quality.labReportData,
         },
         harvest: {
@@ -807,7 +808,8 @@ export class BatchController {
   /**
    * POST /api/batches/:batchId/certificate
    * Laboratory uploads certified assay PDF report.
-   * Validates PDF magic bytes, calculates SHA-256 digest, stores file, and links to batch.
+   * Validates MIME type & PDF magic bytes, calculates SHA-256 digest,
+   * stores file under HoneyChain/lab-certificates/{batchId}/ in Cloudinary, and links to batch.
    */
   public uploadCertificate = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -831,16 +833,33 @@ export class BatchController {
         return next(new AppError("Cannot upload certificate for a recalled batch", 400));
       }
 
+      // Detect and enforce MIME type
+      let mimeType = "application/pdf";
+      const dataUriMatch = fileData.match(/^data:([^;]+);base64,/i);
+      if (dataUriMatch) {
+        mimeType = dataUriMatch[1].toLowerCase().trim();
+      }
+
+      if (mimeType !== "application/pdf") {
+        return next(new AppError("Invalid file type: Only PDF documents are accepted", 400));
+      }
+
       // Strip data URI header if present
-      const base64Clean = fileData.replace(/^data:application\/pdf;base64,/, "");
+      const base64Clean = fileData.replace(/^data:[^;]+;base64,/i, "");
       const buffer = Buffer.from(base64Clean, "base64");
 
       if (buffer.length === 0) {
         return next(new AppError("Uploaded file is empty", 400));
       }
 
-      // Validate PDF magic bytes and store file using storage abstraction
-      const stored = await storageService.storePdf(buffer, fileName, "certificates");
+      // Validate PDF magic bytes: %PDF- (0x25 0x50 0x44 0x46 0x2D)
+      if (!storageService.isValidPdf(buffer, mimeType)) {
+        return next(new AppError("Invalid file content: Only valid PDF documents are accepted", 400));
+      }
+
+      // Store file under HoneyChain/lab-certificates/{batchId}/
+      const folder = `HoneyChain/lab-certificates/${batch.batchId}`;
+      const stored = await storageService.storePdf(buffer, fileName, folder, mimeType);
 
       // Update batch quality details with calculated SHA-256 and URL
       batch.quality = batch.quality || { grade: "None" };

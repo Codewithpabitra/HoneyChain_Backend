@@ -16,6 +16,8 @@ import {
 import { useAuth } from "@/components/providers/AuthProvider";
 import { analyticsService } from "@/services/analytics.service";
 import type { DashboardStats } from "@/types/analytics";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { StaggerContainer, StaggerItem, LivePulse } from "@/components/ui/MotionComponents";
 
 export default function FarmerDashboardPage() {
   const { user } = useAuth();
@@ -73,39 +75,43 @@ export default function FarmerDashboardPage() {
       </div>
 
       {/* Overview cards */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <OverviewCard
           label="Active Hives"
-          value={loading ? "—" : (stats?.hives?.active ?? 0).toString()}
+          numericValue={stats?.hives?.active ?? 0}
+          loading={loading}
           icon={IconHexagon}
           href="/farmer/hives"
+          pulseColor="emerald"
         />
 
         <OverviewCard
           label="Healthy Hives"
-          value={loading ? "—" : (stats?.hives?.healthy ?? 0).toString()}
+          numericValue={stats?.hives?.healthy ?? 0}
+          loading={loading}
           icon={IconBrain}
           href="/farmer/hives"
+          pulseColor="emerald"
         />
 
         <OverviewCard
           label="Pending Alerts"
-          value={loading ? "—" : (stats?.alerts?.active ?? 0).toString()}
+          numericValue={stats?.alerts?.active ?? 0}
+          loading={loading}
           icon={IconAlertTriangle}
           href="/farmer/alerts"
+          pulseColor={(stats?.alerts?.active ?? 0) > 0 ? "rose" : undefined}
         />
 
         <OverviewCard
           label="Honey Harvest"
-          value={
-            loading
-              ? "—"
-              : `${stats?.harvests?.totalQuantityKg ?? 0} kg`
-          }
+          numericValue={stats?.harvests?.totalQuantityKg ?? 0}
+          suffix=" kg"
+          loading={loading}
           icon={IconPackage}
           href="/farmer/harvests"
         />
-      </section>
+      </StaggerContainer>
 
       {/* Monitoring */}
       <section className="grid gap-6 lg:grid-cols-2">
@@ -202,41 +208,56 @@ export default function FarmerDashboardPage() {
 
 function OverviewCard({
   label,
-  value,
+  numericValue,
+  suffix = "",
+  loading = false,
   icon: Icon,
   href,
+  pulseColor,
 }: {
   label: string;
-  value: string;
+  numericValue: number;
+  suffix?: string;
+  loading?: boolean;
   icon: typeof IconHexagon;
   href: string;
+  pulseColor?: "emerald" | "amber" | "rose";
 }) {
   return (
-    <Link
-      href={href}
-      className="group rounded-2xl border border-black/8 bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-sm dark:border-white/10 dark:bg-white/5"
-    >
-      <div className="flex items-start justify-between">
-        <span className="text-sm text-black/55 dark:text-white/55">
-          {label}
-        </span>
+    <StaggerItem>
+      <Link
+        href={href}
+        className="group block rounded-2xl border border-black/8 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/5"
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-black/55 dark:text-white/55">
+              {label}
+            </span>
+            {pulseColor && <LivePulse color={pulseColor} />}
+          </div>
 
-        <div className="rounded-xl bg-honey/15 p-2 text-honey transition group-hover:scale-105">
-          <Icon size={18} />
+          <div className="rounded-xl bg-honey/15 p-2 text-honey transition group-hover:scale-105">
+            <Icon size={18} />
+          </div>
         </div>
-      </div>
 
-      <div className="mt-4 flex items-baseline justify-between">
-        <span className="text-2xl font-semibold tracking-tight">
-          {value}
-        </span>
+        <div className="mt-4 flex items-baseline justify-between">
+          {loading ? (
+            <span className="inline-block h-7 w-12 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+          ) : (
+            <span className="text-2xl font-semibold tracking-tight">
+              <AnimatedNumber value={numericValue} suffix={suffix} />
+            </span>
+          )}
 
-        <IconArrowRight
-          size={16}
-          className="text-black/30 transition group-hover:translate-x-0.5 group-hover:text-honey dark:text-white/30"
-        />
-      </div>
-    </Link>
+          <IconArrowRight
+            size={16}
+            className="text-black/30 transition group-hover:translate-x-0.5 group-hover:text-honey dark:text-white/30"
+          />
+        </div>
+      </Link>
+    </StaggerItem>
   );
 }
 

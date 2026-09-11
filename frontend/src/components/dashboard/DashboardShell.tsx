@@ -1,9 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import MobileNav from "./MobileNav";
+import { PageTransition } from "@/components/ui/MotionComponents";
 
 interface DashboardShellProps {
   children: ReactNode;
@@ -14,6 +16,8 @@ export default function DashboardShell({
   children,
   role,
 }: DashboardShellProps) {
+  const pathname = usePathname();
+
   return (
     <div className="min-h-screen bg-paper text-ink dark:bg-paper-dark dark:text-ink-dark">
       <div className="flex min-h-screen">
@@ -23,7 +27,11 @@ export default function DashboardShell({
           <MobileNav role={role} />
           <Topbar />
 
-          <main className="flex-1 p-5 md:p-8">{children}</main>
+          <main className="flex-1 p-5 md:p-8">
+            <PageTransition key={pathname}>
+              {children}
+            </PageTransition>
+          </main>
         </div>
       </div>
     </div>

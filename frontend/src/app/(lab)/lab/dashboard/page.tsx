@@ -21,6 +21,9 @@ import { batchService } from "@/services/batch.service";
 import { analyticsService } from "@/services/analytics.service";
 import type { BatchItem } from "@/types/batch";
 import type { DashboardStats } from "@/types/analytics";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { StaggerContainer, StaggerItem, LivePulse } from "@/components/ui/MotionComponents";
+import { clearApiCache } from "@/lib/apiCache";
 
 export default function LabDashboardPage() {
   const { user } = useAuth();
@@ -29,9 +32,12 @@ export default function LabDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [filterTab, setFilterTab] = useState<"PENDING" | "CERTIFIED" | "ALL">("PENDING");
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (bypassCache = false) => {
     setLoading(true);
     try {
+      if (bypassCache) {
+        clearApiCache();
+      }
       const [batchRes, statsRes] = await Promise.allSettled([
         batchService.getAll(),
         analyticsService.getDashboardStats(),
@@ -130,7 +136,7 @@ export default function LabDashboardPage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={loadData}
+            onClick={() => loadData(true)}
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white/70 px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-black/5 dark:border-white/10 dark:bg-white/4 dark:text-ink-dark dark:hover:bg-white/8"
           >
@@ -149,75 +155,105 @@ export default function LabDashboardPage() {
       </div>
 
       {/* Overview Stat Cards */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-black/50 dark:text-white/50">Awaiting Testing</p>
-              <p className="mt-2 text-2xl font-bold">
-                {loading ? "—" : pendingBatches.length}
-              </p>
-              <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
-                Pending laboratory evaluation
-              </p>
-            </div>
-            <div className="rounded-xl bg-amber-500/10 p-2.5 text-amber-600 dark:text-amber-400">
-              <IconFlask size={22} />
+      <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs text-black/50 dark:text-white/50">Awaiting Testing</p>
+                  {pendingBatches.length > 0 && <LivePulse color="amber" />}
+                </div>
+                <p className="mt-2 text-2xl font-bold">
+                  {loading ? (
+                    <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                  ) : (
+                    <AnimatedNumber value={pendingBatches.length} />
+                  )}
+                </p>
+                <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                  Pending laboratory evaluation
+                </p>
+              </div>
+              <div className="rounded-xl bg-amber-500/10 p-2.5 text-amber-600 dark:text-amber-400">
+                <IconFlask size={22} />
+              </div>
             </div>
           </div>
-        </div>
+        </StaggerItem>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-black/50 dark:text-white/50">Certified Batches</p>
-              <p className="mt-2 text-2xl font-bold">
-                {loading ? "—" : certifiedBatches.length}
-              </p>
-              <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-                Quality grades published
-              </p>
-            </div>
-            <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-600 dark:text-emerald-400">
-              <IconShieldCheck size={22} />
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs text-black/50 dark:text-white/50">Certified Batches</p>
+                  <LivePulse color="emerald" />
+                </div>
+                <p className="mt-2 text-2xl font-bold">
+                  {loading ? (
+                    <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                  ) : (
+                    <AnimatedNumber value={certifiedBatches.length} />
+                  )}
+                </p>
+                <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                  Quality grades published
+                </p>
+              </div>
+              <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-600 dark:text-emerald-400">
+                <IconShieldCheck size={22} />
+              </div>
             </div>
           </div>
-        </div>
+        </StaggerItem>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-black/50 dark:text-white/50">Average Moisture</p>
-              <p className="mt-2 text-2xl font-bold">
-                {loading ? "—" : `${avgMoisture}%`}
-              </p>
-              <p className="mt-1 text-[11px] text-black/40 dark:text-white/40">
-                Target: &lt; 20.0% Codex standard
-              </p>
-            </div>
-            <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600 dark:text-blue-400">
-              <IconDroplet size={22} />
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-black/50 dark:text-white/50">Average Moisture</p>
+                <p className="mt-2 text-2xl font-bold">
+                  {loading ? (
+                    <span className="inline-block h-7 w-14 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                  ) : (
+                    <AnimatedNumber value={avgMoisture} suffix="%" decimals={1} />
+                  )}
+                </p>
+                <p className="mt-1 text-[11px] text-black/40 dark:text-white/40">
+                  Target: &lt; 20.0% Codex standard
+                </p>
+              </div>
+              <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600 dark:text-blue-400">
+                <IconDroplet size={22} />
+              </div>
             </div>
           </div>
-        </div>
+        </StaggerItem>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-black/50 dark:text-white/50">Reports Published</p>
-              <p className="mt-2 text-2xl font-bold">
-                {loading ? "—" : reportsGenerated}
-              </p>
-              <p className="mt-1 text-[11px] text-honey">
-                Cryptographic PDF SHA-256
-              </p>
-            </div>
-            <div className="rounded-xl bg-honey/10 p-2.5 text-honey">
-              <IconClipboardCheck size={22} />
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-black/50 dark:text-white/50">Reports Published</p>
+                <p className="mt-2 text-2xl font-bold">
+                  {loading ? (
+                    <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                  ) : (
+                    <AnimatedNumber value={reportsGenerated} />
+                  )}
+                </p>
+                <p className="mt-1 text-[11px] text-honey">
+                  Cryptographic PDF SHA-256
+                </p>
+              </div>
+              <div className="rounded-xl bg-honey/10 p-2.5 text-honey">
+                <IconClipboardCheck size={22} />
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </StaggerItem>
+      </StaggerContainer>
 
       {/* Quality Grade Compliance Guidelines */}
       <section className="rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-white/3">

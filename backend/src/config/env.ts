@@ -57,6 +57,11 @@ const envSchema = z.object({
   ML_SERVICE_URL: z.string().default("http://localhost:5001"),
   ML_API_KEY: z.string().optional(),
   ML_TIMEOUT_MS: z.string().default("10000"),
+
+  // Cloudinary Document Storage
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

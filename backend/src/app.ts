@@ -17,6 +17,7 @@ import alertRoutes from "./routes/alert.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import AppError from "./utils/AppError.js";
+import Batch from "./models/Batch.js";
 
 import { env } from "./config/env.js";
 
@@ -128,13 +129,46 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/uploads", express.static(UPLOADS_DIR));
 
 // Dedicated Consumer QR Verification Route
-app.get(["/verify", "/verify/:batchId"], (req, res) => {
+app.get(["/verify", "/verify/:batchId"], async (req, res) => {
   const batchId = (req.params as any)?.batchId || "";
+  let batchData: any = null;
+
+  if (batchId) {
+    try {
+      batchData = await Batch.findOne({ batchId: batchId.trim() }).lean();
+    } catch {
+      // ignore lookup error
+    }
+  }
+
+  const labReportUrl = batchData?.quality?.labReportUrl;
+  const grade = batchData?.quality?.grade || "";
+  const moisture =
+    batchData?.quality?.moisturePercentage != null
+      ? `${batchData.quality.moisturePercentage}%`
+      : "";
+  const labHash = batchData?.quality?.labReportHash || "";
+
+  let labSection = "";
+  if (labReportUrl) {
+    labSection = `
+    <div style="margin-top: 24px; padding: 20px; background: #fffbe8; border: 1px solid #f6e05e; border-radius: 12px;">
+      <h3 style="margin-top: 0; color: #b7791f; font-size: 1.1rem;">Laboratory Certification & Quality Assay</h3>
+      <p style="margin: 6px 0;"><strong>Quality Grade:</strong> ${grade} | <strong>Moisture Content:</strong> ${moisture}</p>
+      ${
+        labHash
+          ? `<p style="margin: 6px 0; font-family: monospace; font-size: 12px; word-break: break-all; color: #4a5568;"><strong>SHA-256 Hash:</strong> ${labHash}</p>`
+          : ""
+      }
+      <a id="viewLabReportBtn" href="${labReportUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; margin-top: 14px; padding: 10px 22px; background: #f59e0b; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">View Lab Report</a>
+    </div>`;
+  }
+
   res
     .status(200)
     .type("html")
     .send(
-      `<!DOCTYPE html><html><head><title>HoneyChain Verification</title></head><body><h1>HoneyChain Consumer Verification</h1><div id="verifyDisplayArea">${batchId}</div></body></html>`
+      `<!DOCTYPE html><html><head><title>HoneyChain Verification</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; color: #1a202c; line-height: 1.5; } h1 { color: #d97706; font-size: 1.6rem; }</style></head><body><h1>HoneyChain Consumer Verification</h1><div id="verifyDisplayArea">${batchId}</div>${labSection}</body></html>`
     );
 });
 

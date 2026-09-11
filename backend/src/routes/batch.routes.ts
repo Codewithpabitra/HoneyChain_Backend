@@ -57,7 +57,12 @@ router.post(
   batchController.recallBatch
 );
 
-// Public batch QR code generation (PNG Data URL & SVG) - Consumers / Packaging
-router.get("/:batchId/qr", batchController.getBatchQrCode);
+// Packaging QR code generation (PNG Data URL & SVG) - Processor Only
+router.get(
+  "/:batchId/qr",
+  authenticate,
+  authorize("processor"),
+  batchController.getBatchQrCode
+);
 
 export default router;

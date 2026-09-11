@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import organizationService from "../services/organization.service.js";
+import storageService from "../services/storage.service.js";
 import AppError from "../utils/AppError.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,6 +39,8 @@ export class OrganizationController {
    * Uploads an optional supporting document (e.g., PDF license, certificate).
    * Requires applicationId of a pending application.
    * Accepts JSON { applicationId, fileName, fileData } where fileData is base64-encoded PDF.
+   * Validates MIME type and %PDF- magic bytes, and stores file in Cloudinary under
+   * HoneyChain/organization-documents/{applicationId}/
    */
   public uploadDocument = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -53,8 +56,30 @@ export class OrganizationController {
         return next(new AppError("File data (base64 string) is required", 400));
       }
 
+      // Verify application exists and is PENDING before upload
+      const existingApp = await organizationService.getApplicationById(applicationId);
+      if (existingApp.status !== "PENDING") {
+        return next(
+          new AppError(
+            "Cannot attach documents to an application that has already been processed",
+            400
+          )
+        );
+      }
+
+      // Detect and enforce MIME type
+      let mimeType = "application/pdf";
+      const dataUriMatch = fileData.match(/^data:([^;]+);base64,/i);
+      if (dataUriMatch) {
+        mimeType = dataUriMatch[1].toLowerCase().trim();
+      }
+
+      if (mimeType !== "application/pdf") {
+        return next(new AppError("Invalid file type: Only PDF documents are accepted", 400));
+      }
+
       // Strip data URI header if present
-      const base64Clean = fileData.replace(/^data:application\/pdf;base64,/, "");
+      const base64Clean = fileData.replace(/^data:[^;]+;base64,/i, "");
       const buffer = Buffer.from(base64Clean, "base64");
 
       if (buffer.length === 0) {
@@ -62,8 +87,7 @@ export class OrganizationController {
       }
 
       // Validate PDF magic bytes: %PDF- (0x25 0x50 0x44 0x46 0x2D)
-      const isPdf = buffer.length >= 5 && buffer.toString("utf8", 0, 5) === "%PDF-";
-      if (!isPdf) {
+      if (!storageService.isValidPdf(buffer, mimeType)) {
         return next(new AppError("Invalid file type: Only PDF documents are accepted", 400));
       }
 
@@ -72,21 +96,19 @@ export class OrganizationController {
         return next(new AppError("File size exceeds maximum allowed limit of 10MB", 400));
       }
 
-      const sanitizedOriginalName = path.basename(fileName).replace(/[^a-zA-Z0-9._-]/g, "_");
-      const uniqueFileName = `doc-${Date.now()}-${Math.floor(Math.random() * 10000)}-${sanitizedOriginalName}`;
-      const filePath = path.join(UPLOADS_DIR, uniqueFileName);
-
-      await fs.promises.writeFile(filePath, buffer);
+      // Store in Cloudinary under isolated project path: HoneyChain/organization-documents/{applicationId}/
+      const folder = `HoneyChain/organization-documents/${existingApp.applicationId}`;
+      const stored = await storageService.storePdf(buffer, fileName, folder, mimeType);
 
       const docPayload = {
-        name: sanitizedOriginalName,
-        url: `/uploads/${uniqueFileName}`,
+        name: stored.fileName,
+        url: stored.url,
         fileType: "application/pdf",
-        sizeBytes: buffer.length,
+        sizeBytes: stored.sizeBytes,
         uploadedAt: new Date(),
       };
 
-      const result = await organizationService.attachDocument(applicationId, docPayload);
+      const result = await organizationService.attachDocument(existingApp.applicationId, docPayload);
 
       return res.status(201).json({
         success: true,
