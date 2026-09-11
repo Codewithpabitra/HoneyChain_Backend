@@ -20,6 +20,8 @@ import { analyticsService } from "@/services/analytics.service";
 import { batchService } from "@/services/batch.service";
 import type { DashboardStats } from "@/types/analytics";
 import type { BatchItem } from "@/types/batch";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { StaggerContainer, StaggerItem, LivePulse } from "@/components/ui/MotionComponents";
 
 export default function TransporterDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -101,17 +103,34 @@ export default function TransporterDashboardPage() {
     stats?.batches.inTransit ?? batches.filter((b) => b.status === "InTransit").length;
   const deliveredCount =
     stats?.batches.delivered ?? batches.filter((b) => b.status === "Delivered").length;
-  const totalBatches =
-    stats?.batches.total ?? batches.length;
   const totalWeightKg = stats?.batches.totalQuantityKg
-    ? `${stats.batches.totalQuantityKg} kg`
-    : `${(batches.reduce((sum, b) => sum + (b.quantityGrams || 0), 0) / 1000).toFixed(0)} kg`;
+    ? stats.batches.totalQuantityKg
+    : Number((batches.reduce((sum, b) => sum + (b.quantityGrams || 0), 0) / 1000).toFixed(0));
 
   const statItems = [
-    { label: "Active Shipments", value: loading ? "..." : String(inTransitCount), icon: IconTruck },
-    { label: "In Transit", value: loading ? "..." : String(inTransitCount), icon: IconRoute },
-    { label: "Delivered", value: loading ? "..." : String(deliveredCount), icon: IconBox },
-    { label: "Network Volume", value: loading ? "..." : totalWeightKg, icon: IconMapPin },
+    {
+      label: "Active Shipments",
+      numericValue: inTransitCount,
+      icon: IconTruck,
+      pulse: inTransitCount > 0 ? ("amber" as const) : undefined,
+    },
+    {
+      label: "In Transit",
+      numericValue: inTransitCount,
+      icon: IconRoute,
+    },
+    {
+      label: "Delivered",
+      numericValue: deliveredCount,
+      icon: IconBox,
+      pulse: "emerald" as const,
+    },
+    {
+      label: "Network Volume",
+      numericValue: totalWeightKg,
+      suffix: " kg",
+      icon: IconMapPin,
+    },
   ];
 
   const transitBatches = batches.filter(
@@ -135,34 +154,43 @@ export default function TransporterDashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StaggerContainer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {statItems.map((stat) => {
           const Icon = stat.icon;
 
           return (
-            <div
-              key={stat.label}
-              className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-black/50 dark:text-white/50">
-                    {stat.label}
-                  </p>
+            <StaggerItem key={stat.label}>
+              <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm text-black/50 dark:text-white/50">
+                        {stat.label}
+                      </p>
+                      {stat.pulse && <LivePulse color={stat.pulse} />}
+                    </div>
 
-                  <p className="mt-3 text-2xl font-bold">
-                    {stat.value}
-                  </p>
-                </div>
+                    <p className="mt-3 text-2xl font-bold">
+                      {loading ? (
+                        <span className="inline-block h-7 w-12 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                      ) : (
+                        <AnimatedNumber
+                          value={stat.numericValue}
+                          suffix={stat.suffix || ""}
+                        />
+                      )}
+                    </p>
+                  </div>
 
-                <div className="rounded-xl bg-honey/10 p-2.5 text-honey">
-                  <Icon size={20} stroke={1.8} />
+                  <div className="rounded-xl bg-honey/10 p-2.5 text-honey">
+                    <Icon size={20} stroke={1.8} />
+                  </div>
                 </div>
               </div>
-            </div>
+            </StaggerItem>
           );
         })}
-      </div>
+      </StaggerContainer>
 
       {/* Shipment workflow */}
       <div className="mt-8">

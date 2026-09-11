@@ -17,6 +17,8 @@ import { analyticsService } from "@/services/analytics.service";
 import { batchService } from "@/services/batch.service";
 import type { DashboardStats } from "@/types/analytics";
 import type { BatchItem } from "@/types/batch";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { StaggerContainer, StaggerItem, LivePulse } from "@/components/ui/MotionComponents";
 
 export default function ProcessorDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -75,31 +77,38 @@ export default function ProcessorDashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={<IconBox size={20} />}
           label="Active Batches"
-          value={loading ? "..." : String(totalBatches)}
+          numericValue={totalBatches}
+          loading={loading}
+          pulseColor="blue"
         />
 
         <StatCard
           icon={<IconActivity size={20} />}
           label="Awaiting Processing"
-          value={loading ? "..." : String(created)}
+          numericValue={created}
+          loading={loading}
+          pulseColor={created > 0 ? "amber" : undefined}
         />
 
         <StatCard
           icon={<IconPackage size={20} />}
           label="Certified & Ready"
-          value={loading ? "..." : String(certified)}
+          numericValue={certified}
+          loading={loading}
+          pulseColor="emerald"
         />
 
         <StatCard
           icon={<IconRoute size={20} />}
           label="In Transit"
-          value={loading ? "..." : String(inTransit)}
+          numericValue={inTransit}
+          loading={loading}
         />
-      </div>
+      </StaggerContainer>
 
       {/* Workflow */}
       <section className="mt-6 rounded-2xl border border-black/10 bg-white/60 p-6 dark:border-white/10 dark:bg-white/3">
@@ -271,25 +280,40 @@ export default function ProcessorDashboardPage() {
 function StatCard({
   icon,
   label,
-  value,
+  numericValue = 0,
+  loading = false,
+  pulseColor,
 }: {
   icon: React.ReactNode;
   label: string;
-  value: string;
+  numericValue?: number;
+  loading?: boolean;
+  pulseColor?: "emerald" | "amber" | "rose" | "blue";
 }) {
   return (
-    <div className="rounded-2xl border border-black/10 bg-white/60 p-6 dark:border-white/10 dark:bg-white/3">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-honey/10 text-honey">
-          {icon}
-        </div>
+    <StaggerItem>
+      <div className="rounded-2xl border border-black/10 bg-white/60 p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-honey/10 text-honey">
+            {icon}
+          </div>
 
-        <div>
-          <p className="text-xs text-black/40 dark:text-white/40">{label}</p>
-          <p className="text-2xl font-bold">{value}</p>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs text-black/40 dark:text-white/40">{label}</p>
+              {pulseColor && <LivePulse color={pulseColor} />}
+            </div>
+            <p className="text-2xl font-bold">
+              {loading ? (
+                <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+              ) : (
+                <AnimatedNumber value={numericValue} />
+              )}
+            </p>
+          </div>
         </div>
       </div>
-    </div>
+    </StaggerItem>
   );
 }
 

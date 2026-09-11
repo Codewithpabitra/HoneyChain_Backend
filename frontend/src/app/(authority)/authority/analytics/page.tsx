@@ -25,6 +25,9 @@ import {
 
 import { analyticsService } from "@/services/analytics.service";
 import type { DashboardStats, ClusterInfo } from "@/types/analytics";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { StaggerContainer, StaggerItem, LivePulse } from "@/components/ui/MotionComponents";
+import { clearApiCache } from "@/lib/apiCache";
 
 export default function AuthorityAnalyticsPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -32,10 +35,13 @@ export default function AuthorityAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadData() {
+  async function loadData(bypassCache = false) {
     try {
       setLoading(true);
       setError(null);
+      if (bypassCache) {
+        clearApiCache();
+      }
       const [dashRes, clusterRes] = await Promise.allSettled([
         analyticsService.getDashboardStats(),
         analyticsService.getClusters(),
@@ -92,21 +98,21 @@ export default function AuthorityAnalyticsPage() {
       <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="mb-2 text-sm font-medium text-honey">
-            Insights & Monitoring
+            Insights &amp; Monitoring
           </p>
 
           <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
 
           <p className="mt-2 max-w-2xl text-sm text-black/50 dark:text-white/50">
-            Monitor production, hive health, environmental conditions and traceability indicators across the Honey Chain network.
+            Network oversight across regional clusters, colony vitality indices, and ledger distribution flows.
           </p>
         </div>
 
         <button
           type="button"
-          onClick={loadData}
+          onClick={() => loadData(true)}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white/70 px-4 py-2.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/10 dark:bg-white/4"
+          className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white/70 px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-black/5 dark:border-white/10 dark:bg-white/4 dark:text-ink-dark"
         >
           <IconRefresh size={16} className={loading ? "animate-spin" : ""} />
           Refresh
@@ -114,33 +120,68 @@ export default function AuthorityAnalyticsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <p className="text-sm text-black/50 dark:text-white/50">Honey Production</p>
-          <p className="mt-3 text-2xl font-bold">{loading ? "..." : `${totalProductionKg} kg`}</p>
-        </div>
+      <StaggerContainer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <p className="text-sm text-black/50 dark:text-white/50">Honey Production</p>
+            <p className="mt-3 text-2xl font-bold">
+              {loading ? (
+                <span className="inline-block h-7 w-16 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+              ) : (
+                <AnimatedNumber value={totalProductionKg} suffix=" kg" />
+              )}
+            </p>
+          </div>
+        </StaggerItem>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <p className="text-sm text-black/50 dark:text-white/50">Avg Hive Health Score</p>
-          <p className="mt-3 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-            {loading ? "..." : `${avgHealth}%`}
-          </p>
-        </div>
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm text-black/50 dark:text-white/50">Avg Hive Health Score</p>
+              <LivePulse color="emerald" />
+            </div>
+            <p className="mt-3 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              {loading ? (
+                <span className="inline-block h-7 w-12 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+              ) : (
+                <AnimatedNumber value={avgHealth} suffix="%" />
+              )}
+            </p>
+          </div>
+        </StaggerItem>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <p className="text-sm text-black/50 dark:text-white/50">Active Alerts</p>
-          <p className="mt-3 text-2xl font-bold text-amber-600 dark:text-amber-400">
-            {loading ? "..." : activeAlerts}
-          </p>
-        </div>
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm text-black/50 dark:text-white/50">Active Alerts</p>
+              {activeAlerts > 0 && <LivePulse color="rose" />}
+            </div>
+            <p className="mt-3 text-2xl font-bold text-amber-600 dark:text-amber-400">
+              {loading ? (
+                <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+              ) : (
+                <AnimatedNumber value={activeAlerts} />
+              )}
+            </p>
+          </div>
+        </StaggerItem>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/3">
-          <p className="text-sm text-black/50 dark:text-white/50">Verified Batches</p>
-          <p className="mt-3 text-2xl font-bold text-honey">
-            {loading ? "..." : verifiedBatches}
-          </p>
-        </div>
-      </div>
+        <StaggerItem>
+          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm text-black/50 dark:text-white/50">Verified Batches</p>
+              <LivePulse color="blue" />
+            </div>
+            <p className="mt-3 text-2xl font-bold text-honey">
+              {loading ? (
+                <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+              ) : (
+                <AnimatedNumber value={verifiedBatches} />
+              )}
+            </p>
+          </div>
+        </StaggerItem>
+      </StaggerContainer>
 
       {/* Main chart */}
       <div className="mt-8 rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-white/3">
