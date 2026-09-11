@@ -1,7 +1,10 @@
+// src/app/(farmer)/farmer/dashboard/page.tsx
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  IconActivity,
   IconAlertTriangle,
   IconArrowRight,
   IconBrain,
@@ -11,9 +14,38 @@ import {
 } from "@tabler/icons-react";
 
 import { useAuth } from "@/components/providers/AuthProvider";
+import { analyticsService } from "@/services/analytics.service";
+import type { DashboardStats } from "@/types/analytics";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
+import { StaggerContainer, StaggerItem, LivePulse } from "@/components/ui/MotionComponents";
 
 export default function FarmerDashboardPage() {
   const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadStats() {
+      try {
+        const res = await analyticsService.getDashboardStats();
+        if (mounted) {
+          setStats(res.data);
+        }
+      } catch {
+        // Handled gracefully with fallback
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadStats();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -43,35 +75,43 @@ export default function FarmerDashboardPage() {
       </div>
 
       {/* Overview cards */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <OverviewCard
           label="Active Hives"
-          value="—"
+          numericValue={stats?.hives?.active ?? 0}
+          loading={loading}
           icon={IconHexagon}
           href="/farmer/hives"
+          pulseColor="emerald"
         />
 
         <OverviewCard
           label="Healthy Hives"
-          value="—"
+          numericValue={stats?.hives?.healthy ?? 0}
+          loading={loading}
           icon={IconBrain}
           href="/farmer/hives"
+          pulseColor="emerald"
         />
 
         <OverviewCard
           label="Pending Alerts"
-          value="—"
+          numericValue={stats?.alerts?.active ?? 0}
+          loading={loading}
           icon={IconAlertTriangle}
           href="/farmer/alerts"
+          pulseColor={(stats?.alerts?.active ?? 0) > 0 ? "rose" : undefined}
         />
 
         <OverviewCard
           label="Honey Harvest"
-          value="—"
+          numericValue={stats?.harvests?.totalQuantityKg ?? 0}
+          suffix=" kg"
+          loading={loading}
           icon={IconPackage}
           href="/farmer/harvests"
         />
-      </section>
+      </StaggerContainer>
 
       {/* Monitoring */}
       <section className="grid gap-6 lg:grid-cols-2">
@@ -100,12 +140,17 @@ export default function FarmerDashboardPage() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <h2 className="font-semibold">AI Hive Health Monitoring</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-semibold">AI Hive Health Monitoring</h2>
+              {stats?.hives?.averageHealthScore ? (
+                <span className="rounded-full bg-honey/10 px-3 py-1 text-xs font-semibold text-honey">
+                  Avg Health Score: {stats.hives.averageHealthScore}%
+                </span>
+              ) : null}
+            </div>
 
             <p className="mt-1 text-sm leading-6 text-black/50 dark:text-white/50">
-              AI predictions will appear here once telemetry is available
-              for your hives. The system can identify health risks,
-              anomalies and provide recommendations.
+              AI predictions process telemetry from your connected IoT sensors to detect health anomalies, swarming risk, and brood temperature conditions.
             </p>
 
             <Link
@@ -119,23 +164,42 @@ export default function FarmerDashboardPage() {
         </div>
       </section>
 
-      {/* Data availability */}
-      <section className="rounded-2xl border border-dashed border-black/15 p-6 dark:border-white/15">
-        <div className="flex items-start gap-3">
-          <IconAlertTriangle
-            size={20}
-            className="mt-0.5 shrink-0 text-black/50 dark:text-white/50"
-          />
+      {/* Operational Highlights */}
+      <section className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-black/8 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+          <p className="text-xs font-medium uppercase tracking-wider text-black/50 dark:text-white/50">
+            Telemetry Readings (24h)
+          </p>
+          <p className="mt-2 text-2xl font-bold">
+            {loading ? "—" : (stats?.telemetry?.last24hReadings ?? 0).toLocaleString()}
+          </p>
+          <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+            Total historical: {stats?.telemetry?.totalReadings ?? 0}
+          </p>
+        </div>
 
-          <div>
-            <h2 className="font-medium">Waiting for apiary data</h2>
+        <div className="rounded-2xl border border-black/8 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+          <p className="text-xs font-medium uppercase tracking-wider text-black/50 dark:text-white/50">
+            Total Batches Produced
+          </p>
+          <p className="mt-2 text-2xl font-bold">
+            {loading ? "—" : (stats?.batches?.total ?? 0).toString()}
+          </p>
+          <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+            Tested & certified: {stats?.batches?.tested ?? 0}
+          </p>
+        </div>
 
-            <p className="mt-1 text-sm leading-6 text-black/50 dark:text-white/50">
-              Hive and aggregate monitoring statistics will be populated
-              when the backend provides the corresponding hive-list and
-              aggregation endpoints.
-            </p>
-          </div>
+        <div className="rounded-2xl border border-black/8 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+          <p className="text-xs font-medium uppercase tracking-wider text-black/50 dark:text-white/50">
+            AI Predictions Evaluated
+          </p>
+          <p className="mt-2 text-2xl font-bold">
+            {loading ? "—" : (stats?.ai?.totalPredictions ?? 0).toString()}
+          </p>
+          <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+            Anomalies flagged: {stats?.ai?.anomaliesDetected ?? 0}
+          </p>
         </div>
       </section>
     </div>
@@ -144,34 +208,56 @@ export default function FarmerDashboardPage() {
 
 function OverviewCard({
   label,
-  value,
+  numericValue,
+  suffix = "",
+  loading = false,
   icon: Icon,
   href,
+  pulseColor,
 }: {
   label: string;
-  value: string;
+  numericValue: number;
+  suffix?: string;
+  loading?: boolean;
   icon: typeof IconHexagon;
   href: string;
+  pulseColor?: "emerald" | "amber" | "rose";
 }) {
   return (
-    <Link
-      href={href}
-      className="group rounded-2xl border border-black/8 bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-sm dark:border-white/10 dark:bg-white/5"
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm text-black/50 dark:text-white/50">
-          {label}
-        </span>
+    <StaggerItem>
+      <Link
+        href={href}
+        className="group block rounded-2xl border border-black/8 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/5"
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-black/55 dark:text-white/55">
+              {label}
+            </span>
+            {pulseColor && <LivePulse color={pulseColor} />}
+          </div>
 
-        <Icon
-          size={19}
-          stroke={1.7}
-          className="text-black/35 transition group-hover:text-honey dark:text-white/35"
-        />
-      </div>
+          <div className="rounded-xl bg-honey/15 p-2 text-honey transition group-hover:scale-105">
+            <Icon size={18} />
+          </div>
+        </div>
 
-      <p className="text-2xl font-semibold">{value}</p>
-    </Link>
+        <div className="mt-4 flex items-baseline justify-between">
+          {loading ? (
+            <span className="inline-block h-7 w-12 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+          ) : (
+            <span className="text-2xl font-semibold tracking-tight">
+              <AnimatedNumber value={numericValue} suffix={suffix} />
+            </span>
+          )}
+
+          <IconArrowRight
+            size={16}
+            className="text-black/30 transition group-hover:translate-x-0.5 group-hover:text-honey dark:text-white/30"
+          />
+        </div>
+      </Link>
+    </StaggerItem>
   );
 }
 
@@ -190,27 +276,23 @@ function DashboardCard({
 }) {
   return (
     <div className="rounded-2xl border border-black/8 bg-white p-6 dark:border-white/10 dark:bg-white/5">
-      <div className="flex items-start gap-4">
-        <div className="rounded-xl bg-black/4 p-3 dark:bg-white/6">
-          <Icon size={22} className="text-honey" />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h2 className="font-semibold">{title}</h2>
-
-          <p className="mt-1 text-sm leading-6 text-black/50 dark:text-white/50">
-            {description}
-          </p>
-
-          <Link
-            href={href}
-            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-honey transition hover:underline"
-          >
-            {action}
-            <IconArrowRight size={16} />
-          </Link>
-        </div>
+      <div className="mb-4 inline-flex rounded-xl bg-honey/15 p-3 text-honey">
+        <Icon size={22} />
       </div>
+
+      <h2 className="font-semibold">{title}</h2>
+
+      <p className="mt-1 text-sm leading-6 text-black/50 dark:text-white/50">
+        {description}
+      </p>
+
+      <Link
+        href={href}
+        className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-honey transition hover:underline"
+      >
+        {action}
+        <IconArrowRight size={16} />
+      </Link>
     </div>
   );
 }

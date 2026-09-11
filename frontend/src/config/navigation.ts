@@ -3,12 +3,12 @@ import {
   IconActivity,
   IconAlertTriangle,
   IconBox,
+  IconBuildingCommunity,
   IconChartBar,
   IconClipboardCheck,
   IconHexagon,
   IconHome,
   IconPackage,
-  IconQrcode,
   IconRoute,
   IconUsers,
 } from "@tabler/icons-react";
@@ -99,10 +99,18 @@ export const ROLE_NAVIGATION: Record<Role, NavigationItem[]> = {
     },
   ],
 
+  distributor: [
+    {
+      label: "Dashboard",
+      href: "/distributor/dashboard",
+      icon: IconHome,
+    },
+  ],
+
   transporter: [
     {
       label: "Dashboard",
-      href: "/transporter/dashboard",
+      href: "/distributor/dashboard",
       icon: IconHome,
     },
   ],
@@ -150,6 +158,11 @@ export const ROLE_NAVIGATION: Record<Role, NavigationItem[]> = {
       label: "Dashboard",
       href: "/authority/dashboard",
       icon: IconHome,
+    },
+    {
+      label: "Org Requests",
+      href: "/authority/dashboard#requests",
+      icon: IconBuildingCommunity,
     },
     {
       label: "Users",

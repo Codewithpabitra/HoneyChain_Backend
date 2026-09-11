@@ -8,8 +8,8 @@ import { ROLE_DASHBOARD_PATH } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 import Link from "next/link";
-import { IconArrowLeft, IconUserPlus } from "@tabler/icons-react";
-import { FEATURES } from "@/config/features";
+import { IconArrowLeft, IconBuildingCommunity } from "@tabler/icons-react";
+import { BeeIcon } from "@/components/ui/BeeIcon";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,9 +27,10 @@ export default function LoginPage() {
     try {
       const user = await login(email, password);
       router.push(ROLE_DASHBOARD_PATH[user.role]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message =
-        err?.response?.data?.error?.message ??
+        (err as { response?: { data?: { error?: { message?: string } } } })
+          ?.response?.data?.error?.message ??
         "Couldn't sign you in. Check your email and password.";
       setError(message);
     } finally {
@@ -42,8 +43,11 @@ export default function LoginPage() {
       {/* Brand panel */}
       <div className="relative hidden overflow-hidden bg-comb px-16 py-14 text-paper lg:flex lg:flex-col lg:justify-between">
         <HexPattern />
-        <div className="relative z-10">
-          <span className="font-mono text-sm tracking-tight text-honey-light">
+        <div className="relative z-10 flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-honey/15 text-honey-light ring-1 ring-honey/30">
+            <BeeIcon size={20} />
+          </div>
+          <span className="font-mono text-sm font-semibold tracking-tight text-honey-light">
             HoneyChain
           </span>
         </div>
@@ -62,8 +66,11 @@ export default function LoginPage() {
       {/* Form panel */}
       <div className="flex items-center justify-center bg-paper px-6 py-12 dark:bg-paper-dark">
         <div className="w-full max-w-sm">
-          <div className="mb-10 lg:hidden">
-            <span className="font-mono text-sm tracking-tight text-honey">
+          <div className="mb-10 flex items-center gap-2.5 lg:hidden">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-honey/10 text-honey ring-1 ring-honey/25">
+              <BeeIcon size={20} />
+            </div>
+            <span className="font-mono text-sm font-semibold tracking-tight text-honey">
               HoneyChain
             </span>
           </div>
@@ -72,7 +79,7 @@ export default function LoginPage() {
             Sign in
           </h1>
           <p className="mt-1.5 text-sm text-ink/60 dark:text-ink-dark/60">
-            Beekeeper, lab, processor, or authority account.
+            Beekeeper, processor, lab, distributor, auditor, or administrator account.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -128,22 +135,25 @@ export default function LoginPage() {
               disabled={isSubmitting}
               className={cn(
                 "w-full rounded-md bg-honey px-4 py-2.5 text-sm font-medium text-comb transition-colors",
-                "hover:bg-honey-light disabled:cursor-not-allowed disabled:opacity-60",
+                "hover:bg-honey-light cursor-pointer disabled:cursor-not-allowed disabled:opacity-60",
               )}
             >
               {isSubmitting ? "Signing in…" : "Sign in"}
             </button>
 
             <div className="mt-6 flex flex-col gap-3">
-              {FEATURES.register && (
+              <div className="space-y-2">
                 <Link
                   href="/register"
                   className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-black/3 text-sm font-medium text-ink transition hover:bg-black/6 dark:border-white/10 dark:bg-white/4 dark:text-ink-dark dark:hover:bg-white/8"
                 >
-                  <IconUserPlus size={17} stroke={1.8} />
-                  Create an account
+                  <IconBuildingCommunity size={17} stroke={1.8} />
+                  Register your organization
                 </Link>
-              )}
+                <p className="text-center text-xs text-ink/60 dark:text-ink-dark/60">
+                  Is your organization not yet part of HoneyChain? Submit an application for approval.
+                </p>
+              </div>
 
               <Link
                 href="/"

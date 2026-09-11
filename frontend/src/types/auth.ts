@@ -6,6 +6,7 @@ export type Role =
   | "beekeeper"
   | "processor"
   | "lab"
+  | "distributor"
   | "transporter"
   | "auditor";
 
@@ -14,6 +15,7 @@ export const ROLES: Role[] = [
   "beekeeper",
   "processor",
   "lab",
+  "distributor",
   "transporter",
   "auditor",
 ];
@@ -31,8 +33,17 @@ export interface AuthUser {
   name: string;
   email: string;
   role: Role;
-  organization?: Organization;
-  walletAddress: string;
+  isOrgAdmin?: boolean;
+  organization?:
+    | {
+        id?: string;
+        _id?: string;
+        name?: string;
+        [key: string]: unknown;
+      }
+    | string;
+  organizationId?: string;
+  walletAddress?: string;
   createdAt?: string;
 }
 

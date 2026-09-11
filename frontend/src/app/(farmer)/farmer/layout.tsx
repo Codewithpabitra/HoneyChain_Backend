@@ -1,3 +1,5 @@
+"use client";
+
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 

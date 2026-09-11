@@ -1,287 +1,643 @@
+// src/app/(farmer)/farmer/hives/[hiveId]/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   IconAlertTriangle,
   IconArrowLeft,
+  IconBattery,
   IconBrain,
+  IconClock,
+  IconDeviceAnalytics,
   IconDroplets,
+  IconEdit,
   IconHexagon,
-  IconTemperature,
-  IconWeight,
+  IconMapPin,
   IconRefresh,
+  IconTemperature,
+  IconTrash,
+  IconVolume,
+  IconWeight,
+  IconActivity,
 } from "@tabler/icons-react";
 
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
+
+import { hiveService } from "@/services/hive.service";
+import { telemetryService } from "@/services/telemetry.service";
 import { mlService } from "@/services/ml.service";
+import type { Hive, HiveStatus } from "@/types/hive";
+import type { TelemetryHistoryPoint } from "@/types/telemetry";
 import type { Prediction } from "@/types/prediction";
+
 import TelemetrySimulator from "@/components/telemetry/TelemetrySimulator";
 import TelemetryForm from "@/components/telemetry/TelemetryForm";
 import PredictionHistory from "@/components/telemetry/PredictionHistory";
 import MLHealthIndicator from "@/components/telemetry/MLHealthIndicator";
 
-function MetricCard({
-  label,
-  value,
-  unit,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  icon: typeof IconTemperature;
-}) {
-  return (
-    <div className="rounded-2xl border border-black/8 bg-white p-5 dark:border-white/10 dark:bg-white/5">
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm text-black/55 dark:text-white/55">
-          {label}
-        </span>
-
-        <Icon size={20} stroke={1.7} className="text-honey" />
-      </div>
-
-      <div className="flex items-baseline gap-1">
-        <span className="text-2xl font-semibold">{value}</span>
-
-        {unit && (
-          <span className="text-sm text-black/45 dark:text-white/45">
-            {unit}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function HiveDetailsPage() {
   const params = useParams<{ hiveId: string }>();
-  const hiveId = params.hiveId;
+  const router = useRouter();
+  const rawHiveId = params.hiveId;
+  const hiveId = decodeURIComponent(rawHiveId);
 
+  // Hive details
+  const [hive, setHive] = useState<Hive | null>(null);
+  const [hiveLoading, setHiveLoading] = useState(true);
+
+  // Telemetry history
+  const [telemetry, setTelemetry] = useState<TelemetryHistoryPoint[]>([]);
+  const [telemetryLoading, setTelemetryLoading] = useState(true);
+  const [activeMetricTab, setActiveMetricTab] = useState<
+    "temperature" | "humidity" | "weight" | "acoustics" | "flow"
+  >("temperature");
+
+  // AI Prediction
   const [prediction, setPrediction] = useState<Prediction | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [predictionLoading, setPredictionLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  useEffect(() => {
-    let mounted = true;
+  // Edit status modal
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editStatus, setEditStatus] = useState<HiveStatus>("active");
+  const [editNotes, setEditNotes] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-    async function load() {
-      try {
-        const response = await mlService.getLatest(hiveId);
+  // Error & action states
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-        if (mounted) {
-          setPrediction(response.data);
-          setError(null);
-        }
-      } catch {
-        if (mounted) {
-          setError("AI prediction is currently unavailable.");
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+  const loadHive = useCallback(async () => {
+    try {
+      setHiveLoading(true);
+      const res = await hiveService.getById(hiveId);
+      setHive(res.data);
+      if (res.data) {
+        setEditStatus(res.data.status);
+        setEditNotes(res.data.notes || "");
       }
+    } catch {
+      setError("Failed to load hive details.");
+    } finally {
+      setHiveLoading(false);
     }
-
-    load();
-
-    const interval = window.setInterval(load, 30_000);
-
-    return () => {
-      mounted = false;
-      window.clearInterval(interval);
-    };
   }, [hiveId]);
 
-  const metrics = prediction?.metricsSnapshot;
-
-  async function loadPrediction() {
+  const loadTelemetry = useCallback(async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-
-      const response = await mlService.getLatest(hiveId);
-
-      setPrediction(response.data);
+      setTelemetryLoading(true);
+      const res = await telemetryService.getHistory(hiveId, { limit: 50 });
+      setTelemetry(res.data || []);
     } catch {
-      setError("AI prediction is currently unavailable.");
+      // Telemetry might be empty for newly created hive
+      setTelemetry([]);
     } finally {
-      setIsLoading(false);
+      setTelemetryLoading(false);
     }
-  }
+  }, [hiveId]);
 
+  const loadPrediction = useCallback(async () => {
+    try {
+      setPredictionLoading(true);
+      const res = await mlService.getLatest(hiveId);
+      setPrediction(res.data);
+    } catch {
+      setPrediction(null);
+    } finally {
+      setPredictionLoading(false);
+    }
+  }, [hiveId]);
+
+  useEffect(() => {
+    loadHive();
+    loadTelemetry();
+    loadPrediction();
+  }, [loadHive, loadTelemetry, loadPrediction]);
+
+  // Latest readings from telemetry or prediction
+  const latestReading = useMemo(() => {
+    if (telemetry.length > 0) {
+      return telemetry[telemetry.length - 1];
+    }
+    if (prediction?.metricsSnapshot) {
+      return {
+        temperature: prediction.metricsSnapshot.temperature,
+        humidity: prediction.metricsSnapshot.humidity,
+        weightKg: prediction.metricsSnapshot.weightKg,
+        soundFrequencyHz: prediction.metricsSnapshot.soundFrequencyHz,
+        acousticsDb: 60,
+        flow: prediction.metricsSnapshot.beeFlow,
+      } as TelemetryHistoryPoint;
+    }
+    return null;
+  }, [telemetry, prediction]);
+
+  // Run AI analysis
   async function runAnalysis() {
     try {
       setIsAnalyzing(true);
-      setError(null);
-
+      setActionError(null);
       await mlService.predict(hiveId);
-
       await loadPrediction();
+      await loadHive();
     } catch {
-      setError("AI analysis failed. Please try again.");
+      setActionError("AI analysis failed. Ensure IoT readings are ingested first.");
     } finally {
       setIsAnalyzing(false);
     }
   }
 
+  // Save hive edits
+  async function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsSaving(true);
+    setActionError(null);
+    try {
+      await hiveService.update(hiveId, {
+        status: editStatus,
+        notes: editNotes.trim(),
+      });
+      setIsEditOpen(false);
+      await loadHive();
+    } catch {
+      setActionError("Failed to update hive status.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  // Delete hive
+  async function handleDeleteHive() {
+    if (!window.confirm(`Are you sure you want to delete hive ${hiveId}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await hiveService.delete(hiveId);
+      router.push("/farmer/hives");
+    } catch {
+      setActionError("Failed to delete hive.");
+    }
+  }
+
+  // Format telemetry for charts
+  const chartData = useMemo(() => {
+    return telemetry.map((pt) => ({
+      time: new Date(pt.timestamp).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      temperature: pt.temperature,
+      humidity: pt.humidity,
+      weight: pt.weightKg,
+      acoustics: pt.acousticsDb ?? (pt.soundFrequencyHz ? pt.soundFrequencyHz / 10 : 0),
+      flow: pt.flow ?? (pt.beeInCount && pt.beeOutCount ? pt.beeInCount - pt.beeOutCount : 0),
+    }));
+  }, [telemetry]);
+
+  const apiaryName =
+    typeof hive?.apiary === "object" ? hive.apiary?.name : hive?.apiaryId;
+  const apiaryRegion =
+    typeof hive?.apiary === "object" ? hive.apiary?.location?.region : undefined;
+
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/farmer/hives"
-          className="rounded-xl border border-black/10 p-2 transition hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
-          aria-label="Back to hives"
-        >
-          <IconArrowLeft size={19} />
-        </Link>
+      {/* Top Breadcrumb & Controls */}
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/farmer/hives"
+            className="rounded-xl border border-black/10 p-2 transition hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
+            aria-label="Back to hives"
+          >
+            <IconArrowLeft size={19} />
+          </Link>
 
-        <div>
-          <p className="text-sm text-black/50 dark:text-white/50">
-            Hive Monitoring
-          </p>
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-honey">
+              <IconHexagon size={14} />
+              <span>Colony Details</span>
+              {apiaryName && (
+                <>
+                  <span>•</span>
+                  <span>{apiaryName}</span>
+                </>
+              )}
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-ink dark:text-ink-dark">
+              {hiveId}
+            </h1>
+          </div>
+        </div>
 
-          <h1 className="text-3xl font-semibold tracking-tight">{hiveId}</h1>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              loadHive();
+              loadTelemetry();
+              loadPrediction();
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 bg-white/70 px-3.5 py-2 text-xs font-medium text-ink transition hover:bg-black/5 dark:border-white/10 dark:bg-white/4 dark:text-ink-dark"
+          >
+            <IconRefresh size={15} className={hiveLoading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsEditOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3.5 py-2 text-xs font-medium text-ink transition hover:bg-black/5 dark:border-white/10 dark:bg-white/4 dark:text-ink-dark"
+          >
+            <IconEdit size={15} />
+            Edit Hive
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDeleteHive}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-alert/20 bg-alert/5 px-3.5 py-2 text-xs font-medium text-alert transition hover:bg-alert/10"
+          >
+            <IconTrash size={15} />
+            Delete
+          </button>
         </div>
       </div>
 
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-xl border border-alert/20 bg-alert/5 p-4 text-xs text-alert">
+          <IconAlertTriangle size={16} />
+          <span>{actionError}</span>
+        </div>
+      )}
+
+      {/* Colony & Hardware Summary Header Card */}
+      <section className="grid gap-4 rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-white/3 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <span className="text-xs font-medium uppercase tracking-wider text-black/50 dark:text-white/50">
+            Hive Status
+          </span>
+          <div className="mt-2 flex items-center gap-2">
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-full ${
+                hive?.status === "active"
+                  ? "bg-emerald-500"
+                  : hive?.status === "quarantined"
+                  ? "bg-amber-500"
+                  : "bg-red-500"
+              }`}
+            />
+            <span className="text-base font-semibold capitalize">
+              {hive?.status || "active"}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+            {hive?.hiveType || "Langstroth"} • {hive?.beeSpecies || "Apis cerana"}
+          </p>
+        </div>
+
+        <div>
+          <span className="text-xs font-medium uppercase tracking-wider text-black/50 dark:text-white/50">
+            Sanctuary Apiary
+          </span>
+          <div className="mt-2 flex items-center gap-1.5">
+            <IconMapPin size={16} className="text-honey" />
+            <span className="truncate text-base font-semibold">
+              {apiaryName || "Not assigned"}
+            </span>
+          </div>
+          {apiaryRegion && (
+            <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+              Region: {apiaryRegion}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <span className="text-xs font-medium uppercase tracking-wider text-black/50 dark:text-white/50">
+            IoT Edge Gateway
+          </span>
+          <div className="mt-2 flex items-center gap-1.5">
+            <IconDeviceAnalytics size={16} className="text-honey" />
+            <span className="font-mono text-sm font-semibold">
+              {hive?.deviceMetadata?.deviceId || `ESP32-${hiveId}`}
+            </span>
+          </div>
+          <div className="mt-1 flex items-center gap-2 text-xs text-black/50 dark:text-white/50">
+            <span className="flex items-center gap-1">
+              <IconBattery size={13} className="text-emerald-500" />
+              {hive?.deviceMetadata?.batteryLevelPct ?? 100}%
+            </span>
+            <span>•</span>
+            <span>{hive?.deviceMetadata?.communicationProtocol || "MQTT"}</span>
+          </div>
+        </div>
+
+        <div>
+          <span className="text-xs font-medium uppercase tracking-wider text-black/50 dark:text-white/50">
+            Colony Health Score
+          </span>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-honey">
+              {hive?.currentHealthSummary?.healthScore ?? 100}%
+            </span>
+            <span className="text-xs font-semibold uppercase text-emerald-600 dark:text-emerald-400">
+              {hive?.currentHealthSummary?.status?.replace("_", " ") || "healthy"}
+            </span>
+          </div>
+          {hive?.installationDate && (
+            <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+              Installed: {new Date(hive.installationDate).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* Real-time Metric Cards */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Temperature"
-          value={metrics ? metrics.temperature.toFixed(1) : "—"}
+          label="Brood Temperature"
+          value={latestReading ? latestReading.temperature.toFixed(1) : "—"}
           unit="°C"
           icon={IconTemperature}
+          status={
+            latestReading && (latestReading.temperature < 33 || latestReading.temperature > 37)
+              ? "alert"
+              : "normal"
+          }
         />
 
         <MetricCard
-          label="Humidity"
-          value={metrics ? metrics.humidity.toFixed(1) : "—"}
+          label="Relative Humidity"
+          value={latestReading ? latestReading.humidity.toFixed(1) : "—"}
           unit="%"
           icon={IconDroplets}
+          status="normal"
         />
 
         <MetricCard
-          label="Hive Weight"
-          value={metrics ? metrics.weightKg.toFixed(1) : "—"}
+          label="Hive Net Weight"
+          value={latestReading ? latestReading.weightKg.toFixed(1) : "—"}
           unit="kg"
           icon={IconWeight}
+          status="normal"
         />
 
         <MetricCard
-          label="Sound Frequency"
+          label="Acoustic Frequency"
           value={
-            metrics?.soundFrequencyHz !== undefined
-              ? metrics.soundFrequencyHz.toFixed(0)
+            latestReading?.soundFrequencyHz !== undefined
+              ? latestReading.soundFrequencyHz.toFixed(0)
+              : latestReading?.acousticsDb !== undefined
+              ? `${latestReading.acousticsDb.toFixed(0)} dB`
               : "—"
           }
-          unit="Hz"
-          icon={IconHexagon}
+          unit={latestReading?.soundFrequencyHz !== undefined ? "Hz" : undefined}
+          icon={IconVolume}
+          status="normal"
         />
       </section>
 
-      {/* telemetry form  */}
-      <TelemetryForm hiveId={hiveId} onSubmitted={loadPrediction} />
-
-      {/* Telemetry simulator  */}
-      <TelemetrySimulator />
-
-      {/* AI Hive Health */}
-      <section className="rounded-2xl border border-black/8 bg-white p-6 dark:border-white/10 dark:bg-white/5">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="rounded-xl bg-honey/15 p-2.5 text-honey">
-            <IconBrain size={22} />
+      {/* Telemetry Time-Series Charts (Recharts) */}
+      <section className="rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-white/3">
+        <div className="flex flex-col justify-between gap-4 border-b border-black/5 pb-4 dark:border-white/5 sm:flex-row sm:items-center">
+          <div>
+            <div className="flex items-center gap-2">
+              <IconActivity size={20} className="text-honey" />
+              <h2 className="font-semibold text-ink dark:text-ink-dark">
+                Telemetry Analytics
+              </h2>
+            </div>
+            <p className="mt-1 text-xs text-black/50 dark:text-white/50">
+              Continuous IoT sensor metrics recorded from Edge Gateway {hive?.deviceMetadata?.deviceId || `ESP32-${hiveId}`}
+            </p>
           </div>
 
-          <div>
-            <h2 className="font-semibold">AI Hive Health</h2>
-            <p className="text-sm text-black/50 dark:text-white/50">
-              Latest prediction from the hive monitoring model
-            </p>
+          {/* Metric Selector Tabs */}
+          <div className="flex items-center gap-1 rounded-xl border border-black/10 bg-black/2 p-1 dark:border-white/10 dark:bg-white/3">
+            {[
+              { id: "temperature", label: "Temp (°C)" },
+              { id: "humidity", label: "Humidity (%)" },
+              { id: "weight", label: "Weight (kg)" },
+              { id: "acoustics", label: "Acoustics" },
+              { id: "flow", label: "Bee Flow" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveMetricTab(tab.id as any)}
+                className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                  activeMetricTab === tab.id
+                    ? "bg-white text-ink shadow-xs dark:bg-white/10 dark:text-ink-dark"
+                    : "text-black/50 hover:text-ink dark:text-white/50 dark:hover:text-ink-dark"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Chart View */}
+        <div className="mt-6">
+          {telemetryLoading ? (
+            <div className="flex h-64 items-center justify-center text-sm text-black/50 dark:text-white/50">
+              <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-honey border-t-transparent" />
+              Loading telemetry time-series…
+            </div>
+          ) : chartData.length === 0 ? (
+            <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-black/10 p-6 text-center dark:border-white/10">
+              <IconActivity size={28} className="text-black/30 dark:text-white/30" />
+              <h3 className="mt-3 text-sm font-semibold">No telemetry stream yet</h3>
+              <p className="mt-1 max-w-sm text-xs text-black/50 dark:text-white/50">
+                Trigger a simulation cycle below or submit manual sensor readings to begin populating real charts.
+              </p>
+            </div>
+          ) : (
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                  <XAxis
+                    dataKey="time"
+                    tick={{ fontSize: 11, fill: "currentColor", opacity: 0.6 }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "currentColor", opacity: 0.6 }}
+                    domain={
+                      activeMetricTab === "temperature"
+                        ? [25, 45]
+                        : activeMetricTab === "humidity"
+                        ? [30, 90]
+                        : ["auto", "auto"]
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(18, 18, 18, 0.9)",
+                      borderColor: "rgba(255, 255, 255, 0.15)",
+                      borderRadius: "0.75rem",
+                      fontSize: "12px",
+                      color: "#fff",
+                    }}
+                  />
+                  {activeMetricTab === "temperature" && (
+                    <Line
+                      type="monotone"
+                      dataKey="temperature"
+                      name="Temperature (°C)"
+                      stroke="#f59e0b"
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{ r: 5 }}
+                    />
+                  )}
+                  {activeMetricTab === "humidity" && (
+                    <Line
+                      type="monotone"
+                      dataKey="humidity"
+                      name="Humidity (%)"
+                      stroke="#06b6d4"
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{ r: 5 }}
+                    />
+                  )}
+                  {activeMetricTab === "weight" && (
+                    <Line
+                      type="monotone"
+                      dataKey="weight"
+                      name="Weight (kg)"
+                      stroke="#10b981"
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{ r: 5 }}
+                    />
+                  )}
+                  {activeMetricTab === "acoustics" && (
+                    <Line
+                      type="monotone"
+                      dataKey="acoustics"
+                      name="Acoustic Level"
+                      stroke="#8b5cf6"
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{ r: 5 }}
+                    />
+                  )}
+                  {activeMetricTab === "flow" && (
+                    <Line
+                      type="monotone"
+                      dataKey="flow"
+                      name="Net Bee Flow"
+                      stroke="#f97316"
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{ r: 5 }}
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* AI Health Summary & Model Prediction */}
+      <section className="rounded-2xl border border-black/8 bg-white p-6 dark:border-white/10 dark:bg-white/5">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-honey/15 p-2.5 text-honey">
+              <IconBrain size={22} />
+            </div>
+
+            <div>
+              <h2 className="font-semibold text-ink dark:text-ink-dark">
+                AI Hive Health & Anomaly Detection
+              </h2>
+              <p className="text-xs text-black/50 dark:text-white/50">
+                Continuous machine-learning assessment from sensor patterns
+              </p>
+            </div>
           </div>
 
           <button
             type="button"
             onClick={runAnalysis}
             disabled={isAnalyzing}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-black/10 px-3 py-2 text-sm font-medium transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:hover:bg-white/5 sm:mt-0"
+            className="inline-flex items-center gap-2 rounded-xl bg-honey px-4 py-2 text-xs font-semibold text-comb shadow-xs transition hover:brightness-95 disabled:opacity-50"
           >
             <IconRefresh
-              size={17}
+              size={15}
               className={isAnalyzing ? "animate-spin" : ""}
             />
-            {isAnalyzing ? "Analyzing..." : "Run AI Analysis"}
+            {isAnalyzing ? "Evaluating AI Model…" : "Run Live AI Analysis"}
           </button>
         </div>
 
         <MLHealthIndicator />
 
-        {isLoading ? (
-          <div className="text-sm text-black/50 dark:text-white/50">
-            Loading AI prediction...
-          </div>
-        ) : error ? (
-          <div className="flex items-center gap-2 text-sm text-alert">
-            <IconAlertTriangle size={18} />
-            {error}
+        {predictionLoading ? (
+          <div className="py-6 text-sm text-black/50 dark:text-white/50">
+            Loading AI prediction…
           </div>
         ) : prediction ? (
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black/5 pb-4 dark:border-white/5">
               <div>
-                <p className="text-2xl font-semibold">
+                <p className="text-xl font-bold tracking-tight text-ink dark:text-ink-dark">
                   {prediction.status.replaceAll("_", " ")}
                 </p>
 
-                <p className="mt-1 text-sm text-black/50 dark:text-white/50">
-                  Confidence: {(prediction.confidence * 100).toFixed(1)}%
+                <p className="mt-1 text-xs text-black/50 dark:text-white/50">
+                  Model Confidence: {(prediction.confidence * 100).toFixed(1)}% • Health Score: {prediction.healthScore ?? hive?.currentHealthSummary?.healthScore ?? 85}%
                 </p>
 
-                <p className="mt-1 text-xs text-black/40 dark:text-white/40">
-                  Last analyzed{" "}
-                  {new Date(prediction.timestamp).toLocaleString()}
+                <p className="mt-1 flex items-center gap-1 text-[11px] text-black/40 dark:text-white/40">
+                  <IconClock size={12} />
+                  Analyzed {new Date(prediction.timestamp).toLocaleString()}
                 </p>
               </div>
 
-              <span className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-medium dark:border-white/10">
-                Tier {prediction.tier}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-black/10 px-3 py-1 text-xs font-semibold dark:border-white/10">
+                  Risk Tier {prediction.tier}
+                </span>
+                {(prediction.anomalyDetected || (prediction.anomaliesDetected && prediction.anomaliesDetected.length > 0)) && (
+                  <span className="rounded-full bg-alert/10 px-3 py-1 text-xs font-semibold text-alert">
+                    Anomaly Flagged
+                  </span>
+                )}
+              </div>
             </div>
 
-            {prediction.alerts.length > 0 && (
+            {/* Drivers & Recommendations */}
+            {prediction.drivers && prediction.drivers.length > 0 && (
               <div>
-                <h3 className="mb-3 text-sm font-medium">Alerts</h3>
-
-                <div className="space-y-2">
-                  {prediction.alerts.map((alert, index) => (
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-honey">
+                  Health Drivers & Sensor Signals
+                </h3>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {prediction.drivers.map((driver: any, idx: number) => (
                     <div
-                      key={`${alert}-${index}`}
-                      className="flex items-start gap-2 rounded-xl border border-alert/20 bg-alert/5 p-3 text-sm"
+                      key={idx}
+                      className="rounded-xl border border-black/5 bg-black/1 p-3 text-xs dark:border-white/5 dark:bg-white/2"
                     >
-                      <IconAlertTriangle
-                        size={17}
-                        className="mt-0.5 shrink-0 text-alert"
-                      />
-                      <span>{alert}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {prediction.recommendations.length > 0 && (
-              <div>
-                <h3 className="mb-3 text-sm font-medium">Recommendations</h3>
-
-                <div className="space-y-2">
-                  {prediction.recommendations.map((recommendation, index) => (
-                    <div
-                      key={`${recommendation}-${index}`}
-                      className="rounded-xl bg-black/3 p-3 text-sm dark:bg-white/4"
-                    >
-                      {recommendation}
+                      <span className="font-semibold text-ink dark:text-ink-dark">
+                        {driver.feature || "Sensor"}:{" "}
+                      </span>
+                      <span className="text-black/60 dark:text-white/60">
+                        {driver.direction || "impact"} ({typeof driver.contribution === "number" ? (driver.contribution > 0 ? "+" : "") + driver.contribution.toFixed(2) : "normal"})
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -289,14 +645,137 @@ export default function HiveDetailsPage() {
             )}
           </div>
         ) : (
-          <p className="text-sm text-black/50 dark:text-white/50">
-            No AI prediction is available for this hive yet.
-          </p>
+          <div className="rounded-xl border border-dashed border-black/10 p-6 text-center text-xs text-black/50 dark:border-white/10 dark:text-white/50">
+            No AI prediction generated yet. Click &quot;Run Live AI Analysis&quot; above after telemetry has been ingested.
+          </div>
         )}
       </section>
 
-      {/* Prediction history  */}
+      {/* Historical Predictions */}
       <PredictionHistory hiveId={hiveId} />
+
+      {/* Ingestion & Simulation Controls */}
+      <div className="space-y-6">
+        <TelemetryForm
+          hiveId={hiveId}
+          onSubmitted={async () => {
+            await loadTelemetry();
+            await loadPrediction();
+            await loadHive();
+          }}
+        />
+
+        <TelemetrySimulator />
+      </div>
+
+      {/* Edit Hive Modal */}
+      {isEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-black/10 bg-paper p-6 shadow-2xl dark:border-white/10 dark:bg-paper-dark">
+            <h3 className="text-lg font-bold text-ink dark:text-ink-dark">
+              Edit Hive Status
+            </h3>
+            <p className="mt-1 text-xs text-black/50 dark:text-white/50">
+              Update colony status or operational notes for {hiveId}.
+            </p>
+
+            <form onSubmit={handleSaveEdit} className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink/70 dark:text-ink-dark/70">
+                  Colony Status
+                </label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as any)}
+                  className="w-full rounded-xl border border-black/15 bg-transparent p-2.5 text-xs text-ink outline-none focus:border-honey dark:border-white/15 dark:text-ink-dark"
+                >
+                  <option value="active">Active</option>
+                  <option value="quarantined">Quarantined</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="collapsed">Collapsed</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink/70 dark:text-ink-dark/70">
+                  Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="Colony notes, queen condition, honey flow status..."
+                  className="w-full rounded-xl border border-black/15 bg-transparent p-2.5 text-xs text-ink outline-none focus:border-honey dark:border-white/15 dark:text-ink-dark"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditOpen(false)}
+                  className="rounded-xl border border-black/10 px-4 py-2 text-xs font-semibold hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="rounded-xl bg-honey px-4 py-2 text-xs font-semibold text-comb hover:brightness-95 disabled:opacity-50"
+                >
+                  {isSaving ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  unit,
+  icon: Icon,
+  status = "normal",
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  icon: typeof IconTemperature;
+  status?: "normal" | "alert";
+}) {
+  return (
+    <div
+      className={`rounded-2xl border bg-white p-5 dark:bg-white/5 ${
+        status === "alert"
+          ? "border-alert/30 bg-alert/5"
+          : "border-black/8 dark:border-white/10"
+      }`}
+    >
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-sm text-black/55 dark:text-white/55">{label}</span>
+        <Icon
+          size={20}
+          stroke={1.7}
+          className={status === "alert" ? "text-alert" : "text-honey"}
+        />
+      </div>
+
+      <div className="flex items-baseline gap-1">
+        <span
+          className={`text-2xl font-semibold tracking-tight ${
+            status === "alert" ? "text-alert" : ""
+          }`}
+        >
+          {value}
+        </span>
+
+        {unit && (
+          <span className="text-sm text-black/45 dark:text-white/45">{unit}</span>
+        )}
+      </div>
     </div>
   );
 }

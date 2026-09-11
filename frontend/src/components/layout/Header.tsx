@@ -4,8 +4,25 @@ import Image from "next/image";
 import Link from "next/link";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import Button from "@/components/ui/Button";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { BeeIcon } from "@/components/ui/BeeIcon";
 
 export default function Header() {
+  const { user, logout } = useAuth();
+
+  const dashboardHref =
+    user?.role === "admin" || user?.role === "auditor"
+      ? "/authority/dashboard"
+      : user?.role === "beekeeper"
+      ? "/farmer/dashboard"
+      : user?.role === "lab"
+      ? "/lab/dashboard"
+      : user?.role === "processor"
+      ? "/processor/dashboard"
+      : user?.role === "distributor" || user?.role === "transporter"
+      ? "/distributor/dashboard"
+      : "/login";
+
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between border-b border-ink/5 bg-paper/70 px-4 py-5 backdrop-blur-md dark:border-ink-dark/5 dark:bg-paper-dark/70 md:px-8">
       {/* Logo + Brand */}
