@@ -1,32 +1,59 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import Button from "@/components/ui/Button";
 
 export default function Header() {
   return (
-    <header className="fixed top-0 inset-x-0 z-50 px-6 md:px-12 py-5 flex items-center justify-between backdrop-blur-md bg-paper/70 dark:bg-paper-dark/70 border-b border-ink/5 dark:border-ink-dark/5">
+    <header className="sticky top-0 z-50 flex items-center justify-between border-b border-ink/5 bg-paper/70 px-4 py-5 backdrop-blur-md dark:border-ink-dark/5 dark:bg-paper-dark/70 md:px-8">
+      {/* Logo + Brand */}
       <Link
         href="/"
-        className="font-mono italic text-xl text-ink dark:text-ink-dark"
+        className="group flex items-center gap-2.5"
       >
-        HoneyChain
+        <div className="relative h-9 w-9 shrink-0">
+          <Image
+            src="/images/logo/logo.png"
+            alt="HoneyChain logo"
+            fill
+            priority
+            className="object-contain transition-transform duration-300 group-hover:scale-105"
+          />
+        </div>
+
+        <span className="font-mono text-xl italic text-ink transition-colors group-hover:text-honey dark:text-ink-dark">
+          HoneyChain
+        </span>
       </Link>
 
-      <nav className="hidden md:flex items-center gap-8 text-sm text-ink/70 dark:text-ink-dark/70">
-        <Link href="/verify" className="hover:text-honey transition-colors">
+      {/* Navigation */}
+      <nav className="hidden items-center gap-8 text-sm text-ink/70 dark:text-ink-dark/70 md:flex">
+        <Link
+          href="/verify"
+          className="transition-colors hover:text-honey"
+        >
           Verify a jar
         </Link>
-        <Link href="/about" className="hover:text-honey transition-colors">
+
+        <Link
+          href="/about"
+          className="transition-colors hover:text-honey"
+        >
           About
         </Link>
       </nav>
 
+      {/* Actions */}
       <div className="flex items-center gap-3">
         <ThemeToggle />
+
         <Link href="/login">
-          <Button size="sm" variant="outline">
+          <Button
+            size="sm"
+            variant="outline"
+          >
             Sign in
           </Button>
         </Link>

@@ -61,3 +61,26 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+.honey-drip {
+  clip-path: polygon(
+    0% 0%, 100% 0%, 100% 85%,
+    92% 100%, 84% 82%, 76% 100%, 68% 84%,
+    60% 100%, 52% 82%, 44% 100%, 36% 84%,
+    28% 100%, 20% 82%, 12% 100%, 4% 84%, 0% 96%
+  );
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}

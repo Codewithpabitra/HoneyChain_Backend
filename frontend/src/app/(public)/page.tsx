@@ -1,21 +1,32 @@
 import Header from "@/components/layout/Header";
 import Hero from "@/components/landing/Hero";
-import Problem from "@/components/landing/Problem";
-import HowItWorks from "@/components/landing/HowItWorks";
-import Ecosystem from "@/components/landing/Ecosystem";
-import Impact from "@/components/landing/Impact";
+import HiveToJar from "@/components/landing/HiveToJar";
+import TrustFeatures from "@/components/landing/TrustFeatures";
+import ExploreRoles from "@/components/landing/ExploreRoles";
 import Footer from "@/components/landing/Footer";
+import ScrollBee from "@/components/landing/ScrollBee";
+import FlightBeeDecor from "@/components/landing/FlightBeeDecor";
 
 export default function LandingPage() {
   return (
     <>
+      <FlightBeeDecor
+        side="left"
+        top="4%"
+        src="/images/landing/flight-bee-left.png"
+      />
+      <FlightBeeDecor
+        side="right"
+        top="8%"
+        src="/images/landing/flight-bee-right.png"
+      />
+      <ScrollBee />
       <Header />
       <main>
         <Hero />
-        <Problem />
-        <HowItWorks />
-        <Ecosystem />
-        <Impact />
+        <HiveToJar />
+        <TrustFeatures />
+        <ExploreRoles />
       </main>
       <Footer />
     </>
