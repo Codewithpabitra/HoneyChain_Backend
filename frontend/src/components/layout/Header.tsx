@@ -14,7 +14,7 @@ export default function Header() {
       : user?.role === "beekeeper"
       ? "/farmer/dashboard"
       : user?.role === "lab"
-      ? "/lab/tests"
+      ? "/lab/dashboard"
       : user?.role === "processor"
       ? "/processor/dashboard"
       : user?.role === "transporter"
