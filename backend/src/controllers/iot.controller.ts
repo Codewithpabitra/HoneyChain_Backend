@@ -99,31 +99,33 @@ export class IoTController {
       }
 
       // 4. Immediate Sensor Value Validation (NaN, Infinity, null, non-numeric, physical bounds)
-      // Never silently clamp bad values. Identify abnormal values and trigger immediate Twilio SMS alerts.
+      // Uses STATEFUL alerting — SMS fires on NEW abnormal, suppressed for CONTINUING conditions,
+      // and re-enabled after recovery. markRecovery() is called when readings return to normal.
 
-      // Temperature check (-40°C to 70°C)
+      const orgId: string | undefined = (hive as any).organizationId?.toString();
+
+      // ── Temperature (-40°C to 70°C) ────────────────────────────────────────
       if (isInvalidNumber(temperature)) {
         await notificationService
           .sendAbnormalReadingAlert({
-            hiveId: cleanHiveId,
-            deviceId: cleanDeviceId,
+            hiveId: cleanHiveId, deviceId: cleanDeviceId,
             sensorName: "temperature",
             actualValue: String(temperature),
             expectedRange: "-40°C to 70°C",
+            alertType: "abnormal_temperature",
+            conditionDirection: "malformed",
             timestamp: parsedTimestamp,
+            organizationId: orgId,
           })
           .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
 
         await alertService
           .createAlertWithCooldown({
-            hiveId: cleanHiveId,
-            apiaryId: hive.apiaryId,
+            hiveId: cleanHiveId, apiaryId: hive.apiaryId,
             organizationId: (hive as any).organizationId,
-            severity: "critical",
-            alertType: "abnormal_temperature",
+            severity: "critical", alertType: "abnormal_temperature",
             message: `Hive ${cleanHiveId} received malformed/non-numeric temperature: ${temperature}.`,
-            metadata: { temperature, deviceId: cleanDeviceId },
-            cooldownMinutes: 15,
+            metadata: { temperature, deviceId: cleanDeviceId }, cooldownMinutes: 15,
           })
           .catch(() => {});
 
@@ -131,56 +133,60 @@ export class IoTController {
       }
 
       if (temperature < -40 || temperature > 70) {
+        const dir = temperature > 70 ? "high" : "low";
         await notificationService
           .sendAbnormalReadingAlert({
-            hiveId: cleanHiveId,
-            deviceId: cleanDeviceId,
+            hiveId: cleanHiveId, deviceId: cleanDeviceId,
             sensorName: "temperature",
             actualValue: `${temperature}°C`,
             expectedRange: "-40°C to 70°C",
+            alertType: "abnormal_temperature",
+            conditionDirection: dir,
             timestamp: parsedTimestamp,
+            organizationId: orgId,
           })
           .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
 
         await alertService
           .createAlertWithCooldown({
-            hiveId: cleanHiveId,
-            apiaryId: hive.apiaryId,
+            hiveId: cleanHiveId, apiaryId: hive.apiaryId,
             organizationId: (hive as any).organizationId,
-            severity: "critical",
-            alertType: "abnormal_temperature",
+            severity: "critical", alertType: "abnormal_temperature",
             message: `Hive ${cleanHiveId} recorded abnormal temperature of ${temperature}°C, outside plausible sensor bounds (-40°C to 70°C).`,
-            metadata: { temperature, deviceId: cleanDeviceId },
-            cooldownMinutes: 15,
+            metadata: { temperature, deviceId: cleanDeviceId }, cooldownMinutes: 15,
           })
           .catch(() => {});
 
         return next(new AppError("temperature out of plausible range (-40°C to 70°C)", 400));
       }
 
-      // Humidity check (0% to 100%)
+      // Temperature is NORMAL — clear any active temperature alert state
+      await notificationService.markRecovery({ hiveId: cleanHiveId, deviceId: cleanDeviceId, sensorName: "temperature", alertType: "abnormal_temperature", conditionDirection: "high" }).catch(() => {});
+      await notificationService.markRecovery({ hiveId: cleanHiveId, deviceId: cleanDeviceId, sensorName: "temperature", alertType: "abnormal_temperature", conditionDirection: "low" }).catch(() => {});
+      await notificationService.markRecovery({ hiveId: cleanHiveId, deviceId: cleanDeviceId, sensorName: "temperature", alertType: "abnormal_temperature", conditionDirection: "malformed" }).catch(() => {});
+
+      // ── Humidity (0% to 100%) ───────────────────────────────────────────────
       if (isInvalidNumber(humidity)) {
         await notificationService
           .sendAbnormalReadingAlert({
-            hiveId: cleanHiveId,
-            deviceId: cleanDeviceId,
+            hiveId: cleanHiveId, deviceId: cleanDeviceId,
             sensorName: "humidity",
             actualValue: String(humidity),
             expectedRange: "0% to 100%",
+            alertType: "abnormal_humidity",
+            conditionDirection: "malformed",
             timestamp: parsedTimestamp,
+            organizationId: orgId,
           })
           .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
 
         await alertService
           .createAlertWithCooldown({
-            hiveId: cleanHiveId,
-            apiaryId: hive.apiaryId,
+            hiveId: cleanHiveId, apiaryId: hive.apiaryId,
             organizationId: (hive as any).organizationId,
-            severity: "critical",
-            alertType: "abnormal_humidity",
+            severity: "critical", alertType: "abnormal_humidity",
             message: `Hive ${cleanHiveId} received malformed/non-numeric humidity: ${humidity}.`,
-            metadata: { humidity, deviceId: cleanDeviceId },
-            cooldownMinutes: 15,
+            metadata: { humidity, deviceId: cleanDeviceId }, cooldownMinutes: 15,
           })
           .catch(() => {});
 
@@ -188,56 +194,60 @@ export class IoTController {
       }
 
       if (humidity < 0 || humidity > 100) {
+        const dir = humidity > 100 ? "high" : "low";
         await notificationService
           .sendAbnormalReadingAlert({
-            hiveId: cleanHiveId,
-            deviceId: cleanDeviceId,
+            hiveId: cleanHiveId, deviceId: cleanDeviceId,
             sensorName: "humidity",
             actualValue: `${humidity}%`,
             expectedRange: "0% to 100%",
+            alertType: "abnormal_humidity",
+            conditionDirection: dir,
             timestamp: parsedTimestamp,
+            organizationId: orgId,
           })
           .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
 
         await alertService
           .createAlertWithCooldown({
-            hiveId: cleanHiveId,
-            apiaryId: hive.apiaryId,
+            hiveId: cleanHiveId, apiaryId: hive.apiaryId,
             organizationId: (hive as any).organizationId,
-            severity: "critical",
-            alertType: "abnormal_humidity",
+            severity: "critical", alertType: "abnormal_humidity",
             message: `Hive ${cleanHiveId} recorded abnormal humidity of ${humidity}%, outside plausible bounds (0% to 100%).`,
-            metadata: { humidity, deviceId: cleanDeviceId },
-            cooldownMinutes: 15,
+            metadata: { humidity, deviceId: cleanDeviceId }, cooldownMinutes: 15,
           })
           .catch(() => {});
 
         return next(new AppError("humidity out of plausible range (0% to 100%)", 400));
       }
 
-      // Weight check (0 kg to 300 kg)
+      // Humidity is NORMAL — clear active humidity alert state
+      await notificationService.markRecovery({ hiveId: cleanHiveId, deviceId: cleanDeviceId, sensorName: "humidity", alertType: "abnormal_humidity", conditionDirection: "high" }).catch(() => {});
+      await notificationService.markRecovery({ hiveId: cleanHiveId, deviceId: cleanDeviceId, sensorName: "humidity", alertType: "abnormal_humidity", conditionDirection: "low" }).catch(() => {});
+      await notificationService.markRecovery({ hiveId: cleanHiveId, deviceId: cleanDeviceId, sensorName: "humidity", alertType: "abnormal_humidity", conditionDirection: "malformed" }).catch(() => {});
+
+      // ── Weight (0 kg to 300 kg) ─────────────────────────────────────────────
       if (isInvalidNumber(weightKg)) {
         await notificationService
           .sendAbnormalReadingAlert({
-            hiveId: cleanHiveId,
-            deviceId: cleanDeviceId,
+            hiveId: cleanHiveId, deviceId: cleanDeviceId,
             sensorName: "weight",
             actualValue: String(weightKg),
             expectedRange: "0kg to 300kg",
+            alertType: "abnormal_weight",
+            conditionDirection: "malformed",
             timestamp: parsedTimestamp,
+            organizationId: orgId,
           })
           .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
 
         await alertService
           .createAlertWithCooldown({
-            hiveId: cleanHiveId,
-            apiaryId: hive.apiaryId,
+            hiveId: cleanHiveId, apiaryId: hive.apiaryId,
             organizationId: (hive as any).organizationId,
-            severity: "critical",
-            alertType: "abnormal_weight",
+            severity: "critical", alertType: "abnormal_weight",
             message: `Hive ${cleanHiveId} received malformed/non-numeric weightKg: ${weightKg}.`,
-            metadata: { weightKg, deviceId: cleanDeviceId },
-            cooldownMinutes: 15,
+            metadata: { weightKg, deviceId: cleanDeviceId }, cooldownMinutes: 15,
           })
           .catch(() => {});
 
@@ -245,32 +255,37 @@ export class IoTController {
       }
 
       if (weightKg < 0 || weightKg > 300) {
+        const dir = weightKg > 300 ? "high" : "low";
         await notificationService
           .sendAbnormalReadingAlert({
-            hiveId: cleanHiveId,
-            deviceId: cleanDeviceId,
+            hiveId: cleanHiveId, deviceId: cleanDeviceId,
             sensorName: "weight",
             actualValue: `${weightKg}kg`,
             expectedRange: "0kg to 300kg",
+            alertType: "abnormal_weight",
+            conditionDirection: dir,
             timestamp: parsedTimestamp,
+            organizationId: orgId,
           })
           .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
 
         await alertService
           .createAlertWithCooldown({
-            hiveId: cleanHiveId,
-            apiaryId: hive.apiaryId,
+            hiveId: cleanHiveId, apiaryId: hive.apiaryId,
             organizationId: (hive as any).organizationId,
-            severity: "critical",
-            alertType: "abnormal_weight",
+            severity: "critical", alertType: "abnormal_weight",
             message: `Hive ${cleanHiveId} recorded abnormal weight of ${weightKg} kg, outside plausible bounds (0 kg to 300 kg).`,
-            metadata: { weightKg, deviceId: cleanDeviceId },
-            cooldownMinutes: 15,
+            metadata: { weightKg, deviceId: cleanDeviceId }, cooldownMinutes: 15,
           })
           .catch(() => {});
 
         return next(new AppError("weightKg out of plausible range (0 kg to 300 kg)", 400));
       }
+
+      // Weight is NORMAL — clear active weight alert state
+      await notificationService.markRecovery({ hiveId: cleanHiveId, deviceId: cleanDeviceId, sensorName: "weight", alertType: "abnormal_weight", conditionDirection: "high" }).catch(() => {});
+      await notificationService.markRecovery({ hiveId: cleanHiveId, deviceId: cleanDeviceId, sensorName: "weight", alertType: "abnormal_weight", conditionDirection: "low" }).catch(() => {});
+      await notificationService.markRecovery({ hiveId: cleanHiveId, deviceId: cleanDeviceId, sensorName: "weight", alertType: "abnormal_weight", conditionDirection: "malformed" }).catch(() => {});
 
       // Battery level check (0% to 100%)
       if (isInvalidNumber(batteryLevelPct)) {
@@ -298,6 +313,7 @@ export class IoTController {
           return next(new AppError("ambientTemperature out of plausible range (-50°C to 70°C)", 400));
         }
       }
+
 
       if (ambientHumidity !== undefined) {
         if (typeof ambientHumidity !== "number" || isNaN(ambientHumidity) || ambientHumidity < 0 || ambientHumidity > 100) {

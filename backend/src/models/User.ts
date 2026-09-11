@@ -20,6 +20,8 @@ export interface IUser extends Document {
   organizationId?: Types.ObjectId;
   isOrgAdmin: boolean;
   isActive: boolean;
+  /** E.164 phone number for SMS alerting (e.g. +918637365698) */
+  phone?: string;
   activationToken?: string;
   activationExpires?: Date;
   createdAt: Date;
@@ -45,6 +47,13 @@ const UserSchema = new Schema<IUser>(
     walletAddress: {
       type: String,
       trim: true,
+    },
+    phone: {
+      type: String,
+      trim: true,
+      sparse: true,
+      // E.164 format validation
+      match: [/^\+[1-9]\d{6,14}$/, "Phone must be in E.164 format (e.g. +918637365698)"],
     },
     passwordHash: {
       type: String,

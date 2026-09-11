@@ -932,17 +932,25 @@ Content-Type: application/json
        - **Battery Level**: `0%` to `100%`
      - Validates against `NaN`, `Infinity`, `null`, `undefined`, and non-numeric values.
      - **No Silent Clamping**: Impossible or out-of-bounds readings (e.g. 100°C) are never silently clamped into valid ranges; they are flagged as abnormal sensor anomalies.
-  2. **Real-Time SMS & Anomaly Dispatch**:
-     - When an abnormal reading or sensor fault is detected, the backend immediately dispatches an urgent SMS via **Twilio** to the beekeeper/operator.
+  2. **Stateful Alert State & Real-Time SMS Anti-Spam**:
+     - The backend tracks an active alert state (`ActiveAlertState` model in MongoDB) per **hive, sensor, and alert type** (`{hiveId}:{alertType}:{direction}`).
+     - **State Machine Transitions**:
+       1. **NEW Abnormal Condition** (`isActive = false`): Immediately dispatches Twilio SMS to beekeepers and marks `isActive = true` with timestamp in MongoDB.
+       2. **CONTINUING Abnormal Condition** (`isActive = true`): Suppresses subsequent SMS alerts while reading stays out of bounds to avoid alert fatigue.
+       3. **RECOVERY Condition** (reading returns to normal): Automatically resets active state (`isActive = false`, records `recoveredAt`), re-arming the alert system.
+       4. **NEW Abnormal Condition After Recovery**: Immediately dispatches a new SMS alert.
+     - **Secondary Safety Cooldown**: Configurable interval (`TWILIO_SMS_COOLDOWN_SECONDS`, default: 900s) prevents SMS storms during rapid borderline oscillations.
+     - **Dynamic Beekeeper Phone Lookup**: Twilio alerts dynamically query the registered beekeeper's phone number (`user.phone`) in MongoDB for the hive's organization, eliminating hardcoded phone dependencies.
      - Message template:
        ```text
-       🚨 HONEYCHAIN CRITICAL SENSOR ALERT
-       Hive: {hiveId} | Device: {deviceId}
-       Issue: {metric} reading of {value}{unit} is outside physical limits ({min} to {max}).
+       🚨 HoneyChain Alert
+       Hive: {hiveId}
+       Device: {deviceId}
+       Abnormal {sensorName} reading: {actualValue}
+       Expected range: {expectedRange}
        Time: {IST timestamp}
-       Please inspect sensor hardware or colony immediately.
+       Please inspect the hive/device.
        ```
-     - **SMS Cooldown Deduplication**: An in-memory cooldown cache (`TWILIO_SMS_COOLDOWN_SECONDS`, default: 1800s / 30 min) prevents alert fatigue and duplicate SMS storms from faulty sensors.
      - Creates an entry in the `Alert` collection with `severity: "critical"` and returns `400 Bad Request`.
   3. **Downsampled In-Memory Persistence**:
      - Incoming high-frequency readings are processed immediately in memory for real-time monitoring and biological health warnings.
