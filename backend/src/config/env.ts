@@ -62,6 +62,17 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
+
+  // IoT High-Frequency Telemetry & Persistence Intervals
+  TELEMETRY_PERSIST_INTERVAL_SECONDS: z.string().default("600"),
+  TELEMETRY_EXPECTED_INTERVAL_SECONDS: z.string().default("15"),
+
+  // Twilio SMS Alerting
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_FROM_NUMBER: z.string().optional(),
+  TWILIO_ALERT_TO_NUMBER: z.string().optional(),
+  TWILIO_SMS_COOLDOWN_SECONDS: z.string().default("900"),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -81,4 +92,7 @@ export const env = {
   PUBLIC_BASE_URL: parsed.data.PUBLIC_BASE_URL
     ? parsed.data.PUBLIC_BASE_URL.replace(/\/+$/, "")
     : (parsed.data.FRONTEND_URL ? parsed.data.FRONTEND_URL.split(",")[0].trim().replace(/\/+$/, "") : undefined),
+  TELEMETRY_PERSIST_INTERVAL_SECONDS: parseInt(parsed.data.TELEMETRY_PERSIST_INTERVAL_SECONDS || "600", 10) || 600,
+  TELEMETRY_EXPECTED_INTERVAL_SECONDS: parseInt(parsed.data.TELEMETRY_EXPECTED_INTERVAL_SECONDS || "15", 10) || 15,
+  TWILIO_SMS_COOLDOWN_SECONDS: parseInt(parsed.data.TWILIO_SMS_COOLDOWN_SECONDS || "900", 10) || 900,
 };

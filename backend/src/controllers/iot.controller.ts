@@ -1,12 +1,33 @@
 import { Request, Response, NextFunction } from "express";
 import { SensorReading, Hive } from "../models/index.js";
 import alertService from "../services/alert.service.js";
+import notificationService from "../services/notification.service.js";
+import { env } from "../config/env.js";
 import AppError from "../utils/AppError.js";
+
+function isInvalidNumber(val: any): boolean {
+  return val === null || val === undefined || typeof val !== "number" || isNaN(val) || !isFinite(val);
+}
 
 export class IoTController {
   /**
+   * In-memory cache tracking the epoch millisecond of the last persisted reading per hive/device.
+   * Key: `${hiveId}:${deviceId}`
+   */
+  private lastPersistedMap = new Map<string, number>();
+
+  /**
+   * Resets the in-memory persistence cache (useful for automated test suite isolation).
+   */
+  public clearPersistenceCache(): void {
+    this.lastPersistedMap.clear();
+  }
+
+  /**
    * POST /api/iot/telemetry
-   * Ingests simulated or physical IoT device telemetry from edge gateways.
+   * Ingests high-frequency IoT device telemetry (15–30s interval) from edge gateways.
+   * Validates every sensor reading immediately, dispatches Twilio SMS alerts for abnormal readings,
+   * and persists sampled readings to MongoDB at a minimum 10-minute interval per hive/device.
    */
   public ingestTelemetry = async (
     req: Request,
@@ -32,7 +53,7 @@ export class IoTController {
         metadata = {},
       } = req.body;
 
-      // 1. Validate required fields presence
+      // 1. Validate required core fields presence
       if (!deviceId || typeof deviceId !== "string" || !deviceId.trim()) {
         return next(new AppError("deviceId is required and must be a non-empty string", 400));
       }
@@ -43,77 +64,27 @@ export class IoTController {
         return next(new AppError("timestamp is required (ISO 8601 string or Unix epoch ms)", 400));
       }
 
-      // 2. Validate timestamp format and clock drift
+      // 2. Validate timestamp format and realistic clock drift threshold
       const parsedTimestamp = new Date(timestamp);
       if (isNaN(parsedTimestamp.getTime())) {
         return next(new AppError("Invalid timestamp format. Must be a valid date or epoch time", 400));
       }
 
-      // Disallow timestamps more than 10 minutes in the future
       const nowMs = Date.now();
+      // Disallow timestamps more than 10 minutes in the future
       if (parsedTimestamp.getTime() > nowMs + 10 * 60 * 1000) {
         return next(new AppError("Telemetry timestamp cannot be in the future beyond clock drift threshold", 400));
       }
-
-      // 3. Validate numeric metrics & realistic physical bounds
-      if (typeof temperature !== "number" || isNaN(temperature)) {
-        return next(new AppError("temperature is required and must be a valid number", 400));
-      }
-      if (temperature < -40 || temperature > 70) {
-        return next(new AppError("temperature out of plausible range (-40°C to 70°C)", 400));
+      // Disallow corrupted timestamps older than year 2020
+      if (parsedTimestamp.getTime() < new Date("2020-01-01").getTime()) {
+        return next(new AppError("Telemetry timestamp is invalid or corrupted (pre-2020 epoch)", 400));
       }
 
-      if (typeof humidity !== "number" || isNaN(humidity)) {
-        return next(new AppError("humidity is required and must be a valid number", 400));
-      }
-      if (humidity < 0 || humidity > 100) {
-        return next(new AppError("humidity out of plausible range (0% to 100%)", 400));
-      }
-
-      if (typeof weightKg !== "number" || isNaN(weightKg)) {
-        return next(new AppError("weightKg is required and must be a valid number", 400));
-      }
-      if (weightKg < 0 || weightKg > 300) {
-        return next(new AppError("weightKg out of plausible range (0 kg to 300 kg)", 400));
-      }
-
-      if (typeof batteryLevelPct !== "number" || isNaN(batteryLevelPct)) {
-        return next(new AppError("batteryLevelPct is required and must be a valid number", 400));
-      }
-      if (batteryLevelPct < 0 || batteryLevelPct > 100) {
-        return next(new AppError("batteryLevelPct out of range (0% to 100%)", 400));
-      }
-
-      // 4. Validate optional acoustic and environmental measurements
-      if (soundFrequencyHz !== undefined) {
-        if (typeof soundFrequencyHz !== "number" || soundFrequencyHz < 0 || soundFrequencyHz > 5000) {
-          return next(new AppError("soundFrequencyHz must be a positive number between 0 and 5000 Hz", 400));
-        }
-      }
-
-      if (acousticsDb !== undefined) {
-        if (typeof acousticsDb !== "number" || acousticsDb < 0 || acousticsDb > 140) {
-          return next(new AppError("acousticsDb must be a positive number between 0 and 140 dB", 400));
-        }
-      }
-
-      if (ambientTemperature !== undefined) {
-        if (typeof ambientTemperature !== "number" || ambientTemperature < -50 || ambientTemperature > 70) {
-          return next(new AppError("ambientTemperature out of plausible range (-50°C to 70°C)", 400));
-        }
-      }
-
-      if (ambientHumidity !== undefined) {
-        if (typeof ambientHumidity !== "number" || ambientHumidity < 0 || ambientHumidity > 100) {
-          return next(new AppError("ambientHumidity out of plausible range (0% to 100%)", 400));
-        }
-      }
-
-      // 5. Verify hive exists and is active in database
       const cleanHiveId = hiveId.trim();
       const cleanDeviceId = deviceId.trim();
-      const hive = await Hive.findOne({ hiveId: cleanHiveId });
 
+      // 3. Verify hive exists and is active in database
+      const hive = await Hive.findOne({ hiveId: cleanHiveId });
       if (!hive) {
         return next(new AppError(`Hive '${cleanHiveId}' not found in registry`, 404));
       }
@@ -127,7 +98,214 @@ export class IoTController {
         );
       }
 
-      // 6. Idempotency Check: Prevent duplicate insertions on network retries
+      // 4. Immediate Sensor Value Validation (NaN, Infinity, null, non-numeric, physical bounds)
+      // Never silently clamp bad values. Identify abnormal values and trigger immediate Twilio SMS alerts.
+
+      // Temperature check (-40°C to 70°C)
+      if (isInvalidNumber(temperature)) {
+        await notificationService
+          .sendAbnormalReadingAlert({
+            hiveId: cleanHiveId,
+            deviceId: cleanDeviceId,
+            sensorName: "temperature",
+            actualValue: String(temperature),
+            expectedRange: "-40°C to 70°C",
+            timestamp: parsedTimestamp,
+          })
+          .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
+
+        await alertService
+          .createAlertWithCooldown({
+            hiveId: cleanHiveId,
+            apiaryId: hive.apiaryId,
+            organizationId: (hive as any).organizationId,
+            severity: "critical",
+            alertType: "abnormal_temperature",
+            message: `Hive ${cleanHiveId} received malformed/non-numeric temperature: ${temperature}.`,
+            metadata: { temperature, deviceId: cleanDeviceId },
+            cooldownMinutes: 15,
+          })
+          .catch(() => {});
+
+        return next(new AppError("temperature is required and must be a valid number", 400));
+      }
+
+      if (temperature < -40 || temperature > 70) {
+        await notificationService
+          .sendAbnormalReadingAlert({
+            hiveId: cleanHiveId,
+            deviceId: cleanDeviceId,
+            sensorName: "temperature",
+            actualValue: `${temperature}°C`,
+            expectedRange: "-40°C to 70°C",
+            timestamp: parsedTimestamp,
+          })
+          .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
+
+        await alertService
+          .createAlertWithCooldown({
+            hiveId: cleanHiveId,
+            apiaryId: hive.apiaryId,
+            organizationId: (hive as any).organizationId,
+            severity: "critical",
+            alertType: "abnormal_temperature",
+            message: `Hive ${cleanHiveId} recorded abnormal temperature of ${temperature}°C, outside plausible sensor bounds (-40°C to 70°C).`,
+            metadata: { temperature, deviceId: cleanDeviceId },
+            cooldownMinutes: 15,
+          })
+          .catch(() => {});
+
+        return next(new AppError("temperature out of plausible range (-40°C to 70°C)", 400));
+      }
+
+      // Humidity check (0% to 100%)
+      if (isInvalidNumber(humidity)) {
+        await notificationService
+          .sendAbnormalReadingAlert({
+            hiveId: cleanHiveId,
+            deviceId: cleanDeviceId,
+            sensorName: "humidity",
+            actualValue: String(humidity),
+            expectedRange: "0% to 100%",
+            timestamp: parsedTimestamp,
+          })
+          .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
+
+        await alertService
+          .createAlertWithCooldown({
+            hiveId: cleanHiveId,
+            apiaryId: hive.apiaryId,
+            organizationId: (hive as any).organizationId,
+            severity: "critical",
+            alertType: "abnormal_humidity",
+            message: `Hive ${cleanHiveId} received malformed/non-numeric humidity: ${humidity}.`,
+            metadata: { humidity, deviceId: cleanDeviceId },
+            cooldownMinutes: 15,
+          })
+          .catch(() => {});
+
+        return next(new AppError("humidity is required and must be a valid number", 400));
+      }
+
+      if (humidity < 0 || humidity > 100) {
+        await notificationService
+          .sendAbnormalReadingAlert({
+            hiveId: cleanHiveId,
+            deviceId: cleanDeviceId,
+            sensorName: "humidity",
+            actualValue: `${humidity}%`,
+            expectedRange: "0% to 100%",
+            timestamp: parsedTimestamp,
+          })
+          .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
+
+        await alertService
+          .createAlertWithCooldown({
+            hiveId: cleanHiveId,
+            apiaryId: hive.apiaryId,
+            organizationId: (hive as any).organizationId,
+            severity: "critical",
+            alertType: "abnormal_humidity",
+            message: `Hive ${cleanHiveId} recorded abnormal humidity of ${humidity}%, outside plausible bounds (0% to 100%).`,
+            metadata: { humidity, deviceId: cleanDeviceId },
+            cooldownMinutes: 15,
+          })
+          .catch(() => {});
+
+        return next(new AppError("humidity out of plausible range (0% to 100%)", 400));
+      }
+
+      // Weight check (0 kg to 300 kg)
+      if (isInvalidNumber(weightKg)) {
+        await notificationService
+          .sendAbnormalReadingAlert({
+            hiveId: cleanHiveId,
+            deviceId: cleanDeviceId,
+            sensorName: "weight",
+            actualValue: String(weightKg),
+            expectedRange: "0kg to 300kg",
+            timestamp: parsedTimestamp,
+          })
+          .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
+
+        await alertService
+          .createAlertWithCooldown({
+            hiveId: cleanHiveId,
+            apiaryId: hive.apiaryId,
+            organizationId: (hive as any).organizationId,
+            severity: "critical",
+            alertType: "abnormal_weight",
+            message: `Hive ${cleanHiveId} received malformed/non-numeric weightKg: ${weightKg}.`,
+            metadata: { weightKg, deviceId: cleanDeviceId },
+            cooldownMinutes: 15,
+          })
+          .catch(() => {});
+
+        return next(new AppError("weightKg is required and must be a valid number", 400));
+      }
+
+      if (weightKg < 0 || weightKg > 300) {
+        await notificationService
+          .sendAbnormalReadingAlert({
+            hiveId: cleanHiveId,
+            deviceId: cleanDeviceId,
+            sensorName: "weight",
+            actualValue: `${weightKg}kg`,
+            expectedRange: "0kg to 300kg",
+            timestamp: parsedTimestamp,
+          })
+          .catch((e) => console.warn(`[IoTController] Twilio alert failed: ${e.message}`));
+
+        await alertService
+          .createAlertWithCooldown({
+            hiveId: cleanHiveId,
+            apiaryId: hive.apiaryId,
+            organizationId: (hive as any).organizationId,
+            severity: "critical",
+            alertType: "abnormal_weight",
+            message: `Hive ${cleanHiveId} recorded abnormal weight of ${weightKg} kg, outside plausible bounds (0 kg to 300 kg).`,
+            metadata: { weightKg, deviceId: cleanDeviceId },
+            cooldownMinutes: 15,
+          })
+          .catch(() => {});
+
+        return next(new AppError("weightKg out of plausible range (0 kg to 300 kg)", 400));
+      }
+
+      // Battery level check (0% to 100%)
+      if (isInvalidNumber(batteryLevelPct)) {
+        return next(new AppError("batteryLevelPct is required and must be a valid number", 400));
+      }
+      if (batteryLevelPct < 0 || batteryLevelPct > 100) {
+        return next(new AppError("batteryLevelPct out of range (0% to 100%)", 400));
+      }
+
+      // Validate optional acoustic and environmental measurements
+      if (soundFrequencyHz !== undefined) {
+        if (typeof soundFrequencyHz !== "number" || isNaN(soundFrequencyHz) || soundFrequencyHz < 0 || soundFrequencyHz > 5000) {
+          return next(new AppError("soundFrequencyHz must be a positive number between 0 and 5000 Hz", 400));
+        }
+      }
+
+      if (acousticsDb !== undefined) {
+        if (typeof acousticsDb !== "number" || isNaN(acousticsDb) || acousticsDb < 0 || acousticsDb > 140) {
+          return next(new AppError("acousticsDb must be a positive number between 0 and 140 dB", 400));
+        }
+      }
+
+      if (ambientTemperature !== undefined) {
+        if (typeof ambientTemperature !== "number" || isNaN(ambientTemperature) || ambientTemperature < -50 || ambientTemperature > 70) {
+          return next(new AppError("ambientTemperature out of plausible range (-50°C to 70°C)", 400));
+        }
+      }
+
+      if (ambientHumidity !== undefined) {
+        if (typeof ambientHumidity !== "number" || isNaN(ambientHumidity) || ambientHumidity < 0 || ambientHumidity > 100) {
+          return next(new AppError("ambientHumidity out of plausible range (0% to 100%)", 400));
+        }
+      }
+
+      // 5. Idempotency Check: Prevent duplicate insertions on exact network retries
       const existingReading = await SensorReading.findOne({
         deviceId: cleanDeviceId,
         timestamp: parsedTimestamp,
@@ -136,48 +314,44 @@ export class IoTController {
       if (existingReading) {
         return res.status(200).json({
           success: true,
+          persisted: true,
           duplicate: true,
           message: "Telemetry reading already ingested for this device and timestamp",
           data: existingReading,
         });
       }
 
-      // 7. Persist new SensorReading document
-      const newReading = new SensorReading({
-        hiveId: cleanHiveId,
-        hive: hive._id,
-        deviceId: cleanDeviceId,
-        timestamp: parsedTimestamp,
-        temperature,
-        humidity,
-        weightKg,
-        flow,
-        beeInCount,
-        beeOutCount,
-        soundFrequencyHz,
-        acousticsDb,
-        batteryLevelPct,
-        ambientTemperature,
-        ambientHumidity,
-        metadata: {
-          ...metadata,
-          source: metadata.source || "device",
-        },
-      });
+      // 6. Downsampled Persistence Decision (Minimum 10-Minute Interval Per Hive/Device)
+      const persistIntervalSec = env.TELEMETRY_PERSIST_INTERVAL_SECONDS || 600;
+      const persistIntervalMs = persistIntervalSec * 1000;
+      const hiveDeviceKey = `${cleanHiveId}:${cleanDeviceId}`;
 
-      await newReading.save();
+      // In testing environments, if the DB collection was cleared, reset in-memory tracker
+      if (process.env.NODE_ENV === "test") {
+        const count = await SensorReading.countDocuments({ hiveId: cleanHiveId, deviceId: cleanDeviceId });
+        if (count === 0 && this.lastPersistedMap.has(hiveDeviceKey)) {
+          this.lastPersistedMap.delete(hiveDeviceKey);
+        }
+      }
 
-      // 8. Update Hive document with latest telemetry health indicators & battery
-      hive.currentHealthSummary = hive.currentHealthSummary || { status: "healthy" };
-      hive.currentHealthSummary.latestReadingAt = parsedTimestamp;
+      let lastPersistedMs = this.lastPersistedMap.get(hiveDeviceKey);
+      if (lastPersistedMs === undefined) {
+        // Cold-start fallback: query MongoDB for the most recent reading for this device/hive
+        const latestDb = await SensorReading.findOne({
+          hiveId: cleanHiveId,
+          deviceId: cleanDeviceId,
+        }).sort({ timestamp: -1 }).lean();
 
-      hive.deviceMetadata = hive.deviceMetadata || { deviceId: cleanDeviceId };
-      hive.deviceMetadata.lastPingAt = new Date();
-      hive.deviceMetadata.batteryLevelPct = batteryLevelPct;
+        if (latestDb && latestDb.timestamp) {
+          lastPersistedMs = new Date(latestDb.timestamp).getTime();
+          this.lastPersistedMap.set(hiveDeviceKey, lastPersistedMs);
+        }
+      }
 
-      await hive.save();
+      const currentReadingMs = parsedTimestamp.getTime();
+      const shouldPersist = lastPersistedMs === undefined || (currentReadingMs - lastPersistedMs) >= persistIntervalMs;
 
-      // 9. Automated Threshold Alert Monitoring (with sensible deduplication / cooldown)
+      // 7. Biological Health & Threshold Alert Monitoring (Evaluated in real-time on EVERY reading)
       if (temperature < 32.0) {
         const severity = temperature < 30.0 ? "critical" : "warning";
         await alertService
@@ -207,7 +381,22 @@ export class IoTController {
           .catch((e) => console.warn(`[IoTController] Could not record hyperthermia alert: ${e.message}`));
       }
 
-      // Check rapid weight drop by comparing against the last preceding reading
+      if (batteryLevelPct < 15) {
+        await alertService
+          .createAlertWithCooldown({
+            hiveId: cleanHiveId,
+            apiaryId: hive.apiaryId,
+            organizationId: (hive as any).organizationId,
+            severity: "warning",
+            alertType: "low_battery",
+            message: `Edge gateway battery on hive ${cleanHiveId} is critically low (${batteryLevelPct}%).`,
+            metadata: { batteryLevelPct, deviceId: cleanDeviceId },
+            cooldownMinutes: 360,
+          })
+          .catch((e) => console.warn(`[IoTController] Could not record low battery alert: ${e.message}`));
+      }
+
+      // Check sudden weight drop compared to last preceding recorded reading
       const previousReading = await SensorReading.findOne({
         hiveId: cleanHiveId,
         timestamp: { $lt: parsedTimestamp },
@@ -229,26 +418,87 @@ export class IoTController {
           .catch((e) => console.warn(`[IoTController] Could not record weight loss alert: ${e.message}`));
       }
 
-      if (batteryLevelPct < 15) {
-        await alertService
-          .createAlertWithCooldown({
-            hiveId: cleanHiveId,
-            apiaryId: hive.apiaryId,
-            organizationId: (hive as any).organizationId,
-            severity: "warning",
-            alertType: "low_battery",
-            message: `Edge gateway battery on hive ${cleanHiveId} is critically low (${batteryLevelPct}%).`,
-            metadata: { batteryLevelPct, deviceId: cleanDeviceId },
-            cooldownMinutes: 360,
-          })
-          .catch((e) => console.warn(`[IoTController] Could not record low battery alert: ${e.message}`));
+      // 8. Case A: Persist to MongoDB when the 10-minute sampling interval has elapsed
+      if (shouldPersist) {
+
+        const newReading = new SensorReading({
+          hiveId: cleanHiveId,
+          hive: hive._id,
+          deviceId: cleanDeviceId,
+          timestamp: parsedTimestamp,
+          temperature,
+          humidity,
+          weightKg,
+          flow,
+          beeInCount,
+          beeOutCount,
+          soundFrequencyHz,
+          acousticsDb,
+          batteryLevelPct,
+          ambientTemperature,
+          ambientHumidity,
+          metadata: {
+            ...metadata,
+            source: metadata.source || "device",
+          },
+        });
+
+        await newReading.save();
+
+        // Update in-memory tracker with persisted timestamp
+        this.lastPersistedMap.set(hiveDeviceKey, currentReadingMs);
+
+        // Update Hive summary
+        hive.currentHealthSummary = hive.currentHealthSummary || { status: "healthy" };
+        hive.currentHealthSummary.latestReadingAt = parsedTimestamp;
+        hive.deviceMetadata = hive.deviceMetadata || { deviceId: cleanDeviceId };
+        hive.deviceMetadata.lastPingAt = new Date();
+        hive.deviceMetadata.batteryLevelPct = batteryLevelPct;
+        await hive.save();
+
+        return res.status(201).json({
+          success: true,
+          persisted: true,
+          duplicate: false,
+          message: "Telemetry reading ingested and persisted successfully",
+          data: newReading,
+        });
       }
 
-      return res.status(201).json({
+      // 8. Case B: High-frequency reading within the 10-minute window (processed in memory, not stored)
+      hive.deviceMetadata = hive.deviceMetadata || { deviceId: cleanDeviceId };
+      hive.deviceMetadata.lastPingAt = new Date();
+      hive.deviceMetadata.batteryLevelPct = batteryLevelPct;
+      await hive.save();
+
+      const inMemoryProcessed = {
+        hiveId: cleanHiveId,
+        hive: hive._id,
+        deviceId: cleanDeviceId,
+        timestamp: parsedTimestamp,
+        temperature,
+        humidity,
+        weightKg,
+        flow,
+        beeInCount,
+        beeOutCount,
+        soundFrequencyHz,
+        acousticsDb,
+        batteryLevelPct,
+        ambientTemperature,
+        ambientHumidity,
+        metadata: {
+          ...metadata,
+          source: metadata.source || "device",
+        },
+      };
+
+      return res.status(200).json({
         success: true,
+        persisted: false,
         duplicate: false,
-        message: "Telemetry reading ingested successfully",
-        data: newReading,
+        message: "Telemetry reading processed in real-time (persistence skipped within 10-minute sampling window)",
+        data: inMemoryProcessed,
       });
     } catch (err: any) {
       // Catch duplicate key error in race conditions
@@ -355,7 +605,9 @@ export class IoTController {
 
   /**
    * GET /api/iot/telemetry/:hiveId
-   * Returns clean, chronological time-series sensor telemetry for a hive.
+   * Returns clean, chronological time-series sensor telemetry for a hive from MongoDB.
+   * Note: MongoDB contains sampled telemetry persisted at >=10-minute intervals per hive/device,
+   * while live edge gateways transmit at 15–30s high-frequency monitoring intervals.
    * Supports from, to, limit, and resolution (raw | hourly) filters.
    */
   public getTelemetryHistory = async (req: Request, res: Response, next: NextFunction) => {

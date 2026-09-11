@@ -4,6 +4,23 @@ All notable changes to the HoneyChain backend and blockchain subsystems will be 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Phase 9: High-Frequency IoT Real-Time Monitoring & Twilio SMS Alerting] - 2026-09-11
+
+### Added
+- **Twilio SMS Notification Service (`backend/src/services/notification.service.ts`)**:
+  - Direct Twilio SDK integration for real-time SMS dispatches on sensor failures or impossible physical readings.
+  - Formatted alert template with `hiveId`, `deviceId`, detected metric/value, expected physical range, and IST timestamp (`DD MMM YYYY, HH:mm IST`).
+  - In-memory SMS deduplication cooldown (`TWILIO_SMS_COOLDOWN_SECONDS`, default 1800s / 30m) preventing alert fatigue and notification storms on failing sensors.
+  - Safe mock sender support for automated unit/integration test suites (zero live SMS or external network calls during testing).
+- **High-Frequency Ingestion & Downsampled Persistence Architecture (`backend/src/controllers/iot.controller.ts`)**:
+  - `POST /api/iot/telemetry` accepts high-frequency sensor streams arriving every 15–30 seconds (`TELEMETRY_EXPECTED_INTERVAL_SECONDS=15`).
+  - Immediate strict validation on every incoming reading: checks `temperature` (-40°C to 70°C), `humidity` (0% to 100%), `weightKg` (0 to 300kg), rejecting `NaN`, `Infinity`, `null`, `undefined`, and non-numeric values.
+  - **No Silent Clamping**: Out-of-bounds readings immediately trigger a critical `Alert` and Twilio SMS, returning `400 Bad Request`.
+  - In-memory persistence throttling (`TELEMETRY_PERSIST_INTERVAL_SECONDS=600`): saves readings to MongoDB `SensorReading` collection only once every 10 minutes per device (`persisted: true`).
+  - Intermediate high-frequency readings are processed in real time in memory, updating hive metadata/battery level and evaluating biological threshold alerts without unbounded DB growth (`persisted: false`).
+- **Comprehensive High-Frequency IoT Test Suite (`backend/src/tests/highFrequencyTelemetry.test.ts`)**:
+  - 13 comprehensive unit/integration test cases covering 15s/30s ingestion, 10-minute downsampling, physical bounds enforcement, SMS dispatch, cooldown deduplication, Twilio failure resilience, and history retrieval.
+
 ## [Phase 8: Complete HoneyChain Backend & Enterprise Capabilities] - 2026-09-11
 
 ### Added

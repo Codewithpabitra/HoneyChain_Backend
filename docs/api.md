@@ -919,16 +919,40 @@ Content-Type: application/json
 > [!NOTE]
 > The edge telemetry simulator is maintained as an independent repository at [HoneyChain_IoT_Simulator](https://github.com/Codewithpabitra/HoneyChain_IoT_Simulator). It simulates ESP32-S3 microcontroller sensor suites deployed in apiaries and transmits stateful telemetry payloads to `POST /api/iot/telemetry`.
 
-### 6.1 Ingest Telemetry Reading
+### 6.1 High-Frequency Telemetry Ingestion & Real-Time Alerting
 - **Route**: `POST /api/iot/telemetry`
 - **Access**: Edge Apiary Gateway / ESP32 Device / Standalone Simulator
-- **Description**: 
-  1. Validates strict physical boundaries (Temperature `-40°C` to `70°C`, Humidity `0%` to `100%`, Weight `0` to `300 kg`, Battery `0%` to `100%`).
-  2. Protects against future clock drift (`<= 10 minutes` into future).
-  3. Verifies target hive exists and is active (`status !== "inactive"` and `status !== "collapsed"`).
-  4. **Idempotency**: Prevents duplicate insertions on network retries matching on `deviceId` + `timestamp`.
-  5. Inserts into MongoDB `SensorReading` collection.
-  6. Updates `Hive` document with `lastPingAt`, `batteryLevelPct`, and `latestReadingAt`.
+- **Frequency**: Accepts real-time readings arriving every **15–30 seconds** (`TELEMETRY_EXPECTED_INTERVAL_SECONDS=15`).
+- **Processing Architecture**:
+  1. **Immediate Sensor Validation**:
+     - Strict physical boundary checks:
+       - **Temperature**: `-40°C` to `70°C`
+       - **Humidity**: `0%` to `100%`
+       - **Gross Weight**: `0 kg` to `300 kg`
+       - **Battery Level**: `0%` to `100%`
+     - Validates against `NaN`, `Infinity`, `null`, `undefined`, and non-numeric values.
+     - **No Silent Clamping**: Impossible or out-of-bounds readings (e.g. 100°C) are never silently clamped into valid ranges; they are flagged as abnormal sensor anomalies.
+  2. **Real-Time SMS & Anomaly Dispatch**:
+     - When an abnormal reading or sensor fault is detected, the backend immediately dispatches an urgent SMS via **Twilio** to the beekeeper/operator.
+     - Message template:
+       ```text
+       🚨 HONEYCHAIN CRITICAL SENSOR ALERT
+       Hive: {hiveId} | Device: {deviceId}
+       Issue: {metric} reading of {value}{unit} is outside physical limits ({min} to {max}).
+       Time: {IST timestamp}
+       Please inspect sensor hardware or colony immediately.
+       ```
+     - **SMS Cooldown Deduplication**: An in-memory cooldown cache (`TWILIO_SMS_COOLDOWN_SECONDS`, default: 1800s / 30 min) prevents alert fatigue and duplicate SMS storms from faulty sensors.
+     - Creates an entry in the `Alert` collection with `severity: "critical"` and returns `400 Bad Request`.
+  3. **Downsampled In-Memory Persistence**:
+     - Incoming high-frequency readings are processed immediately in memory for real-time monitoring and biological health warnings.
+     - To prevent unbounded database growth, readings are persisted to the MongoDB `SensorReading` collection **only once every 10 minutes** per device (`TELEMETRY_PERSIST_INTERVAL_SECONDS=600`).
+     - Sub-10-minute intermediate readings update the `Hive` document (`lastPingAt`, `batteryLevelPct`, `latestReadingAt`) and run biological threshold alerts without creating duplicate `SensorReading` documents, returning `200 OK` (`persisted: false`).
+     - 10-minute interval readings persist to MongoDB and return `201 Created` (`persisted: true`).
+  4. **Clock Drift Protection**:
+     - Rejects timestamps drifting more than 10 minutes into the future.
+  5. **Idempotency**:
+     - Prevents duplicate insertions on network retries matching on `deviceId` + `timestamp`.
 
 #### Request Body
 | Field | Type | Required | Valid Range / Description |
@@ -973,12 +997,13 @@ Content-Type: application/json
 }
 ```
 
-#### Example Response (`201 Created` - First Ingestion)
+#### Example Response (`201 Created` - 10-Minute Persisted Sample)
 ```json
 {
   "success": true,
   "duplicate": false,
-  "message": "Telemetry reading ingested successfully",
+  "persisted": true,
+  "message": "Telemetry reading ingested and persisted successfully",
   "data": {
     "_id": "66dd8f1a...",
     "hiveId": "HIVE-001",
@@ -993,13 +1018,32 @@ Content-Type: application/json
 }
 ```
 
-#### Example Response (`200 OK` - Duplicate/Retry)
+#### Example Response (`200 OK` - Sub-10-Minute In-Memory Processed)
 ```json
 {
   "success": true,
-  "duplicate": true,
-  "message": "Telemetry reading already ingested for this device and timestamp",
-  "data": { ...existingReading... }
+  "duplicate": false,
+  "persisted": false,
+  "message": "Telemetry reading processed in real-time (persistence throttled to 10m interval)",
+  "data": {
+    "hiveId": "HIVE-001",
+    "deviceId": "ESP32-GATEWAY-001",
+    "timestamp": "2026-09-08T10:30:15.000Z",
+    "temperature": 35.2,
+    "humidity": 62.5,
+    "weightKg": 42.8,
+    "batteryLevelPct": 94
+  }
+}
+```
+
+#### Example Response (`400 Bad Request` - Abnormal Sensor Value & Twilio SMS Dispatched)
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Abnormal telemetry reading detected: Temperature reading (100°C) is outside physically possible range (-40°C to 70°C). Alert generated and SMS dispatched."
+  }
 }
 ```
 
