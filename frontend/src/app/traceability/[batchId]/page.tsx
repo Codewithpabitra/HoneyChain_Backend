@@ -212,12 +212,28 @@ export default function TraceabilityPage() {
 
         {/* Blockchain */}
         <section className="mt-10">
-          <div className="mb-5">
-            <h2 className="text-lg font-semibold">Blockchain Record</h2>
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Blockchain Record</h2>
+              <p className="mt-1 text-sm text-black/50 dark:text-white/50">
+                Verified against Ethereum Sepolia smart contract{" "}
+                <span className="font-mono text-xs font-semibold text-honey">
+                  {blockchain.contractAddress || "0xFc7211528ae5Ef5B302e7807F956e5e306903487"}
+                </span>
+                .
+              </p>
+            </div>
 
-            <p className="mt-1 text-sm text-black/50 dark:text-white/50">
-              Blockchain-backed information associated with this batch.
-            </p>
+            <a
+              href={`https://sepolia.etherscan.io/address/${blockchain.contractAddress || "0xFc7211528ae5Ef5B302e7807F956e5e306903487"}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-honey/30 bg-honey/10 px-4 py-2 text-xs font-semibold text-honey transition hover:bg-honey/20"
+            >
+              <IconCurrencyEthereum size={16} />
+              View Contract on Sepolia Etherscan
+              <IconExternalLink size={14} />
+            </a>
           </div>
 
           <div className="rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-white/3">
@@ -234,8 +250,28 @@ export default function TraceabilityPage() {
               />
             </div>
 
+            <div className="mt-5 border-t border-black/10 pt-4 dark:border-white/10">
+              <p className="text-xs text-black/40 dark:text-white/40">
+                Smart Contract Address
+              </p>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="break-all font-mono text-xs font-semibold">
+                  {blockchain.contractAddress || "0xFc7211528ae5Ef5B302e7807F956e5e306903487"}
+                </p>
+                <a
+                  href={`https://sepolia.etherscan.io/address/${blockchain.contractAddress || "0xFc7211528ae5Ef5B302e7807F956e5e306903487"}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-honey hover:underline"
+                >
+                  Sepolia Explorer
+                  <IconExternalLink size={13} />
+                </a>
+              </div>
+            </div>
+
             {blockchain.txHash && (
-              <div className="mt-6 flex flex-col gap-3 border-t border-black/10 pt-5 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-5 flex flex-col gap-3 border-t border-black/10 pt-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-xs text-black/40 dark:text-white/40">
                     Transaction Hash
@@ -246,17 +282,15 @@ export default function TraceabilityPage() {
                   </p>
                 </div>
 
-                {blockchain.etherscanUrl && (
-                  <a
-                    href={blockchain.etherscanUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-honey hover:underline"
-                  >
-                    View transaction
-                    <IconExternalLink size={15} />
-                  </a>
-                )}
+                <a
+                  href={blockchain.etherscanUrl || `https://sepolia.etherscan.io/tx/${blockchain.txHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-honey hover:underline"
+                >
+                  View transaction
+                  <IconExternalLink size={15} />
+                </a>
               </div>
             )}
           </div>

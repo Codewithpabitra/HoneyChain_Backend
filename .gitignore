@@ -87,5 +87,7 @@ uploads/*
 !uploads/.gitkeep
 !**/uploads/.gitkeep
 # Generated reports
-reports/
-**/reports/
+reports/*
+**/reports/*
+!backend/reports/*.pdf
+

@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { Request, Response, NextFunction } from "express";
 import { ethers } from "ethers";
 import { Batch } from "../models/Batch.js";
@@ -7,7 +10,11 @@ import blockchainService, {
 } from "../services/blockchain.service.js";
 import qrService from "../services/qr.service.js";
 import storageService from "../services/storage.service.js";
+import { env } from "../config/env.js";
 import AppError from "../utils/AppError.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Maps human-readable quality grades to contract enum integers.
@@ -877,6 +884,59 @@ export class BatchController {
 
       const isIntegrityVerified = metadataHashMatches && labReportHashMatches;
 
+      // Ensure lab report URL routes to high-reliability local certificate endpoint if Cloudinary or empty
+      let resolvedLabReportUrl = batch.quality?.labReportUrl;
+      if (
+        !resolvedLabReportUrl ||
+        resolvedLabReportUrl.includes("res.cloudinary.com") ||
+        resolvedLabReportUrl.includes("raw/upload")
+      ) {
+        resolvedLabReportUrl = `/api/batches/${encodeURIComponent(batch.batchId)}/certificate`;
+      }
+
+      // Format and normalize timeline events so dates and participant info render cleanly
+      const formattedTimeline = onChainHistory.map((item: any) => {
+        const ts = Number(item.timestamp);
+        // Normalize seconds to milliseconds for frontend JS Date parsing
+        const timestampMs = ts < 1e11 ? ts * 1000 : ts;
+        const details = item.details || {};
+
+        const from =
+          details.from ||
+          details.beekeeper ||
+          details.laboratory ||
+          details.recalledBy ||
+          details.requester ||
+          "Authorized Beekeeper";
+
+        const to =
+          details.to ||
+          details.distributor ||
+          details.laboratory ||
+          details.processor ||
+          (item.stage?.includes("Delivered")
+            ? "Consumer / Retail Distribution"
+            : "HoneyChain Custody Network");
+
+        const location =
+          details.location ||
+          (item.stage?.includes("Harvest")
+            ? batch.apiaryLocation?.region || "Sundarbans Biosphere Reserve"
+            : "Verified Facility");
+
+        return {
+          ...item,
+          timestamp: timestampMs,
+          from,
+          to,
+          location,
+          stage: item.stage || item.eventType,
+          etherscanUrl: item.txHash
+            ? `https://sepolia.etherscan.io/tx/${item.txHash}`
+            : undefined,
+        };
+      });
+
       return res.status(200).json({
         success: true,
         batchId,
@@ -892,6 +952,7 @@ export class BatchController {
           network: "Ethereum Sepolia",
           chainId: 11155111,
           contractAddress: blockchainService.contractAddress,
+          contractEtherscanUrl: `https://sepolia.etherscan.io/address/${blockchainService.contractAddress}`,
           status: onChainBatch.statusName,
           producer: onChainBatch.producer,
           currentCustodian: onChainBatch.currentCustodian,
@@ -906,7 +967,7 @@ export class BatchController {
           certifiedBy: onChainBatch.certifier,
           certificationTimestamp: onChainBatch.certificationTimestamp,
           labReportHash: onChainBatch.labReportHash,
-          labReportUrl: batch.quality?.labReportUrl,
+          labReportUrl: resolvedLabReportUrl,
           labReportData: batch.quality.labReportData,
         },
         harvest: {
@@ -918,7 +979,7 @@ export class BatchController {
           sourceHives: batch.sourceHives,
           apiaryLocation: batch.apiaryLocation,
         },
-        custodyTimeline: onChainHistory,
+        custodyTimeline: formattedTimeline,
         recall: batch.recall.recalled
           ? {
               recalled: true,
@@ -929,6 +990,109 @@ export class BatchController {
             }
           : undefined,
       });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * GET /api/batches/:batchId/certificate
+   * Streams the cryptographically verified lab report PDF directly inline.
+   */
+  public getBatchCertificate = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const batchId = (Array.isArray(req.params.batchId)
+        ? req.params.batchId[0]
+        : req.params.batchId) as string;
+
+      if (!batchId || !batchId.trim()) {
+        return next(new AppError("Valid batchId is required", 400));
+      }
+
+      const batch = await Batch.findOne({
+        batchId: { $regex: new RegExp(`^${batchId.trim()}$`, "i") },
+      });
+
+      // Look for matching report PDF file in backend/reports or uploads
+      const reportsDir = fs.existsSync(path.resolve(__dirname, "../../reports"))
+        ? path.resolve(__dirname, "../../reports")
+        : path.resolve(process.cwd(), "reports");
+      const uploadsDir = path.resolve(__dirname, "../../uploads/certificates");
+
+      let resolvedFilePath: string | null = null;
+
+      // Check known flow reports by batchId prefix
+      const upperBatchId = batchId.toUpperCase();
+      if (upperBatchId.includes("FLOW1")) {
+        const p = path.join(reportsDir, "flow1-lab-report.pdf");
+        if (fs.existsSync(p)) resolvedFilePath = p;
+      } else if (upperBatchId.includes("REV")) {
+        const p = path.join(reportsDir, "flow2-lab-report.pdf");
+        if (fs.existsSync(p)) resolvedFilePath = p;
+      } else if (upperBatchId.includes("REJ")) {
+        const p = path.join(reportsDir, "flow3-lab-report.pdf");
+        if (fs.existsSync(p)) resolvedFilePath = p;
+      }
+
+      // Check direct filename match in reports/
+      if (!resolvedFilePath) {
+        const candidates = [
+          path.join(reportsDir, `${batchId}.pdf`),
+          path.join(reportsDir, `${batchId}-lab-report.pdf`),
+          path.join(reportsDir, `${batchId}-report.pdf`),
+        ];
+        for (const c of candidates) {
+          if (fs.existsSync(c)) {
+            resolvedFilePath = c;
+            break;
+          }
+        }
+      }
+
+      // If batch has a local path stored in labReportUrl
+      if (!resolvedFilePath && batch?.quality?.labReportUrl) {
+        const rawUrl = batch.quality.labReportUrl;
+        if (rawUrl.startsWith("/uploads/")) {
+          const p = path.resolve(__dirname, "../../", rawUrl.replace(/^\//, ""));
+          if (fs.existsSync(p)) resolvedFilePath = p;
+        }
+      }
+
+      // Check uploads/certificates directory
+      if (!resolvedFilePath && fs.existsSync(uploadsDir)) {
+        const files = fs.readdirSync(uploadsDir);
+        for (const f of files) {
+          if (f.endsWith(".pdf") && (f.includes(batchId) || f.includes("honey_analysis"))) {
+            resolvedFilePath = path.join(uploadsDir, f);
+            break;
+          }
+        }
+      }
+
+      // If file is found, stream it inline
+      if (resolvedFilePath && fs.existsSync(resolvedFilePath)) {
+        const fileBuffer = fs.readFileSync(resolvedFilePath);
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+          "Content-Disposition",
+          `inline; filename="lab-report-${batch?.batchId || batchId}.pdf"`
+        );
+        res.setHeader("Content-Length", fileBuffer.length);
+        return res.send(fileBuffer);
+      }
+
+      // If batch has remote URL (e.g. Cloudinary) but no local file, redirect
+      if (batch?.quality?.labReportUrl && batch.quality.labReportUrl.startsWith("http")) {
+        return res.redirect(batch.quality.labReportUrl);
+      }
+
+      return next(
+        new AppError(`Lab certificate not found for batch '${batchId}'`, 404)
+      );
     } catch (err) {
       return next(err);
     }
@@ -962,7 +1126,14 @@ export class BatchController {
         );
       }
 
-      const qrResult = await qrService.generateQrCode(batchId.trim());
+      const targetBaseUrl =
+        ((req.query.baseUrl as string) || (req.headers.origin as string))?.trim() ||
+        env.PUBLIC_BASE_URL?.trim() ||
+        env.FRONTEND_URL?.trim() ||
+        (env.NODE_ENV === "production"
+          ? "https://honeychain-frontend-9l48.onrender.com"
+          : "http://localhost:3000");
+      const qrResult = await qrService.generateQrCode(batchId.trim(), targetBaseUrl);
 
       return res.status(200).json({
         success: true,

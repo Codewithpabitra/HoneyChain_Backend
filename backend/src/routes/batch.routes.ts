@@ -105,4 +105,7 @@ router.get(
   batchController.getBatchQrCode
 );
 
+// Public Certificate / Lab Report PDF serving endpoint
+router.get("/:batchId/certificate", batchController.getBatchCertificate);
+
 export default router;

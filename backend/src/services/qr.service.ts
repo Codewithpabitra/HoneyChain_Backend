@@ -14,16 +14,27 @@ export class QrService {
    * Fails with a clear, actionable error if PUBLIC_BASE_URL is missing.
    */
   public getPublicBaseUrl(overrideUrl?: string): string {
-    const rawUrl =
-      overrideUrl?.trim() ||
-      env.PUBLIC_BASE_URL?.trim() ||
-      process.env.PUBLIC_BASE_URL?.trim();
+    let rawUrl = overrideUrl?.trim();
+
+    if (!rawUrl) {
+      rawUrl = env.PUBLIC_BASE_URL?.trim() || process.env.PUBLIC_BASE_URL?.trim();
+    }
 
     if (!rawUrl) {
       throw new AppError(
         "PUBLIC_BASE_URL is not configured. Please configure PUBLIC_BASE_URL in your environment variables (e.g. 'https://honeychain-backend-trag.onrender.com' in production or 'http://localhost:5000' in local development) to generate consumer verification QR codes.",
         500
       );
+    }
+
+    // Replace obsolete or suspended Render hostnames that do not point to active services
+    if (
+      rawUrl === "https://honeychain-backend.onrender.com" ||
+      rawUrl === "https://honeychain-frontend.onrender.com" ||
+      rawUrl.includes("honeychain-backend.onrender.com") ||
+      rawUrl.includes("honeychain-frontend.onrender.com")
+    ) {
+      rawUrl = "https://honeychain-frontend-9l48.onrender.com";
     }
 
     // Strip any trailing slashes for consistent URL formatting
