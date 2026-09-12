@@ -13,7 +13,7 @@ const features = [
 
 export default function TrustFeatures() {
   return (
-    <section className="relative px-6 md:px-12 py-28 border-t border-ink/10 dark:border-ink-dark/10">
+    <section id="features" className="relative px-6 md:px-12 py-28 border-t border-ink/10 dark:border-ink-dark/10">
       <FlightBeeDecor side="right" top="8%" />
 
       <ScrollReveal from="bottom" className="max-w-5xl mx-auto text-center mb-20">
