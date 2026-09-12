@@ -6,6 +6,7 @@ import { mlService } from "./services/ml.service.js";
 import { socketService } from "./services/socket.service.js";
 import { redisService } from "./services/redis.service.js";
 import { populateHiveLocations } from "./scripts/populateHiveLocations.js";
+import { seed48hTelemetryIfNeeded } from "./scripts/seed48hTelemetry.js";
 import { hiveHealthScheduler } from "./services/hiveHealthScheduler.service.js";
 
 const PORT = env.PORT || 5000;
@@ -21,6 +22,11 @@ async function startServer() {
     // Backfill any hives missing location data from parent apiary
     populateHiveLocations().catch((err) =>
       console.warn("[HoneyChain] Hive location backfill warning:", err.message)
+    );
+
+    // Ensure hives have 48-hour continuous sensor telemetry for AI evaluations
+    seed48hTelemetryIfNeeded(false).catch((err) =>
+      console.warn("[HoneyChain] 48h telemetry check warning:", err.message)
     );
 
     // Start automated hourly hive health and Gemini reasoning loop
