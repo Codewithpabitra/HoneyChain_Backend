@@ -8,14 +8,15 @@ export interface Telemetry {
   humidity: number;
   weightKg: number;
   batteryLevelPct: number;
+  beeInCount?: number;
+  beeOutCount?: number;
+  flow?: number;
+  metadata?: Record<string, unknown>;
+  // Deprecated redundant fields
   soundFrequencyHz?: number;
   acousticsDb?: number;
   ambientTemperature?: number;
   ambientHumidity?: number;
-  flow?: number;
-  beeInCount?: number;
-  beeOutCount?: number;
-  metadata?: Record<string, unknown>;
 }
 
 export interface TelemetryResponse {
@@ -26,16 +27,19 @@ export interface TelemetryResponse {
 
 export interface TelemetryHistoryPoint {
   id?: string;
+  deviceId?: string;
+  hiveId?: string;
   timestamp: string;
   temperature: number;
   humidity: number;
   weightKg: number;
-  soundFrequencyHz?: number;
-  acousticsDb?: number;
   batteryLevelPct?: number;
-  flow?: number;
   beeInCount?: number;
   beeOutCount?: number;
+  flow?: number;
+  // Deprecated redundant fields
+  soundFrequencyHz?: number;
+  acousticsDb?: number;
   ambientTemperature?: number;
   ambientHumidity?: number;
 }

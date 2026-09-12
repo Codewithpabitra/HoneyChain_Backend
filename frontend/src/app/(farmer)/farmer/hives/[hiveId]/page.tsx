@@ -18,7 +18,6 @@ import {
   IconRefresh,
   IconTemperature,
   IconTrash,
-  IconVolume,
   IconWeight,
   IconActivity,
 } from "@tabler/icons-react";
@@ -63,7 +62,7 @@ export default function HiveDetailsPage() {
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
   const [activeMetricTab, setActiveMetricTab] = useState<
-    "temperature" | "humidity" | "weight" | "acoustics" | "flow"
+    "temperature" | "humidity" | "weight" | "flow"
   >("temperature");
 
   // AI Prediction
@@ -181,9 +180,9 @@ export default function HiveDetailsPage() {
         temperature: prediction.metricsSnapshot.temperature,
         humidity: prediction.metricsSnapshot.humidity,
         weightKg: prediction.metricsSnapshot.weightKg,
-        soundFrequencyHz: prediction.metricsSnapshot.soundFrequencyHz,
-        acousticsDb: 60,
         flow: prediction.metricsSnapshot.beeFlow,
+        beeInCount: prediction.metricsSnapshot.beeFlow ? Math.max(0, prediction.metricsSnapshot.beeFlow) : undefined,
+        beeOutCount: prediction.metricsSnapshot.beeFlow ? Math.max(0, -prediction.metricsSnapshot.beeFlow) : undefined,
       } as TelemetryHistoryPoint;
     }
     return null;
@@ -203,7 +202,7 @@ export default function HiveDetailsPage() {
       return { label: "Live", color: "bg-emerald-500", isLive: true };
     }
     return {
-      label: ageSeconds < 60 ? `Stale (${ageSeconds}s ago)` : `Stale (${Math.round(ageSeconds / 60)}m ago)`,
+      label: `Delayed (${ageSeconds}s ago)`,
       color: "bg-amber-500",
       isLive: false,
     };
@@ -225,19 +224,19 @@ export default function HiveDetailsPage() {
   }
 
   // Save hive edits
-  async function handleSaveEdit(e: React.FormEvent) {
-    e.preventDefault();
-    setIsSaving(true);
-    setActionError(null);
+  async function handleSaveEdit(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     try {
-      await hiveService.update(hiveId, {
+      setIsSaving(true);
+      setActionError(null);
+      const res = await hiveService.update(hiveId, {
         status: editStatus,
-        notes: editNotes.trim(),
+        notes: editNotes,
       });
+      setHive(res.data);
       setIsEditOpen(false);
-      await loadHive();
     } catch {
-      setActionError("Failed to update hive status.");
+      setActionError("Failed to update status.");
     } finally {
       setIsSaving(false);
     }
@@ -258,17 +257,29 @@ export default function HiveDetailsPage() {
 
   // Format telemetry for charts
   const chartData = useMemo(() => {
-    return telemetry.map((pt) => ({
-      time: new Date(pt.timestamp).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      temperature: pt.temperature,
-      humidity: pt.humidity,
-      weight: pt.weightKg,
-      acoustics: pt.acousticsDb ?? (pt.soundFrequencyHz ? pt.soundFrequencyHz / 10 : 0),
-      flow: pt.flow ?? (pt.beeInCount && pt.beeOutCount ? pt.beeInCount - pt.beeOutCount : 0),
-    }));
+    return telemetry.map((pt) => {
+      const beeIn = typeof pt.beeInCount === "number" ? pt.beeInCount : null;
+      const beeOut = typeof pt.beeOutCount === "number" ? pt.beeOutCount : null;
+      const netFlow =
+        typeof pt.flow === "number"
+          ? pt.flow
+          : beeIn !== null && beeOut !== null
+          ? beeIn - beeOut
+          : 0;
+
+      return {
+        time: new Date(pt.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        temperature: pt.temperature,
+        humidity: pt.humidity,
+        weight: pt.weightKg,
+        beeIn: beeIn ?? Math.max(0, netFlow),
+        beeOut: beeOut ?? Math.max(0, -netFlow),
+        flow: netFlow,
+      };
+    });
   }, [telemetry]);
 
   const apiaryName =
@@ -463,16 +474,16 @@ export default function HiveDetailsPage() {
         />
 
         <MetricCard
-          label="Acoustic Frequency"
+          label="Foraging Bee Traffic"
           value={
-            latestReading?.soundFrequencyHz !== undefined
-              ? latestReading.soundFrequencyHz.toFixed(0)
-              : latestReading?.acousticsDb !== undefined
-              ? `${latestReading.acousticsDb.toFixed(0)} dB`
+            latestReading?.beeInCount !== undefined && latestReading?.beeOutCount !== undefined
+              ? `+${latestReading.beeInCount} / -${latestReading.beeOutCount}`
+              : latestReading?.flow !== undefined
+              ? `${latestReading.flow > 0 ? "+" : ""}${latestReading.flow}`
               : "—"
           }
-          unit={latestReading?.soundFrequencyHz !== undefined ? "Hz" : undefined}
-          icon={IconVolume}
+          unit={latestReading?.beeInCount !== undefined ? "in / out" : latestReading?.flow !== undefined ? "net/min" : undefined}
+          icon={IconActivity}
           status="normal"
         />
       </section>
@@ -511,8 +522,7 @@ export default function HiveDetailsPage() {
               { id: "temperature", label: "Temp (°C)" },
               { id: "humidity", label: "Humidity (%)" },
               { id: "weight", label: "Weight (kg)" },
-              { id: "acoustics", label: "Acoustics" },
-              { id: "flow", label: "Bee Flow" },
+              { id: "flow", label: "Bee Traffic" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -606,27 +616,37 @@ export default function HiveDetailsPage() {
                       activeDot={{ r: 5 }}
                     />
                   )}
-                  {activeMetricTab === "acoustics" && (
-                    <Line
-                      type="monotone"
-                      dataKey="acoustics"
-                      name="Acoustic Level"
-                      stroke="#8b5cf6"
-                      strokeWidth={2.5}
-                      dot={false}
-                      activeDot={{ r: 5 }}
-                    />
-                  )}
                   {activeMetricTab === "flow" && (
-                    <Line
-                      type="monotone"
-                      dataKey="flow"
-                      name="Net Bee Flow"
-                      stroke="#f97316"
-                      strokeWidth={2.5}
-                      dot={false}
-                      activeDot={{ r: 5 }}
-                    />
+                    <>
+                      <Line
+                        type="monotone"
+                        dataKey="beeIn"
+                        name="Bees Entering (+in)"
+                        stroke="#10b981"
+                        strokeWidth={2.5}
+                        dot={false}
+                        activeDot={{ r: 5 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="beeOut"
+                        name="Bees Leaving (-out)"
+                        stroke="#f59e0b"
+                        strokeWidth={2.5}
+                        dot={false}
+                        activeDot={{ r: 5 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="flow"
+                        name="Net Flow (in - out)"
+                        stroke="#6366f1"
+                        strokeWidth={1.5}
+                        strokeDasharray="4 4"
+                        dot={false}
+                        activeDot={{ r: 4 }}
+                      />
+                    </>
                   )}
                 </LineChart>
               </ResponsiveContainer>

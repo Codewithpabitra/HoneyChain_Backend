@@ -140,10 +140,10 @@ export default function RecentTelemetryTable({
               <tr className="border-b border-black/10 text-black/60 dark:border-white/10 dark:text-white/60">
                 <th className="pb-3 font-semibold">Row</th>
                 <th className="pb-3 font-semibold">Timestamp</th>
+                <th className="pb-3 font-semibold">IoT Device</th>
                 <th className="pb-3 font-semibold">Brood Temp</th>
                 <th className="pb-3 font-semibold">Humidity</th>
                 <th className="pb-3 font-semibold">Hive Weight</th>
-                <th className="pb-3 font-semibold">Acoustics / Sound</th>
                 <th className="pb-3 font-semibold">Bee Traffic</th>
                 <th className="pb-3 font-semibold">Battery</th>
                 <th className="pb-3 font-semibold text-right">Source</th>
@@ -171,7 +171,8 @@ export default function RecentTelemetryTable({
                     })
                   : "";
 
-                // Safe fallback extraction
+                // Safe extraction of the exact 9 hardware inputs
+                const deviceIdVal = r.deviceId || (r as any).deviceMetadata?.deviceId || null;
                 const tempVal =
                   typeof r.temperature === "number" ? r.temperature : null;
                 const humidityVal =
@@ -188,18 +189,16 @@ export default function RecentTelemetryTable({
                     : typeof (r as any).battery === "number"
                     ? (r as any).battery
                     : null;
-                const soundFreq =
-                  typeof r.soundFrequencyHz === "number"
-                    ? r.soundFrequencyHz
-                    : null;
-                const acousticsDb =
-                  typeof r.acousticsDb === "number" ? r.acousticsDb : null;
-                const netFlow =
-                  typeof r.flow === "number" ? r.flow : null;
                 const beeIn =
                   typeof r.beeInCount === "number" ? r.beeInCount : null;
                 const beeOut =
                   typeof r.beeOutCount === "number" ? r.beeOutCount : null;
+                const netFlow =
+                  typeof r.flow === "number"
+                    ? r.flow
+                    : beeIn !== null && beeOut !== null
+                    ? beeIn - beeOut
+                    : null;
 
                 const isTempAbnormal =
                   tempVal !== null && (tempVal < 33 || tempVal > 37);
@@ -237,6 +236,19 @@ export default function RecentTelemetryTable({
                       )}
                     </td>
 
+                    {/* IoT Device Gateway */}
+                    <td className="py-3 pr-4 font-mono text-xs text-black/60 dark:text-white/60">
+                      {deviceIdVal ? (
+                        <span className="rounded bg-black/4 px-1.5 py-0.5 dark:bg-white/5">
+                          {deviceIdVal}
+                        </span>
+                      ) : activeHiveId ? (
+                        <span className="text-black/40 dark:text-white/40">{activeHiveId}</span>
+                      ) : (
+                        <span className="text-black/30 dark:text-white/30">—</span>
+                      )}
+                    </td>
+
                     {/* Temperature */}
                     <td className="py-3 pr-4">
                       {tempVal !== null ? (
@@ -266,30 +278,25 @@ export default function RecentTelemetryTable({
                     {/* Weight */}
                     <td className="py-3 pr-4 font-mono text-ink dark:text-ink-dark">
                       {weightVal !== null ? (
-                        <span>{weightVal.toFixed(3)} kg</span>
+                        <span>{weightVal.toFixed(2)} kg</span>
                       ) : (
                         <span className="text-black/30 dark:text-white/30">—</span>
                       )}
                     </td>
 
-                    {/* Acoustic / Sound */}
-                    <td className="py-3 pr-4 text-ink dark:text-ink-dark">
-                      {soundFreq !== null && acousticsDb !== null ? (
-                        <span>
-                          {Math.round(soundFreq)} Hz / {acousticsDb.toFixed(1)} dB
-                        </span>
-                      ) : soundFreq !== null ? (
-                        <span>{Math.round(soundFreq)} Hz</span>
-                      ) : acousticsDb !== null ? (
-                        <span>{acousticsDb.toFixed(1)} dB</span>
-                      ) : (
-                        <span className="text-black/30 dark:text-white/30">—</span>
-                      )}
-                    </td>
-
-                    {/* Bee Traffic */}
+                    {/* Bee Traffic (In / Out) */}
                     <td className="py-3 pr-4">
-                      {netFlow !== null ? (
+                      {beeIn !== null || beeOut !== null ? (
+                        <span className="inline-flex items-center gap-1 font-mono text-xs">
+                          <span className="text-emerald-600 dark:text-emerald-400">
+                            +{beeIn ?? 0} in
+                          </span>
+                          <span className="text-black/30 dark:text-white/30">/</span>
+                          <span className="text-amber-600 dark:text-amber-400">
+                            -{beeOut ?? 0} out
+                          </span>
+                        </span>
+                      ) : netFlow !== null ? (
                         <span
                           className={`font-medium ${
                             netFlow >= 0
@@ -297,11 +304,7 @@ export default function RecentTelemetryTable({
                               : "text-amber-600 dark:text-amber-400"
                           }`}
                         >
-                          {netFlow > 0 ? `+${netFlow}` : netFlow} /min
-                        </span>
-                      ) : beeIn !== null || beeOut !== null ? (
-                        <span className="text-black/70 dark:text-white/70">
-                          +{beeIn ?? 0} in / -{beeOut ?? 0} out
+                          {netFlow > 0 ? `+${netFlow}` : netFlow} net
                         </span>
                       ) : (
                         <span className="text-black/30 dark:text-white/30">—</span>

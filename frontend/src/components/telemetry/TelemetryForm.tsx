@@ -19,7 +19,8 @@ export default function TelemetryForm({
   const [humidity, setHumidity] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [batteryLevelPct, setBatteryLevelPct] = useState("");
-  const [soundFrequencyHz, setSoundFrequencyHz] = useState("");
+  const [beeInCount, setBeeInCount] = useState("");
+  const [beeOutCount, setBeeOutCount] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +33,8 @@ export default function TelemetryForm({
     const humidityValue = Number(humidity);
     const weightValue = Number(weightKg);
     const batteryValue = Number(batteryLevelPct);
-    const soundValue = soundFrequencyHz ? Number(soundFrequencyHz) : undefined;
+    const beeInValue = beeInCount !== "" ? Number(beeInCount) : undefined;
+    const beeOutValue = beeOutCount !== "" ? Number(beeOutCount) : undefined;
 
     if (
       !Number.isFinite(temperatureValue) ||
@@ -54,22 +56,26 @@ export default function TelemetryForm({
       return;
     }
 
-    if (soundValue !== undefined && !Number.isFinite(soundValue)) {
-      setError("Sound frequency must be a valid number.");
+    if (beeInValue !== undefined && (!Number.isInteger(beeInValue) || beeInValue < 0)) {
+      setError("Bee In count must be a non-negative whole number.");
+      return;
+    }
+
+    if (beeOutValue !== undefined && (!Number.isInteger(beeOutValue) || beeOutValue < 0)) {
+      setError("Bee Out count must be a non-negative whole number.");
       return;
     }
 
     const payload: Telemetry = {
       deviceId,
       hiveId,
-      timestamp: Date.now(),
+      timestamp: new Date().toISOString(),
       temperature: temperatureValue,
       humidity: humidityValue,
       weightKg: weightValue,
       batteryLevelPct: batteryValue,
-      ...(soundValue !== undefined && {
-        soundFrequencyHz: soundValue,
-      }),
+      ...(beeInValue !== undefined && { beeInCount: beeInValue }),
+      ...(beeOutValue !== undefined && { beeOutCount: beeOutValue }),
     };
 
     try {
@@ -81,7 +87,8 @@ export default function TelemetryForm({
       setHumidity("");
       setWeightKg("");
       setBatteryLevelPct("");
-      setSoundFrequencyHz("");
+      setBeeInCount("");
+      setBeeOutCount("");
 
       onSubmitted?.();
     } catch {
@@ -129,18 +136,31 @@ export default function TelemetryForm({
           onChange={(e) => setBatteryLevelPct(e.target.value)}
           type="number"
           step="1"
+          min="0"
+          max="100"
           placeholder="Battery (%)"
           className="input"
           required
         />
 
         <input
-          value={soundFrequencyHz}
-          onChange={(e) => setSoundFrequencyHz(e.target.value)}
+          value={beeInCount}
+          onChange={(e) => setBeeInCount(e.target.value)}
           type="number"
-          step="0.1"
-          placeholder="Sound Frequency (Hz)"
-          className="input sm:col-span-2"
+          step="1"
+          min="0"
+          placeholder="Bee In Count (bees/min)"
+          className="input"
+        />
+
+        <input
+          value={beeOutCount}
+          onChange={(e) => setBeeOutCount(e.target.value)}
+          type="number"
+          step="1"
+          min="0"
+          placeholder="Bee Out Count (bees/min)"
+          className="input"
         />
       </div>
 

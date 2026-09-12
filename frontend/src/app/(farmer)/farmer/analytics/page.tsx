@@ -348,7 +348,7 @@ export default function FarmerAnalyticsPage() {
               Inspect Real-Time Hive Sensors
             </h3>
             <p className="mt-1 text-xs text-black/60 dark:text-white/60">
-              View live telemetry time-series charts for internal temperature, relative humidity, colony acoustics, and net bee flow.
+              View live telemetry time-series charts for internal temperature, relative humidity, hive weight, and directional bee traffic.
             </p>
           </div>
 
