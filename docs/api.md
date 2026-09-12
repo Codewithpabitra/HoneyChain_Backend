@@ -963,45 +963,35 @@ Content-Type: application/json
      - Prevents duplicate insertions on network retries matching on `deviceId` + `timestamp`.
 
 #### Request Body
+The hardware gateway (`ESP32-WG-GW-01`) and simulator transmit the standardized 9-field payload:
+
 | Field | Type | Required | Valid Range / Description |
 |---|---|---|---|
-| `deviceId` | string | **Required** | Edge hardware identifier (e.g. `ESP32-GATEWAY-001`). |
-| `hiveId` | string | **Required** | Target hive identifier (e.g. `HIVE-001`). |
+| `hiveId` | string | **Required** | Target hive identifier (e.g. `HIVE-WG-301`, `HIVE-SB-101`). |
+| `deviceId` | string | **Required** | Edge hardware identifier (e.g. `ESP32-WG-GW-01`). |
 | `timestamp` | string \| number | **Required** | ISO 8601 string or epoch ms. |
-| `temperature` | number | **Required** | Internal hive temperature in °C (`-40` to `70`). |
+| `temperature` | number | **Required** | Internal hive brood temperature in °C (`-40` to `70`). |
 | `humidity` | number | **Required** | Internal hive relative humidity % (`0` to `100`). |
 | `weightKg` | number | **Required** | Gross hive weight in kg (`0` to `300`). |
 | `batteryLevelPct` | number | **Required** | Node battery percentage (`0` to `100`). |
-| `soundFrequencyHz`| number | Optional | Dominant audio frequency in Hz (`0` to `5000`). |
-| `acousticsDb` | number | Optional | Sound pressure level in dB (`0` to `140`). |
-| `ambientTemperature`| number | Optional | External ambient temperature in °C (`-50` to `70`). |
-| `ambientHumidity` | number | Optional | External ambient humidity % (`0` to `100`). |
-| `flow` | number | Optional | Net bee traffic rate. |
-| `beeInCount` | number | Optional | Inbound bee counter count. |
-| `beeOutCount` | number | Optional | Outbound bee counter count. |
-| `metadata` | object | Optional | Auxiliary hardware status (e.g. `{ "rssi": -65 }`). |
+| `beeInCount` | number | **Required** | Inbound bee counter count. |
+| `beeOutCount` | number | **Required** | Outbound bee counter count. |
+
+> [!NOTE]
+> `HIVE-WG-301` (`ESP32-WG-GW-01`) is strictly reserved for the physical ESP32 hardware device. It is excluded from the demo simulation cycle (`/api/iot/simulate`) and from background simulated feeds to guarantee that dashboard readings for this hive represent authentic physical hardware telemetry.
 
 #### Example Request
 ```json
 {
-  "deviceId": "ESP32-GATEWAY-001",
-  "hiveId": "HIVE-001",
-  "timestamp": "2026-09-08T10:30:00.000Z",
+  "hiveId": "HIVE-WG-301",
+  "deviceId": "ESP32-WG-GW-01",
+  "timestamp": "2026-09-11T18:30:00.000Z",
   "temperature": 35.2,
   "humidity": 62.5,
-  "weightKg": 42.8,
-  "batteryLevelPct": 94,
-  "soundFrequencyHz": 245.0,
-  "acousticsDb": 68.4,
-  "ambientTemperature": 31.0,
-  "ambientHumidity": 75.0,
-  "flow": 12,
-  "beeInCount": 350,
-  "beeOutCount": 338,
-  "metadata": {
-    "source": "esp32-wifi",
-    "rssi": -62
-  }
+  "weightKg": 44.1,
+  "batteryLevelPct": 95,
+  "beeInCount": 120,
+  "beeOutCount": 115
 }
 ```
 

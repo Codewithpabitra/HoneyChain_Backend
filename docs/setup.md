@@ -178,10 +178,10 @@ Server boots on `http://localhost:5000` with graceful shutdown handling on `SIGI
 - **`GET /health`**: Ingestion node health check.
   - Returns `status`, `uptimeSeconds`, `timestamp`, and `database.status` (`connected`, `connecting`, `disconnected`).
   - Zero sensitive database URIs or credentials leaked.
-- **`POST /api/iot/telemetry`**: Ingests environmental and acoustic sensor readings.
-  - Required fields: `deviceId`, `hiveId`, `timestamp`, `metrics: { temperature, humidity, weightKg }`.
-  - Optional fields: `soundFrequencyHz`, `acousticsDb`, `batteryLevelPct`, `ambientTemperature`, `ambientHumidity`, `metadata`.
-  - Automatic deduplication on `deviceId + timestamp` (returns `HTTP 200` with `{ duplicate: true }`).
+- **`POST /api/iot/telemetry`**: Ingests edge gateway telemetry.
+  - Primary fields: `hiveId`, `deviceId`, `timestamp`, `temperature`, `humidity`, `weightKg`, `batteryLevelPct`, `beeInCount`, `beeOutCount`.
+  - Edge hardware reservation: `HIVE-WG-301` (`ESP32-WG-GW-01`) is exclusively reserved for the physical edge gateway device and excluded from simulated demo cycles.
+  - Automatic deduplication on `deviceId + timestamp` and rolling buffer storage in Redis.
 
 ### 8.2 Single-Server Architecture & Self-Hitting IoT Simulator
 HoneyChain deploys as a **single unified server** (Express backend). The backend serves the web interface, processes API requests, and runs an integrated background telemetry simulation service that periodically fires HTTP POST requests to its own public/deployed URL:

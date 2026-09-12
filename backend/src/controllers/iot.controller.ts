@@ -659,7 +659,11 @@ export class IoTController {
     next: NextFunction
   ) => {
     try {
-      const activeHives = await Hive.find({ status: "active" });
+      // Only simulate demo software hives; explicitly protect reserved physical hardware nodes (e.g. HIVE-WG-301)
+      const activeHives = await Hive.find({
+        status: "active",
+        hiveId: { $ne: "HIVE-WG-301" },
+      });
       if (activeHives.length === 0) {
         return res.status(200).json({
           success: true,
@@ -1012,9 +1016,14 @@ export class IoTController {
         ambientHumidity: r.ambientHumidity,
       }));
 
-      // Optionally populate Redis cache with historical items so subsequent calls hit Redis
+      // Only populate Redis cache if readings are genuinely fresh (within last 15 minutes)
+      const now = Date.now();
+      const freshWindowMs = 15 * 60 * 1000;
       for (const item of formatted) {
-        await redisService.addRecentReading(cleanHiveId, item);
+        const itemTime = new Date(item.timestamp).getTime();
+        if (!isNaN(itemTime) && now - itemTime <= freshWindowMs) {
+          await redisService.addRecentReading(cleanHiveId, item);
+        }
       }
 
       return res.status(200).json({

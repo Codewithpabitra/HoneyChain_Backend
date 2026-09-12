@@ -173,7 +173,10 @@ export default function HiveDetailsPage() {
   // Latest readings from telemetry or prediction
   const latestReading = useMemo(() => {
     if (telemetry.length > 0) {
-      return telemetry[telemetry.length - 1];
+      return [...telemetry].sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      )[0];
     }
     if (prediction?.metricsSnapshot) {
       return {
@@ -191,18 +194,18 @@ export default function HiveDetailsPage() {
   // Live / Stale telemetry indicator based on expected interval (30s)
   const telemetryStatus = useMemo(() => {
     if (!latestReading?.timestamp) {
-      return { label: "Offline", color: "bg-gray-400", isLive: false };
+      return { label: "Awaiting Hardware", color: "bg-gray-400", isLive: false };
     }
     const readingMs = new Date(latestReading.timestamp).getTime();
     if (isNaN(readingMs)) {
-      return { label: "Offline", color: "bg-gray-400", isLive: false };
+      return { label: "Awaiting Hardware", color: "bg-gray-400", isLive: false };
     }
     const ageSeconds = Math.max(0, Math.round((nowMs - readingMs) / 1000));
-    if (ageSeconds <= 45) {
-      return { label: "Live", color: "bg-emerald-500", isLive: true };
+    if (ageSeconds <= 60) {
+      return { label: "Live Stream", color: "bg-emerald-500", isLive: true };
     }
     return {
-      label: `Delayed (${ageSeconds}s ago)`,
+      label: `Standby (${ageSeconds}s ago)`,
       color: "bg-amber-500",
       isLive: false,
     };
@@ -550,9 +553,9 @@ export default function HiveDetailsPage() {
           ) : chartData.length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-black/10 p-6 text-center dark:border-white/10">
               <IconActivity size={28} className="text-black/30 dark:text-white/30" />
-              <h3 className="mt-3 text-sm font-semibold">No telemetry stream yet</h3>
+              <h3 className="mt-3 text-sm font-semibold">Awaiting Telemetry Stream</h3>
               <p className="mt-1 max-w-sm text-xs text-black/50 dark:text-white/50">
-                Trigger a simulation cycle below or submit manual sensor readings to begin populating real charts.
+                Awaiting incoming readings from edge gateway {hive?.deviceMetadata?.deviceId || `ESP32-${hiveId}`}. Once connected, real-time telemetry will appear here automatically.
               </p>
             </div>
           ) : (

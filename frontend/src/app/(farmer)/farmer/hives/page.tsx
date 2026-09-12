@@ -286,7 +286,17 @@ export default function HivesPage() {
             const battery = hive.deviceMetadata?.batteryLevelPct ?? null;
 
             const readings = telemetryMap[hive.hiveId] || [];
-            const latestTelemetry = readings.length > 0 ? readings[readings.length - 1] : null;
+            const latestTelemetry =
+              readings.length > 0
+                ? [...readings].sort(
+                    (a, b) =>
+                      new Date(b.timestamp).getTime() -
+                      new Date(a.timestamp).getTime()
+                  )[0]
+                : null;
+            const isFresh = latestTelemetry?.timestamp
+              ? Math.abs(Date.now() - new Date(latestTelemetry.timestamp).getTime()) <= 120000
+              : false;
 
             return (
               <Link
@@ -357,7 +367,7 @@ export default function HivesPage() {
                   )}
 
                   {/* Live Telemetry Snapshot Strip */}
-                  {latestTelemetry && (
+                  {latestTelemetry ? (
                     <div className="mt-3 grid grid-cols-3 gap-1.5 rounded-xl border border-black/5 bg-black/2 p-2 text-center dark:border-white/5 dark:bg-white/2">
                       <div>
                         <span className="text-[10px] text-black/40 dark:text-white/40">Brood Temp</span>
@@ -378,15 +388,27 @@ export default function HivesPage() {
                         </p>
                       </div>
                     </div>
+                  ) : (
+                    <div className="mt-3 rounded-xl border border-dashed border-black/10 bg-black/2 p-2.5 text-center text-xs text-black/50 dark:border-white/10 dark:bg-white/2 dark:text-white/50">
+                      <span className="font-medium text-amber-600 dark:text-amber-400">Standby:</span> Awaiting gateway telemetry
+                    </div>
                   )}
                 </div>
 
                 <div className="mt-4 flex items-center justify-between border-t border-black/5 pt-3 text-xs font-medium text-honey dark:border-white/5">
                   <div className="flex items-center gap-1.5">
-                    {readings.length > 0 && (
+                    {readings.length === 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                        Awaiting Hardware
+                      </span>
+                    ) : isFresh ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        {readings.length} buffered
+                        Live Stream ({readings.length})
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-semibold text-black/50 dark:bg-white/5 dark:text-white/50">
+                        Standby ({readings.length} buffered)
                       </span>
                     )}
                     <span>View Telemetry & ML</span>

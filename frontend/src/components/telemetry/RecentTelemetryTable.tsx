@@ -47,6 +47,14 @@ export default function RecentTelemetryTable({
 
   const activeHiveId = selectedHiveId || hiveId;
 
+  // Check whether the feed has recent activity (<= 2 minutes)
+  const isFeedLive = React.useMemo(() => {
+    if (displayReadings.length === 0) return false;
+    const latestTime = new Date(displayReadings[0].timestamp).getTime();
+    if (isNaN(latestTime)) return false;
+    return Math.abs(Date.now() - latestTime) <= 120000;
+  }, [displayReadings]);
+
   return (
     <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs dark:border-white/10 dark:bg-white/3">
       {/* Table Header */}
@@ -64,8 +72,12 @@ export default function RecentTelemetryTable({
                 [{activeHiveId}]
               </span>
             )}
-            <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-              {displayReadings.length} / 10 in Redis
+            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+              isFeedLive
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : "bg-black/5 text-black/50 dark:bg-white/5 dark:text-white/50"
+            }`}>
+              {displayReadings.length} / 10 in Buffer
             </span>
           </div>
           <p className="mt-1 text-xs text-black/50 dark:text-white/50">
@@ -103,16 +115,35 @@ export default function RecentTelemetryTable({
             </div>
           )}
 
-          {/* Socket.IO Live Status Badge */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-black/5 bg-black/2 px-2.5 py-1 dark:border-white/5 dark:bg-white/5">
+          {/* Feed and Socket Badges */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {/* Device Feed Status */}
+            {displayReadings.length === 0 ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-black/5 bg-black/2 px-2.5 py-1 text-black/50 dark:border-white/5 dark:bg-white/5 dark:text-white/50">
+                <span className="h-2 w-2 rounded-full bg-gray-400" />
+                <span>Standby • Awaiting Hardware</span>
+              </span>
+            ) : isFeedLive ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-semibold">Live Streaming</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span>Hardware Standby (Offline)</span>
+              </span>
+            )}
+
+            {/* WebSocket Stream Badge */}
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-black/5 bg-black/2 px-2.5 py-1 text-black/60 dark:border-white/5 dark:bg-white/5 dark:text-white/60">
               <span
-                className={`h-2 w-2 rounded-full ${
-                  isSocketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-400"
+                className={`h-1.5 w-1.5 rounded-full ${
+                  isSocketConnected ? "bg-emerald-500" : "bg-gray-400"
                 }`}
               />
-              <span className="font-medium text-ink dark:text-ink-dark">
-                {isSocketConnected ? "Live Socket Connected" : "Connecting Socket..."}
+              <span className="text-[11px]">
+                {isSocketConnected ? "Socket Stream Ready" : "Connecting..."}
               </span>
             </span>
           </div>
@@ -127,11 +158,13 @@ export default function RecentTelemetryTable({
             Loading latest 10 readings from Redis...
           </div>
         ) : displayReadings.length === 0 ? (
-          <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-black/10 p-6 text-center text-xs text-black/50 dark:border-white/10 dark:text-white/50">
-            <IconClock size={22} className="mb-2 text-black/30 dark:text-white/30" />
-            <p className="font-medium">No telemetry readings in Redis buffer yet</p>
-            <p className="mt-1 text-[11px] text-black/40 dark:text-white/40">
-              Trigger a live telemetry cycle or wait for IoT edge gateways to broadcast sensor readings.
+          <div className="flex h-36 flex-col items-center justify-center rounded-xl border border-dashed border-black/10 p-6 text-center text-xs text-black/50 dark:border-white/10 dark:text-white/50">
+            <IconClock size={24} className="mb-2 text-honey/70" />
+            <p className="font-semibold text-ink dark:text-ink-dark">
+              Awaiting live telemetry from {activeHiveId ? `[${activeHiveId}]` : "edge gateway"}
+            </p>
+            <p className="mt-1 max-w-md text-[11px] text-black/40 dark:text-white/40">
+              No live readings in buffer. When your physical hardware gateway transmits, sensor data will stream here in real time.
             </p>
           </div>
         ) : (
@@ -215,10 +248,16 @@ export default function RecentTelemetryTable({
                     {/* Row & Latest Indicator */}
                     <td className="py-3 pr-2">
                       {isLatest ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 ring-1 ring-emerald-500/30">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          LATEST
-                        </span>
+                        isFeedLive ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 ring-1 ring-emerald-500/30">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            LIVE
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/50 dark:bg-white/5 dark:text-white/50">
+                            RECORDED
+                          </span>
+                        )
                       ) : (
                         <span className="font-mono text-xs text-black/40 dark:text-white/40">
                           #{idx + 1}
@@ -325,10 +364,16 @@ export default function RecentTelemetryTable({
 
                     {/* Status Badge */}
                     <td className="py-3 text-right">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        Redis Buffer
-                      </span>
+                      {isFeedLive ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Live Buffer
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-medium text-black/60 dark:bg-white/5 dark:text-white/40">
+                          Archived
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );
