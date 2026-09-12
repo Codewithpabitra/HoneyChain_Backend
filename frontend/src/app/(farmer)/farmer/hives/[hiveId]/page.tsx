@@ -242,15 +242,17 @@ export default function HiveDetailsPage() {
       setIsAnalyzing(true);
       setActionError(null);
       const res = await mlService.predict(hiveId, { forceAi: true });
-      if (res?.data?.prediction) {
-        const pred = { ...res.data.prediction };
-        if (!pred.gemini && res.data.geminiAnalysis) {
-          pred.gemini = res.data.geminiAnalysis;
+      const resData = res?.data;
+      if (resData?.prediction) {
+        const pred = { ...resData.prediction };
+        if (!pred.gemini && resData.geminiAnalysis) {
+          pred.gemini = resData.geminiAnalysis;
         }
         setPrediction(pred);
-      } else if (res?.data?.geminiAnalysis) {
+      } else if (resData?.geminiAnalysis) {
+        const ga = resData.geminiAnalysis;
         setPrediction((prev: any) =>
-          prev ? { ...prev, gemini: res.data.geminiAnalysis } : ({ gemini: res.data.geminiAnalysis } as any)
+          prev ? { ...prev, gemini: ga } : ({ gemini: ga } as any)
         );
       }
       await loadPrediction();
