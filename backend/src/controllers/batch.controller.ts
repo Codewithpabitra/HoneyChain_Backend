@@ -962,13 +962,39 @@ export class BatchController {
             : undefined,
         },
         quality: {
-          grade: onChainBatch.qualityGradeName,
-          moisturePercentage: onChainBatch.moisturePercentage,
-          certifiedBy: onChainBatch.certifier,
-          certificationTimestamp: onChainBatch.certificationTimestamp,
-          labReportHash: onChainBatch.labReportHash,
+          grade:
+            onChainBatch.qualityGradeName && onChainBatch.qualityGradeName !== "None"
+              ? onChainBatch.qualityGradeName
+              : (batch.quality?.grade || "Substandard"),
+          moisturePercentage:
+            onChainBatch.moisturePercentage > 0
+              ? onChainBatch.moisturePercentage
+              : (batch.quality?.moisturePercentage || 0),
+          certifiedBy:
+            onChainBatch.certifier &&
+            onChainBatch.certifier !== ethers.ZeroAddress &&
+            onChainBatch.certifier !== "0x0000000000000000000000000000000000000000"
+              ? onChainBatch.certifier
+              : null,
+          certificationTimestamp:
+            onChainBatch.certificationTimestamp > 0
+              ? onChainBatch.certificationTimestamp
+              : null,
+          labReportHash:
+            onChainBatch.labReportHash &&
+            onChainBatch.labReportHash !== ethers.ZeroHash &&
+            onChainBatch.labReportHash !==
+              "0x0000000000000000000000000000000000000000000000000000000000000000"
+              ? onChainBatch.labReportHash
+              : (batch.quality?.labReportHash || null),
           labReportUrl: resolvedLabReportUrl,
-          labReportData: batch.quality.labReportData,
+          labReportData: batch.quality?.labReportData,
+          certified: Boolean(
+            onChainBatch.certifier &&
+            onChainBatch.certifier !== ethers.ZeroAddress &&
+            onChainBatch.certifier !== "0x0000000000000000000000000000000000000000" &&
+            onChainBatch.qualityGradeName !== "None"
+          ),
         },
         harvest: {
           producer: onChainBatch.producer,
