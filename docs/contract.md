@@ -2,7 +2,7 @@
 
 ## 1. Overview & Architectural Role
 
-The **HoneyChainRegistry** smart contract provides the decentralized, immutable provenance layer for the HoneyChain platform. Deployed on **Polygon Amoy Testnet** (Chain ID: `80002`), it anchors physical honey harvests, quality lab certifications, and custody transitions without storing high-volume operational data.
+The **HoneyChainRegistry** smart contract provides the decentralized, immutable provenance layer for the HoneyChain platform. Deployed on **Ethereum Sepolia Testnet** (Chain ID: `11155111`), it anchors physical honey harvests, quality lab certifications, and custody transitions without storing high-volume operational data.
 
 ---
 
@@ -308,7 +308,7 @@ Backend Event (e.g. Beekeeper creates batch in UI)
    contract.connect(beekeeperWallet).registerBatch(batchId, quantityGrams, metadataHash, harvestTimestamp)
        │
        ▼
-5. Wait for 1 block confirmation on Polygon Amoy
+5. Wait for 1 block confirmation on Ethereum Sepolia
        │
        ▼
 6. Update MongoDB record with txHash, blockNumber, and onChainStatus = "CONFIRMED"
@@ -324,7 +324,7 @@ Consumer Scans QR (batchId)
        ▼
 Backend Verification Service
        ├── Fetch MongoDB document (source hives, beekeeper profile, lab PDF url, AI summary)
-       ├── Call contract.getBatch(batchId) via Polygon Amoy RPC
+       ├── Call contract.getBatch(batchId) via Sepolia RPC
        └── Query historical event logs:
              const registeredEvents = await contract.queryFilter(contract.filters.BatchRegistered(batchId));
              const certifiedEvents  = await contract.queryFilter(contract.filters.BatchCertified(batchId));
@@ -348,11 +348,11 @@ Return Verified Provenance Payload to Web / Mobile Frontend
   "batchId": "0x4a726191b2c6...3f",
   "verifiedOnChain": true,
   "blockchain": {
-    "network": "Polygon Amoy",
-    "chainId": 80002,
+    "network": "Ethereum Sepolia",
+    "chainId": 11155111,
     "contractAddress": "0x1234...5678",
     "status": "Delivered",
-    "polygonscanUrl": "https://amoy.polygonscan.com/tx/0x9ab...c12"
+    "etherscanUrl": "https://sepolia.etherscan.io/tx/0x9ab...c12"
   },
   "quality": {
     "grade": "GradeA",
@@ -403,3 +403,69 @@ Return Verified Provenance Payload to Web / Mobile Frontend
   ]
 }
 ```
+
+---
+
+## 9. Implementation & Automated Test Verification
+
+The smart contract is implemented in [`blockchain/contracts/HoneyChainRegistry.sol`](file:///home/dhritish/Documents/githubFinal/HoneyChain_Backend/blockchain/contracts/HoneyChainRegistry.sol).
+
+### 9.1 Custom Error Mapping
+- `BatchAlreadyExists(bytes32 batchId)`: Thrown when trying to register an existing `batchId`.
+- `BatchDoesNotExist(bytes32 batchId)`: Thrown when accessing or modifying an unharvested batch.
+- `BatchAlreadyRecalled(bytes32 batchId)`: Thrown when attempting custody transfer or certification on a recalled batch.
+- `BatchAlreadyCertified(bytes32 batchId)`: Thrown when attempting duplicate lab certification.
+- `InvalidBatchId()`: Thrown when `batchId == bytes32(0)`.
+- `InvalidQuantity()`: Thrown when `quantityGrams == 0`.
+- `InvalidMetadataHash()`: Thrown when `metadataHash == bytes32(0)`.
+- `InvalidLabReportHash()`: Thrown when `labReportHash == bytes32(0)`.
+- `InvalidQualityGrade()`: Thrown when `qualityGrade == QualityGrade.None`.
+- `InvalidRecipient()`: Thrown when `to == address(0)` or `to == msg.sender`.
+- `NotCurrentCustodian(address caller, address currentCustodian)`: Thrown when a non-custodian attempts custody transfer.
+- `UnauthorizedRecall(address caller)`: Thrown when caller lacks admin, auditor, lab, or producer rights to recall.
+- `RecipientNotAuthorized(address recipient)`: Thrown when transferring to an account lacking supply chain roles (`PROCESSOR_ROLE`, `DISTRIBUTOR_ROLE`, `BEEKEEPER_ROLE`).
+
+### 9.2 Test Coverage (16 Automated Tests in Hardhat)
+Executed via `npm test` (`npx hardhat test`):
+
+```text
+  HoneyChainRegistry
+    1. Registration
+      ✔ 1. authorized registration: beekeeper can register batch
+      ✔ 2. unauthorized registration: non-beekeeper caller is rejected
+      ✔ 3. duplicate registration: cannot register existing batch ID
+      ✔ should revert if batchId, quantity or metadataHash are invalid
+    2. Certification
+      ✔ 4. valid certification: laboratory certifies batch
+      ✔ 5. certification before registration: cannot certify non-existent batch
+      ✔ 6. unauthorized certification: non-lab caller is rejected
+      ✔ duplicate certification: cannot certify an already certified batch
+    3. Custody Transfer
+      ✔ 7. valid transfer: custodian transfers custody to authorized participants
+      ✔ 8. unauthorized transfer: non-custodian cannot transfer custody
+      ✔ 9. invalid/non-owner transfer: transfer to self or zero address or unauthorized recipient
+    4. Recall Operations
+      ✔ 10. valid recall: admin, producer, lab, or auditor can recall batch
+      ✔ 11. unauthorized recall: unauthorized user or processor cannot recall
+      ✔ 12. transfer after recall: cannot transfer or certify a recalled batch
+    5. Event Emission & State Integrity
+      ✔ 13. correct event emission: emits all lifecycle events with exact indexed arguments
+      ✔ 14. correct batch state: getBatch and batchExists verification
+
+  16 passing (960ms)
+```
+
+---
+
+## 10. Live Testnet Deployment (Ethereum Sepolia)
+
+The contract has been deployed to Ethereum Sepolia and verified on-chain:
+
+- **Contract Address**: [`0x65afF3B44441FfF68171a9a0AA28063BC83C208d`](https://sepolia.etherscan.io/address/0x65afF3B44441FfF68171a9a0AA28063BC83C208d)
+- **Deployment Transaction Hash**: [`0x59d3d3f5cd1cc37984c17358ae0e071226cafd5b7c423739d5f2a3bf9243dde2`](https://sepolia.etherscan.io/tx/0x59d3d3f5cd1cc37984c17358ae0e071226cafd5b7c423739d5f2a3bf9243dde2)
+- **Deployment Block**: `11655688`
+- **Deployer / Initial Admin**: `0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08`
+- **Gas Used**: `1,118,315` units
+- **Deployment Artifact**: [`blockchain/deployments/sepolia/HoneyChainRegistry.json`](file:///home/dhritish/Documents/githubFinal/HoneyChain_Backend/blockchain/deployments/sepolia/HoneyChainRegistry.json)
+
+

@@ -201,7 +201,10 @@ export default function TraceabilityPage() {
                   value={`${quality.moisturePercentage}%`}
                 />
 
-                <DetailCard label="Certified By" value={quality.certifiedBy} />
+                <DetailCard
+                  label="Certified By"
+                  value={quality.certifiedBy || "Accredited Laboratory"}
+                />
               </div>
             </div>
           </section>

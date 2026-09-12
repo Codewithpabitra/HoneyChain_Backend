@@ -39,6 +39,13 @@ export const authService = {
     return data;
   },
 
+  async getUsers(): Promise<{ success: boolean; data: AuthUser[] }> {
+    const { data } = await api.get<{ success: boolean; data: AuthUser[] }>(
+      "/api/auth/users"
+    );
+    return data;
+  },
+
   async wallets(): Promise<WalletsResponse> {
     const { data } = await api.get<WalletsResponse>("/api/auth/wallets");
 

@@ -1,11 +1,11 @@
 "use client";
 
-import { IconSun, IconMoon } from "@tabler/icons-react";
+import { IconSun, IconMoon, IconLogout } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function Topbar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
 
   return (
@@ -34,10 +34,24 @@ export default function Topbar() {
           )}
         </button>
 
-        {/* User */}
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-honey/15 text-sm font-semibold">
+        {/* User Initials */}
+        <div 
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-honey/15 text-sm font-semibold text-ink dark:text-ink-dark"
+          title={user?.name || user?.email || "User profile"}
+        >
           {user?.name?.charAt(0).toUpperCase() ?? "U"}
         </div>
+
+        {/* Logout Button */}
+        <button
+          type="button"
+          onClick={logout}
+          className="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-black/10 bg-white/70 px-3 text-xs font-medium text-black/60 transition hover:bg-red-500/10 hover:text-red-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+          title="Log out of HoneyChain"
+        >
+          <IconLogout size={16} />
+          <span className="hidden sm:inline">Logout</span>
+        </button>
       </div>
     </header>
   );

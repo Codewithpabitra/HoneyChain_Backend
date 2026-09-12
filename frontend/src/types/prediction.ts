@@ -11,6 +11,7 @@ export interface PredictionMetrics {
   humidity: number;
   weightKg: number;
   soundFrequencyHz?: number;
+  beeFlow?: number;
 }
 
 export interface Prediction {
@@ -18,9 +19,12 @@ export interface Prediction {
   tier: string;
   status: PredictionStatus;
   confidence: number;
+  healthScore?: number;
+  anomalyDetected?: boolean;
   anomaliesDetected: string[];
   alerts: string[];
   recommendations: string[];
+  drivers?: any[];
   metricsSnapshot: PredictionMetrics;
   timestamp: number;
 }

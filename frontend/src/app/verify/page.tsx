@@ -8,6 +8,7 @@ import {
   IconShieldCheck,
   IconSparkles,
 } from "@tabler/icons-react";
+import { BeeIcon } from "@/components/ui/BeeIcon";
 
 export default function VerifyPage() {
   const router = useRouter();
@@ -28,8 +29,8 @@ export default function VerifyPage() {
       <div className="mx-auto max-w-3xl">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-honey/10 text-honey">
-            <IconShieldCheck size={30} stroke={1.7} />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-honey/10 text-honey ring-1 ring-honey/25">
+            <BeeIcon size={34} badge />
           </div>
 
           <p className="mt-6 text-sm font-medium text-honey">
@@ -83,7 +84,7 @@ export default function VerifyPage() {
               <button
                 type="submit"
                 disabled={!batchId.trim()}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-honey px-5 py-3 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-honey px-5 py-3 text-sm font-semibold text-white transition hover:brightness-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Verify
                 <IconArrowRight size={17} />

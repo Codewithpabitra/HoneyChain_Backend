@@ -1,18 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   IconArrowLeft,
   IconCheck,
   IconClipboardCheck,
   IconLoader2,
+  IconFileDescription,
+  IconUpload,
+  IconTrash,
 } from "@tabler/icons-react";
 
 import { qualityService } from "@/services/quality.service";
+import { batchService } from "@/services/batch.service";
 import type { CreateQualityPayload } from "@/types/quality";
-import type { QualityGrade } from "@/types/batch";
+import type { BatchItem, QualityGrade } from "@/types/batch";
 
 const GRADES: {
   value: QualityGrade;
@@ -41,23 +45,82 @@ const GRADES: {
   },
 ];
 
-export default function NewQualityTestPage() {
-  const router = useRouter();
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
+  });
+}
 
-  const [batchId, setBatchId] = useState("");
+function NewQualityTestForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const paramBatchId = searchParams.get("batchId") || "";
+
+  const [batchId, setBatchId] = useState(paramBatchId);
+  const [availableBatches, setAvailableBatches] = useState<BatchItem[]>([]);
+  const [loadingBatches, setLoadingBatches] = useState(true);
+
   const [grade, setGrade] = useState<QualityGrade>("GradeA");
   const [moisturePercentage, setMoisturePercentage] = useState("");
   const [labReportHash, setLabReportHash] = useState("");
   const [reportNotes, setReportNotes] = useState("");
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
+  const [submittingStatus, setSubmittingStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadBatches() {
+      try {
+        const res = await batchService.getAll({ limit: 50 });
+        if (isMounted) {
+          // Filter to batches that are registered or created and not yet certified
+          const uncertified = res.data.filter((b) => b.status !== "Certified");
+          setAvailableBatches(uncertified.length > 0 ? uncertified : res.data);
+        }
+      } catch (err) {
+        console.error("Failed to load batches for testing", err);
+      } finally {
+        if (isMounted) setLoadingBatches(false);
+      }
+    }
+    loadBatches();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setFileError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setFileError("Only PDF files are supported for laboratory certificates.");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setFileError("Certificate file size must be under 10MB.");
+      return;
+    }
+
+    setSelectedFile(file);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setError(null);
+    setFileError(null);
 
     const trimmedBatchId = batchId.trim();
     const moisture = Number(moisturePercentage);
@@ -76,35 +139,57 @@ export default function NewQualityTestPage() {
       return;
     }
 
-    const payload: CreateQualityPayload = {
-      grade,
-      moisturePercentage: moisture,
-      ...(labReportHash.trim()
-        ? { labReportHash: labReportHash.trim() }
-        : {}),
-      ...(reportNotes.trim()
-        ? {
-            labReportData: {
-              notes: reportNotes.trim(),
-            },
-          }
-        : {}),
-    };
-
     try {
       setSubmitting(true);
+      let computedHash = labReportHash.trim();
+      let certUrl: string | undefined = undefined;
+
+      // 1. If a PDF certificate is attached, upload it first to obtain its SHA-256 hash
+      if (selectedFile) {
+        setSubmittingStatus("Uploading laboratory certificate PDF...");
+        const base64Data = await readFileAsBase64(selectedFile);
+        const certRes = await batchService.uploadCertificate(trimmedBatchId, {
+          fileName: selectedFile.name,
+          fileData: base64Data,
+        });
+
+        if (certRes.labReportHash) {
+          computedHash = certRes.labReportHash;
+        }
+        if (certRes.labReportUrl) {
+          certUrl = certRes.labReportUrl;
+        }
+      }
+
+      setSubmittingStatus("Registering quality certification on ledger...");
+
+      const payload: CreateQualityPayload = {
+        grade,
+        moisturePercentage: moisture,
+        ...(computedHash ? { labReportHash: computedHash } : {}),
+        ...((reportNotes.trim() || certUrl)
+          ? {
+              labReportData: {
+                ...(reportNotes.trim() ? { notes: reportNotes.trim() } : {}),
+                ...(certUrl ? { certificateUrl: certUrl } : {}),
+              },
+            }
+          : {}),
+      };
 
       await qualityService.create(trimmedBatchId, payload);
 
       setSuccess(true);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to submit the quality certification.",
-      );
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { error?: { message?: string }; message?: string } } })
+          ?.response?.data?.error?.message ??
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err instanceof Error ? err.message : "Unable to submit the quality certification.");
+      setError(msg);
     } finally {
       setSubmitting(false);
+      setSubmittingStatus("");
     }
   }
 
@@ -179,8 +264,7 @@ export default function NewQualityTestPage() {
             </h1>
 
             <p className="mt-2 text-sm text-black/50 dark:text-white/50">
-              Record the laboratory quality assessment for a registered honey
-              batch.
+              Record the laboratory quality assessment and upload supporting assay certificates for a honey batch.
             </p>
           </div>
         </div>
@@ -192,17 +276,42 @@ export default function NewQualityTestPage() {
           <div className="mb-5">
             <h2 className="font-semibold">Batch Information</h2>
             <p className="mt-1 text-xs text-black/40 dark:text-white/40">
-              Enter the ID of the registered honey batch.
+              Select an existing registered batch or enter its ID manually.
             </p>
           </div>
 
+          {availableBatches.length > 0 && (
+            <div className="mb-4">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium">
+                  Select Pending Batch
+                </span>
+                <select
+                  value={availableBatches.some((b) => b.batchId === batchId) ? batchId : ""}
+                  onChange={(e) => {
+                    if (e.target.value) setBatchId(e.target.value);
+                  }}
+                  className="w-full rounded-xl border border-black/10 bg-paper px-4 py-3 text-sm text-black outline-none transition focus:border-honey dark:border-white/10 dark:bg-paper-dark dark:text-white"
+                >
+                  <option value="">-- Choose from available batches --</option>
+                  {availableBatches.map((b) => (
+                    <option key={b.batchId} value={b.batchId}>
+                      {b.batchId} - {b.floralOrigin} ({(b.quantityKg ?? (b.quantityGrams / 1000)).toFixed(1)} kg) [{b.status}]
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+
           <label className="block">
             <span className="mb-2 block text-sm font-medium">
-              Batch ID
+              Batch ID <span className="text-red-500">*</span>
             </span>
 
             <input
               type="text"
+              required
               value={batchId}
               onChange={(event) => setBatchId(event.target.value)}
               placeholder="e.g. HC-2026-0001"
@@ -258,7 +367,7 @@ export default function NewQualityTestPage() {
           <div className="mt-6">
             <label className="block">
               <span className="mb-2 block text-sm font-medium">
-                Moisture Percentage
+                Moisture Percentage <span className="text-red-500">*</span>
               </span>
 
               <div className="relative">
@@ -267,6 +376,7 @@ export default function NewQualityTestPage() {
                   min="0.01"
                   max="100"
                   step="0.01"
+                  required
                   value={moisturePercentage}
                   onChange={(event) =>
                     setMoisturePercentage(event.target.value)
@@ -281,18 +391,72 @@ export default function NewQualityTestPage() {
               </div>
 
               <p className="mt-2 text-xs text-black/40 dark:text-white/40">
-                Must be greater than 0 and at most 100.
+                Standard honey moisture is normally below 20.0% (Codex Alimentarius compliant).
               </p>
             </label>
           </div>
         </section>
 
-        {/* Report */}
+        {/* Certificate PDF Upload */}
         <section className="rounded-2xl border border-black/10 bg-white/60 p-6 dark:border-white/10 dark:bg-white/3">
           <div className="mb-5">
-            <h2 className="font-semibold">Laboratory Report</h2>
+            <h2 className="font-semibold">Laboratory Certificate Document</h2>
             <p className="mt-1 text-xs text-black/40 dark:text-white/40">
-              Optional information associated with the laboratory report.
+              Upload the signed lab analysis report (PDF format, up to 10MB).
+            </p>
+          </div>
+
+          {!selectedFile ? (
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-black/15 p-6 transition hover:border-honey/60 hover:bg-honey/5 dark:border-white/15 dark:hover:border-honey/60">
+              <IconUpload size={28} className="text-black/40 dark:text-white/40" />
+              <span className="mt-2 text-sm font-medium text-black/70 dark:text-white/70">
+                Click or drop PDF certificate here
+              </span>
+              <span className="mt-1 text-xs text-black/40 dark:text-white/40">
+                PDF files only, up to 10MB
+              </span>
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+          ) : (
+            <div className="flex items-center justify-between rounded-xl border border-honey/30 bg-honey/5 p-4">
+              <div className="flex items-center gap-3">
+                <IconFileDescription size={28} className="text-honey" />
+                <div>
+                  <p className="text-sm font-medium text-black dark:text-white">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-xs text-black/50 dark:text-white/50">
+                    {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • PDF Document
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedFile(null)}
+                className="rounded-lg p-2 text-black/50 transition hover:bg-black/5 hover:text-red-500 dark:text-white/50 dark:hover:bg-white/5"
+                aria-label="Remove certificate"
+              >
+                <IconTrash size={18} />
+              </button>
+            </div>
+          )}
+
+          {fileError && (
+            <p className="mt-2 text-xs text-red-500">{fileError}</p>
+          )}
+        </section>
+
+        {/* Report Details */}
+        <section className="rounded-2xl border border-black/10 bg-white/60 p-6 dark:border-white/10 dark:bg-white/3">
+          <div className="mb-5">
+            <h2 className="font-semibold">Additional Details</h2>
+            <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+              Optional report hash and laboratory notes.
             </p>
           </div>
 
@@ -301,7 +465,7 @@ export default function NewQualityTestPage() {
               <span className="mb-2 block text-sm font-medium">
                 Report Hash
                 <span className="ml-2 text-xs font-normal text-black/40 dark:text-white/40">
-                  Optional
+                  (Auto-computed if PDF attached)
                 </span>
               </span>
 
@@ -309,14 +473,14 @@ export default function NewQualityTestPage() {
                 type="text"
                 value={labReportHash}
                 onChange={(event) => setLabReportHash(event.target.value)}
-                placeholder="Enter report hash"
+                placeholder="0x... or sha256 hash"
                 className="w-full rounded-xl border border-black/10 bg-transparent px-4 py-3 font-mono text-sm outline-none transition placeholder:font-sans placeholder:text-black/30 focus:border-honey dark:border-white/10 dark:placeholder:text-white/25"
               />
             </label>
 
             <label className="block">
               <span className="mb-2 block text-sm font-medium">
-                Notes
+                Inspection Notes
                 <span className="ml-2 text-xs font-normal text-black/40 dark:text-white/40">
                   Optional
                 </span>
@@ -326,7 +490,7 @@ export default function NewQualityTestPage() {
                 value={reportNotes}
                 onChange={(event) => setReportNotes(event.target.value)}
                 rows={4}
-                placeholder="Add laboratory observations or notes..."
+                placeholder="Add sensory, pollen analysis, or sucrose ratio observations..."
                 className="w-full resize-none rounded-xl border border-black/10 bg-transparent px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-honey dark:border-white/10 dark:placeholder:text-white/25"
               />
             </label>
@@ -357,7 +521,7 @@ export default function NewQualityTestPage() {
             {submitting ? (
               <>
                 <IconLoader2 size={18} className="animate-spin" />
-                Submitting...
+                <span>{submittingStatus || "Submitting..."}</span>
               </>
             ) : (
               <>
@@ -369,5 +533,19 @@ export default function NewQualityTestPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function NewQualityTestPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[400px] items-center justify-center">
+          <IconLoader2 size={32} className="animate-spin text-honey" />
+        </div>
+      }
+    >
+      <NewQualityTestForm />
+    </Suspense>
   );
 }

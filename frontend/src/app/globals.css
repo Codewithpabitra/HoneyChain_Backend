@@ -56,6 +56,46 @@
     outline: 2px solid var(--color-honey);
     outline-offset: 2px;
   }
+
+  /* Universal Interactive Element Cursors */
+  button,
+  [role="button"],
+  select,
+  summary,
+  a[href],
+  input[type="submit"],
+  input[type="button"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  label[for] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [disabled],
+  [role="button"][aria-disabled="true"],
+  select:disabled,
+  input:disabled,
+  a[aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
+/* Ensure buttons always show pointer cursor unless disabled */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+select:not(:disabled),
+input[type="submit"]:not(:disabled),
+input[type="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"],
+select:disabled,
+input:disabled {
+  cursor: not-allowed !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

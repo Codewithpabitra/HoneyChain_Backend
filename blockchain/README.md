@@ -4,16 +4,16 @@ This directory contains the smart contracts, testing suites, and deployment scri
 
 ## Network Target
 
-- **Network**: Polygon Amoy Testnet
-- **Chain ID**: 80002
-- **Currency Symbol**: POL
-- **Explorer**: [Polygonscan Amoy](https://amoy.polygonscan.com/)
-- **Default Public RPC**: `https://rpc-amoy.polygon.technology/`
+- **Network**: Ethereum Sepolia Testnet
+- **Chain ID**: 11155111
+- **Currency Symbol**: Sepolia ETH
+- **Explorer**: [Sepolia Etherscan](https://sepolia.etherscan.io/)
+- **Default Public RPC**: `https://ethereum-sepolia-rpc.publicnode.com`
 
 ## Role-Based Access Control
 
-The upcoming registry contract (`HoneyChainRegistry.sol`) enforces strict multi-role authorization:
-- `ADMIN`: Contract administrator, manages authorized role addresses.
+The registry contract (`HoneyChainRegistry.sol`) enforces strict multi-role authorization:
+- `ADMIN`: Contract administrator, manages authorized role addresses and emergency recalls.
 - `BEEKEEPER`: Registers new honey harvest batches with hive and off-chain metadata hashes.
 - `LABORATORY`: Certifies batches with lab analysis parameters and quality assurance hashes.
 - `PROCESSOR`: Records processing, bottling, and packaging custody stages.
@@ -24,13 +24,27 @@ The upcoming registry contract (`HoneyChainRegistry.sol`) enforces strict multi-
 
 ```text
 blockchain/
-├── contracts/          # Solidity smart contracts (HoneyChainRegistry.sol - Phase 1)
-├── scripts/            # Deployment and operational scripts
+├── contracts/          # Solidity smart contracts (HoneyChainRegistry.sol)
+├── scripts/            # Deployment and operational scripts (deploy.cjs, assignRoles.cjs)
 ├── test/               # Unit and integration tests (Hardhat / Mocha / Chai)
 ├── deployments/        # Deployed contract artifacts (ABIs, addresses, tx hashes)
-│   └── amoy/
+│   └── sepolia/
 ├── .env.example        # Environment variable template
 └── README.md           # This document
 ```
 
-> **Note**: In Phase 0, the blockchain folder is initialized as a structural foundation. Smart contract code, Hardhat toolchain configuration, and deployment scripts will be implemented in subsequent phases.
+## Commands
+
+```bash
+# Compile contracts
+npm run compile
+
+# Run local Hardhat test suite
+npm test
+
+# Deploy to Ethereum Sepolia (requires funded wallet and SEPOLIA_RPC_URL)
+npm run deploy:sepolia
+
+# Assign initial roles on Ethereum Sepolia
+npm run roles:sepolia
+```

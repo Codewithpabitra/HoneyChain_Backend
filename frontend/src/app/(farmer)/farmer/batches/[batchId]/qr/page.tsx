@@ -277,7 +277,7 @@ export default function FarmerBatchDetailsPage() {
             />
             <Metric
               label="Certified By"
-              value={batch.quality.certifiedBy}
+              value={batch.quality.certifiedBy || "Accredited Laboratory"}
             />
           </div>
         </section>
