@@ -19,6 +19,7 @@ import { BeeIcon } from "@/components/ui/BeeIcon";
 import TraceabilityTimeline from "@/components/traceability/TraceabilityTimeline";
 import { formatAddressOrOrg, shortenAddress } from "@/lib/organizations";
 import { verificationService } from "@/services/verification.service";
+import { resolveLabReportUrl } from "@/lib/utils";
 import type {
   BatchVerification,
   QualityGrade,
@@ -370,18 +371,7 @@ export default function VerifyBatchPage() {
                   )}
 
                   {quality.labReportUrl && (() => {
-                    const apiBase =
-                      process.env.NEXT_PUBLIC_API_URL ||
-                      "https://honeychain-backend-trag.onrender.com";
-                    let labReportLink = quality.labReportUrl;
-                    if (
-                      labReportLink.includes("res.cloudinary.com") ||
-                      labReportLink.includes("raw/upload")
-                    ) {
-                      labReportLink = `${apiBase.replace(/\/+$/, "")}/api/batches/${encodeURIComponent(verification.batchId)}/certificate`;
-                    } else if (!labReportLink.startsWith("http")) {
-                      labReportLink = `${apiBase.replace(/\/+$/, "")}${labReportLink.startsWith("/") ? "" : "/"}${labReportLink}`;
-                    }
+                    const labReportLink = resolveLabReportUrl(quality.labReportUrl, verification.batchId);
 
                     return (
                       <div className="mt-5 flex flex-col gap-3 border-t border-black/10 pt-5 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
@@ -463,18 +453,7 @@ export default function VerifyBatchPage() {
                   </div>
 
                   {quality.labReportUrl && (() => {
-                    const apiBase =
-                      process.env.NEXT_PUBLIC_API_URL ||
-                      "https://honeychain-backend-trag.onrender.com";
-                    let labReportLink = quality.labReportUrl;
-                    if (
-                      labReportLink.includes("res.cloudinary.com") ||
-                      labReportLink.includes("raw/upload")
-                    ) {
-                      labReportLink = `${apiBase.replace(/\/+$/, "")}/api/batches/${encodeURIComponent(verification.batchId)}/certificate`;
-                    } else if (!labReportLink.startsWith("http")) {
-                      labReportLink = `${apiBase.replace(/\/+$/, "")}${labReportLink.startsWith("/") ? "" : "/"}${labReportLink}`;
-                    }
+                    const labReportLink = resolveLabReportUrl(quality.labReportUrl, verification.batchId);
 
                     return (
                       <div className="mt-6 flex flex-col gap-3 border-t border-black/10 pt-5 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">

@@ -16,6 +16,7 @@ import {
 
 import { batchService } from "@/services/batch.service";
 import type { BatchItem } from "@/types/batch";
+import { resolveLabReportUrl } from "@/lib/utils";
 
 export default function LabTestsPage() {
   const [batches, setBatches] = useState<BatchItem[]>([]);
@@ -314,7 +315,7 @@ export default function LabTestsPage() {
                       <td className="px-5 py-4">
                         {reportUrl ? (
                           <a
-                            href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}${reportUrl}`}
+                            href={resolveLabReportUrl(reportUrl, batch.batchId)}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-1 font-mono text-xs font-medium text-honey hover:underline"

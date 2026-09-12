@@ -21,7 +21,7 @@ export default function DashboardShell({
       <div className="flex min-h-screen">
         <Sidebar role={role} />
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
           <MobileNav role={role} />
 
           <Topbar />

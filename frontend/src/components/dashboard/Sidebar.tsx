@@ -78,10 +78,10 @@ export default function Sidebar({ role }: SidebarProps) {
   };
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col justify-between overflow-y-auto border-r border-black/10 bg-white/60 p-5 backdrop-blur-xl dark:border-white/10 dark:bg-white/3 lg:flex">
-      <div>
+    <aside className="fixed inset-y-0 left-0 z-30 hidden h-screen w-64 shrink-0 flex-col justify-between border-r border-black/10 bg-white/70 p-5 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/80 lg:flex">
+      <div className="flex flex-col min-h-0 flex-1 overflow-y-auto no-scrollbar">
         {/* Logo */}
-        <div className="mb-8">
+        <div className="mb-8 shrink-0">
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-honey/10 text-honey ring-1 ring-honey/20 transition-transform group-hover:scale-105">
               <BeeIcon size={22} badge />
@@ -143,7 +143,7 @@ export default function Sidebar({ role }: SidebarProps) {
       </div>
 
       {/* Logout */}
-      <div className="pt-4 border-t border-black/10 dark:border-white/10">
+      <div className="shrink-0 pt-4 border-t border-black/10 dark:border-white/10">
         <button
           type="button"
           onClick={logout}

@@ -24,6 +24,7 @@ import type { DashboardStats } from "@/types/analytics";
 import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import { StaggerContainer, StaggerItem, LivePulse } from "@/components/ui/MotionComponents";
 import { clearApiCache } from "@/lib/apiCache";
+import { resolveLabReportUrl } from "@/lib/utils";
 
 export default function LabDashboardPage() {
   const { user } = useAuth();
@@ -502,7 +503,7 @@ export default function LabDashboardPage() {
                         <td className="px-5 py-4">
                           {batch.quality?.labReportUrl ? (
                             <a
-                              href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}${batch.quality.labReportUrl}`}
+                              href={resolveLabReportUrl(batch.quality.labReportUrl, batch.batchId)}
                               target="_blank"
                               rel="noreferrer"
                               className="inline-flex items-center gap-1 text-xs font-semibold text-honey hover:underline"
