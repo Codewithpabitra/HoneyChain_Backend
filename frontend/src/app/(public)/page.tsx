@@ -10,7 +10,7 @@ import FlightBeeDecor from "@/components/landing/FlightBeeDecor";
 export default function LandingPage() {
   return (
     <>
-      <FlightBeeDecor
+      {/* <FlightBeeDecor
         side="left"
         top="4%"
         src="/images/landing/flight-bee-left.png"
@@ -19,7 +19,7 @@ export default function LandingPage() {
         side="right"
         top="8%"
         src="/images/landing/flight-bee-right.png"
-      />
+      /> */}
       <ScrollBee />
       <Header />
       <main>

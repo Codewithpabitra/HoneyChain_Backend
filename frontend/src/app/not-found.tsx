@@ -19,6 +19,8 @@ export default function NotFound() {
           src="/images/landing/hero-image.png"
           alt=""
           fill
+          priority
+          sizes="36px"
           className="object-contain"
         />
       </motion.div>

@@ -10,16 +10,37 @@ const roles = [
     image: "/images/landing/role-beekeeper.png",
     title: "Beekeeper",
     body: "Register hives, track AI health alerts, log harvests.",
+    href: "/login",
   },
   {
     image: "/images/landing/role-lab.png",
     title: "Laboratory",
     body: "Certify quality and grade — on-chain, permanently.",
+    href: "/login",
   },
   {
     image: "/images/landing/role-processor.png",
     title: "Processor",
     body: "Receive custody, move honey toward market.",
+    href: "/login",
+  },
+  {
+    image: "/images/landing/role-transporter.png",
+    title: "Transporter",
+    body: "Move batches between facilities, each leg signed on-chain.",
+    href: "/login",
+  },
+  {
+    image: "/images/landing/role-auditor.png",
+    title: "Auditor / KVIC",
+    body: "Monitor clusters, recall compromised batches when needed.",
+    href: "/login",
+  },
+  {
+    image: "/images/landing/role-consumer.png",
+    title: "Consumer",
+    body: "Scan the jar. See the whole story. No account needed.",
+    href: "/verify",
   },
 ];
 
@@ -32,14 +53,19 @@ export default function ExploreRoles() {
         </h2>
       </ScrollReveal>
 
-      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {roles.map((r, i) => (
           <ScrollReveal
             key={r.title}
-            exitDirection={i === 0 ? "left" : i === 2 ? "right" : "none"}
+            from={
+              i % 3 === 0 ? "bottom-left" : i % 3 === 2 ? "bottom-right" : "bottom"
+            }
+            exitDirection={
+              i % 3 === 0 ? "left" : i % 3 === 2 ? "right" : "none"
+            }
           >
             <Link
-              href="/login"
+              href={r.href}
               className="group block rounded-2xl overflow-hidden bg-ink/3 dark:bg-ink-dark/5 hover:-translate-y-1 transition-transform duration-300"
             >
               <div className="relative w-full aspect-4/3">

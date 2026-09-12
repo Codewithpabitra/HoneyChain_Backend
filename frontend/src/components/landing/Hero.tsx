@@ -96,7 +96,7 @@ export default function Hero() {
         className="pointer-events-none absolute left-[30%] top-24 h-80 w-80 rounded-full bg-honey/10 blur-3xl"
       />
 
-      <div className="relative mx-auto  max-w-7xl flex items-center">
+      <div className="relative mx-auto  max-w-7xl flex flex-col md:flex-row items-center">
         {/* =====================================================
             LEFT — HERO IMAGE
         ===================================================== */}
@@ -108,7 +108,7 @@ export default function Hero() {
             delay: 0.15,
             ease: [0.22, 1, 0.36, 1],
           }}
-          className="relative mx-auto h-64 w-64 shrink-0 md:mx-0 md:h-72 md:w-72 lg:h-80 lg:w-80"
+          className="relative mx-auto hidden lg:block sm:h-64 sm:w-64 shrink-0 md:mx-0 md:h-72 md:w-72 lg:h-80 lg:w-80"
         >
           {/* Image glow */}
           <div

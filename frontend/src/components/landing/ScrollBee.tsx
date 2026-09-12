@@ -15,27 +15,31 @@ export default function ScrollBee() {
   const left = useTransform(
     smoothProgress,
     [0, 0.14, 0.28, 0.44, 0.6, 0.76, 0.9, 1],
-    ["72%", "80%", "12%", "78%", "14%", "76%", "50%", "50%"]
+    ["72%", "80%", "12%", "78%", "14%", "76%", "50%", "50%"],
   );
 
   const top = useTransform(
     smoothProgress,
     [0, 0.14, 0.28, 0.44, 0.6, 0.76, 0.9, 1],
-    ["22%", "34%", "44%", "56%", "66%", "78%", "88%", "92%"]
+    ["22%", "34%", "44%", "56%", "66%", "78%", "88%", "92%"],
   );
 
   const rotate = useTransform(
     smoothProgress,
     [0, 0.14, 0.28, 0.44, 0.6, 0.76, 0.9, 1],
-    [-6, 10, -10, 10, -10, 10, -4, 0]
+    [-6, 10, -10, 10, -10, 10, -4, 0],
   );
 
-  const scale = useTransform(smoothProgress, [0, 0.05, 0.95, 1], [1, 1, 0.75, 0.75]);
+  const scale = useTransform(
+    smoothProgress,
+    [0, 0.05, 0.95, 1],
+    [1, 1, 0.75, 0.75],
+  );
 
   return (
     <motion.div
       aria-hidden
-      className="fixed z-40 pointer-events-none select-none w-20 h-20 md:w-50 md:h-50"
+      className="fixed z-40 pointer-events-none select-none w-20 h-20 sm:w-30 sm:h-30 md:w-50 md:h-50"
       style={{ left, top, rotate, scale }}
     >
       <motion.div
@@ -47,6 +51,8 @@ export default function ScrollBee() {
           src="/images/landing/hero-bee.png"
           alt=""
           fill
+          priority
+          sizes="(min-width: 768px) 200px, (min-width: 640px) 120px, 80px"
           className="object-contain"
         />
       </motion.div>

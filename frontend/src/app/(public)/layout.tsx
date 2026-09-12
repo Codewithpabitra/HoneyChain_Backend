@@ -4,8 +4,8 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-honey">
-      <div className="px-3 sm:px-6 md:px-10 lg:px-14 bg-paper dark:bg-paper-dark min-h-screen">
+    <div className="bg-honey overflow-x-hidden">
+      <div className="mx-2 sm:mx-4 md:mx-6 lg:mx-8 bg-paper dark:bg-paper-dark min-h-screen overflow-x-hidden">
         {children}
       </div>
     </div>
