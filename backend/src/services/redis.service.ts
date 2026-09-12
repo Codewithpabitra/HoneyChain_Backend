@@ -76,33 +76,83 @@ export class RedisService {
   }
 
   /**
-   * Stores a valid telemetry reading in a rolling list, keeping only the latest N readings.
+   * Helper to check if an existing buffered reading matches a candidate reading.
+   * Matches by unique reading ID or by deviceId + exact timestamp.
    */
-  public async addRecentReading(hiveId: string, reading: any): Promise<void> {
-    const serialized = JSON.stringify(reading);
+  public isMatchingReading(existing: any, candidate: any): boolean {
+    if (!existing || !candidate) return false;
+
+    // Check unique ID / readingId match
+    const existingId = existing.id || existing.readingId;
+    const candidateId = candidate.id || candidate.readingId;
+    if (existingId && candidateId && String(existingId) === String(candidateId)) {
+      return true;
+    }
+
+    // Check deviceId and timestamp match
+    if (existing.deviceId && candidate.deviceId && existing.deviceId === candidate.deviceId) {
+      const existingTime = existing.timestamp ? new Date(existing.timestamp).getTime() : NaN;
+      const candidateTime = candidate.timestamp ? new Date(candidate.timestamp).getTime() : NaN;
+      if (!isNaN(existingTime) && !isNaN(candidateTime) && existingTime === candidateTime) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Stores a valid telemetry reading in a rolling list, keeping only the latest N readings.
+   * Rejects duplicate readings that have identical unique reading IDs or deviceId + timestamp.
+   * Returns true if the reading was added, or false if it was rejected as a duplicate.
+   */
+  public async addRecentReading(hiveId: string, reading: any): Promise<boolean> {
+    const cleanHiveId = hiveId.trim();
 
     // 1. Try writing to Redis
     if (this.client && this.isConnected) {
       try {
-        const key = this.getHiveKey(hiveId);
+        const key = this.getHiveKey(cleanHiveId);
+
+        // Deduplication check in Redis buffer
+        const existingItems = await this.client.lrange(key, 0, this.recentLimit - 1);
+        if (existingItems && existingItems.length > 0) {
+          for (const raw of existingItems) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (this.isMatchingReading(parsed, reading)) {
+                return false; // Duplicate found, skip LPUSH
+              }
+            } catch {
+              // ignore json parse error
+            }
+          }
+        }
+
+        const serialized = JSON.stringify(reading);
         const pipeline = this.client.pipeline();
         pipeline.lpush(key, serialized);
         pipeline.ltrim(key, 0, this.recentLimit - 1);
         pipeline.expire(key, 60 * 60 * 24 * 7); // 7 days TTL
         await pipeline.exec();
-        return;
+        return true;
       } catch (err: any) {
         console.warn(`[RedisService] Failed to write to Redis: ${err.message}. Using in-memory store.`);
       }
     }
 
     // 2. Fallback in-memory rolling list
-    const current = this.fallbackStore.get(hiveId) || [];
+    const current = this.fallbackStore.get(cleanHiveId) || [];
+    if (current.some((item) => this.isMatchingReading(item, reading))) {
+      return false; // Duplicate found in memory buffer
+    }
+
     current.unshift(reading);
     if (current.length > this.recentLimit) {
       current.length = this.recentLimit;
     }
-    this.fallbackStore.set(hiveId, current);
+    this.fallbackStore.set(cleanHiveId, current);
+    return true;
   }
 
   /**
@@ -133,10 +183,27 @@ export class RedisService {
    * Clears recent readings for a hive (useful for testing).
    */
   public async clearRecentReadings(hiveId: string): Promise<void> {
-    this.fallbackStore.delete(hiveId);
+    this.fallbackStore.delete(hiveId.trim());
     if (this.client && this.isConnected) {
       try {
-        await this.client.del(this.getHiveKey(hiveId));
+        await this.client.del(this.getHiveKey(hiveId.trim()));
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  /**
+   * Clears all recent readings across all hives (useful for test suite isolation).
+   */
+  public async clearAll(): Promise<void> {
+    this.fallbackStore.clear();
+    if (this.client && this.isConnected) {
+      try {
+        const keys = await this.client.keys("hive:*:telemetry:recent");
+        if (keys.length > 0) {
+          await this.client.del(...keys);
+        }
       } catch {
         // ignore
       }

@@ -144,6 +144,46 @@ describe("HoneyChain Live Telemetry: Redis Buffer & Socket.IO Test Suite", funct
       expect(readings[0].index).to.equal(6);
       expect(readings[readings.length - 1].index).to.equal(15);
     });
+
+    it("should reject duplicate readings by unique reading ID", async function () {
+      const reading = {
+        id: "read-ESP32-DUP-01",
+        deviceId: "ESP32-DUP-01",
+        temperature: 34.5,
+        timestamp: "2026-09-12T10:00:00.000Z",
+      };
+
+      const addedFirst = await redisService.addRecentReading(hiveId, reading);
+      expect(addedFirst).to.be.true;
+
+      const addedSecond = await redisService.addRecentReading(hiveId, reading);
+      expect(addedSecond).to.be.false;
+
+      const readings = await redisService.getRecentReadings(hiveId);
+      expect(readings.length).to.equal(1);
+    });
+
+    it("should reject duplicate readings by matching deviceId and exact timestamp", async function () {
+      const reading1 = {
+        deviceId: "ESP32-DUP-02",
+        temperature: 34.8,
+        timestamp: "2026-09-12T10:05:00.000Z",
+      };
+      const reading2 = {
+        deviceId: "ESP32-DUP-02",
+        temperature: 34.8, // Same sensor values sent 1s later but same recorded timestamp
+        timestamp: "2026-09-12T10:05:00.000Z",
+      };
+
+      const addedFirst = await redisService.addRecentReading(hiveId, reading1);
+      expect(addedFirst).to.be.true;
+
+      const addedSecond = await redisService.addRecentReading(hiveId, reading2);
+      expect(addedSecond).to.be.false;
+
+      const readings = await redisService.getRecentReadings(hiveId);
+      expect(readings.length).to.equal(1);
+    });
   });
 
   describe("2. Socket.IO Authentication & Room Subscription", function () {
@@ -324,6 +364,35 @@ describe("HoneyChain Live Telemetry: Redis Buffer & Socket.IO Test Suite", funct
       expect(res.body.success).to.be.true;
       expect(res.body.source).to.equal("mongodb-fallback");
       expect(res.body.count).to.be.at.least(1);
+    });
+
+    it("should prevent duplicate telemetry ingestion into Redis buffer for unpersisted high-frequency readings", async function () {
+      await redisService.clearRecentReadings(testHive.hiveId);
+
+      const readingData = {
+        id: "read-LIVE-DEDUP-01",
+        deviceId: testHive.deviceMetadata.deviceId,
+        hiveId: testHive.hiveId,
+        timestamp: new Date().toISOString(),
+        temperature: 35.2,
+        humidity: 58.0,
+        weightKg: 28.5,
+        batteryLevelPct: 90,
+      };
+
+      // 1. First ingestion (persisted or high-frequency)
+      const res1 = await request(app).post("/api/iot/telemetry").send(readingData);
+      expect([200, 201]).to.include(res1.status);
+      expect(res1.body.success).to.be.true;
+
+      // 2. Exact duplicate retry
+      const res2 = await request(app).post("/api/iot/telemetry").send(readingData);
+      expect(res2.status).to.equal(200);
+      expect(res2.body.duplicate).to.be.true;
+
+      // 3. Verify Redis buffer has exactly 1 entry, not 2
+      const readings = await redisService.getRecentReadings(testHive.hiveId);
+      expect(readings.length).to.equal(1);
     });
   });
 });

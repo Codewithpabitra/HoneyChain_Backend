@@ -21,9 +21,10 @@ export class IoTController {
   /**
    * Resets the in-memory persistence cache (useful for automated test suite isolation).
    */
-  public clearPersistenceCache(): void {
+  public clearPersistenceCache = async (): Promise<void> => {
     this.lastPersistedMap.clear();
-  }
+    await redisService.clearAll().catch(() => {});
+  };
 
   /**
    * POST /api/iot/telemetry
@@ -38,6 +39,8 @@ export class IoTController {
   ) => {
     try {
       const {
+        id,
+        readingId,
         deviceId,
         hiveId,
         timestamp,
@@ -370,7 +373,10 @@ export class IoTController {
         ).catch(() => {});
       }
 
+      const uniqueReadingId = (id || readingId || "").trim() || `read-${cleanDeviceId}-${parsedTimestamp.getTime()}`;
+
       // 5. Idempotency Check: Prevent duplicate insertions on exact network retries
+      // 5a. Check MongoDB (persisted sampled readings)
       const existingReading = await SensorReading.findOne({
         deviceId: cleanDeviceId,
         timestamp: parsedTimestamp,
@@ -383,6 +389,26 @@ export class IoTController {
           duplicate: true,
           message: "Telemetry reading already ingested for this device and timestamp",
           data: existingReading,
+        });
+      }
+
+      // 5b. Check Redis recent buffer (high-frequency readings within sampling window)
+      const recentReadings = await redisService.getRecentReadings(cleanHiveId);
+      const isDuplicateInMemory = recentReadings.some((r) =>
+        redisService.isMatchingReading(r, {
+          id: uniqueReadingId,
+          readingId: uniqueReadingId,
+          deviceId: cleanDeviceId,
+          timestamp: parsedTimestamp,
+        })
+      );
+
+      if (isDuplicateInMemory) {
+        return res.status(200).json({
+          success: true,
+          persisted: false,
+          duplicate: true,
+          message: "Telemetry reading already ingested for this device and timestamp",
         });
       }
 
@@ -527,7 +553,8 @@ export class IoTController {
         await hive.save();
 
         const readingPayload = {
-          id: newReading._id,
+          id: String(newReading._id),
+          readingId: uniqueReadingId,
           hiveId: cleanHiveId,
           deviceId: cleanDeviceId,
           timestamp: parsedTimestamp,
@@ -545,8 +572,10 @@ export class IoTController {
         };
 
         // Emit live telemetry over Socket.IO and store in Redis rolling buffer
-        await redisService.addRecentReading(cleanHiveId, readingPayload);
-        socketService.emitHiveTelemetry(cleanHiveId, readingPayload);
+        const added = await redisService.addRecentReading(cleanHiveId, readingPayload);
+        if (added) {
+          socketService.emitHiveTelemetry(cleanHiveId, readingPayload);
+        }
 
         return res.status(201).json({
           success: true,
@@ -569,7 +598,8 @@ export class IoTController {
       await hive.save();
 
       const inMemoryProcessed = {
-        id: `mem-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        id: uniqueReadingId,
+        readingId: uniqueReadingId,
         hiveId: cleanHiveId,
         hive: hive._id,
         deviceId: cleanDeviceId,
@@ -592,8 +622,10 @@ export class IoTController {
       };
 
       // Emit live telemetry over Socket.IO and store in Redis rolling buffer
-      await redisService.addRecentReading(cleanHiveId, inMemoryProcessed);
-      socketService.emitHiveTelemetry(cleanHiveId, inMemoryProcessed);
+      const added = await redisService.addRecentReading(cleanHiveId, inMemoryProcessed);
+      if (added) {
+        socketService.emitHiveTelemetry(cleanHiveId, inMemoryProcessed);
+      }
 
       return res.status(200).json({
         success: true,
@@ -682,7 +714,8 @@ export class IoTController {
         await hive.save();
 
         const readingPayload = {
-          id: newReading._id,
+          id: String(newReading._id),
+          readingId: `read-${deviceId}-${now.getTime()}`,
           hiveId: hive.hiveId,
           deviceId,
           timestamp: now,
@@ -699,8 +732,10 @@ export class IoTController {
           ambientHumidity: newReading.ambientHumidity,
         };
 
-        await redisService.addRecentReading(hive.hiveId, readingPayload);
-        socketService.emitHiveTelemetry(hive.hiveId, readingPayload);
+        const added = await redisService.addRecentReading(hive.hiveId, readingPayload);
+        if (added) {
+          socketService.emitHiveTelemetry(hive.hiveId, readingPayload);
+        }
 
         results.push({
           hiveId: hive.hiveId,

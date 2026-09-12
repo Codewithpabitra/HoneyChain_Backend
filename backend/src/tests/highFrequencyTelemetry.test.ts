@@ -90,7 +90,7 @@ describe("HoneyChain High-Frequency IoT Telemetry & Twilio SMS Alert Test Suite"
     await SensorReading.deleteMany({});
     await ActiveAlertState.deleteMany({});
     await Hive.updateMany({}, { status: "active", "currentHealthSummary.status": "healthy" });
-    iotController.clearPersistenceCache();
+    await iotController.clearPersistenceCache();
     sentSmsList = [];
   });
 
