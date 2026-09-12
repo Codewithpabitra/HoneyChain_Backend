@@ -14,12 +14,15 @@ const api = axios.create({
     const bypassCache = Boolean(
       config.headers?.["x-cache-bypass"] ||
         config.headers?.["X-Cache-Bypass"] ||
-        config.headers?.["cache-control"] === "no-cache"
+        config.headers?.["cache-control"] === "no-cache" ||
+        config.url?.includes("/qr")
     );
 
     // Only cache GET requests unless cache is bypassed
     if (method === "get" && !bypassCache) {
-      const cacheKey = `${method}:${config.baseURL || ""}${config.url || ""}:${JSON.stringify(
+      const authHeader = config.headers?.Authorization || config.headers?.authorization;
+      const authKey = authHeader ? String(authHeader).slice(-24) : "anon";
+      const cacheKey = `${method}:${authKey}:${config.baseURL || ""}${config.url || ""}:${JSON.stringify(
         config.params || {}
       )}`;
 

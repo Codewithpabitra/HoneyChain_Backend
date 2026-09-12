@@ -371,11 +371,12 @@ describe("HoneyChain Authentication & Role Authorization Test Suite", function (
       const unauthRes = await request(app).get("/api/batches/HC-PUBLIC-QR-TEST/qr");
       expect(unauthRes.status).to.equal(401);
 
-      // 2. Non-processor (e.g. beekeeper) is rejected with 403
-      const nonProcRes = await request(app)
+      // 2. Stakeholders (e.g. beekeeper and processor) can generate QR with 200 OK
+      const beekeeperRes = await request(app)
         .get("/api/batches/HC-PUBLIC-QR-TEST/qr")
         .set("Authorization", `Bearer ${beekeeperToken}`);
-      expect(nonProcRes.status).to.equal(403);
+      expect(beekeeperRes.status).to.equal(200);
+      expect(beekeeperRes.body.success).to.be.true;
 
       // 3. Processor generates QR code with 200 OK
       const procRes = await request(app)

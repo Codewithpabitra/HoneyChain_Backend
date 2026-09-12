@@ -208,16 +208,17 @@ describe("HoneyChain Consumer QR Verification & Service Test Suite", function ()
       expect(res.body.error?.message || res.body.message).to.include("Authentication required");
     });
 
-    it("rejects unauthorized non-processor role (e.g. beekeeper) with 403 Forbidden", async function () {
+    it("allows Beekeeper role to generate batch QR code (200 OK)", async function () {
       await seedBatch();
 
       const res = await request(app)
         .get("/api/batches/HC-BATCH-QR-VALID/qr")
         .set("Authorization", `Bearer ${beekeeperToken}`)
-        .expect(403);
+        .expect(200);
 
-      expect(res.body).to.have.property("success", false);
-      expect(res.body.error?.message || res.body.message).to.include("not authorized");
+      expect(res.body).to.have.property("success", true);
+      expect(res.body).to.have.property("batchId", "HC-BATCH-QR-VALID");
+      expect(res.body).to.have.property("verificationUrl");
     });
 
     it("allows Processor role to generate packaging QR code (200 OK)", async function () {

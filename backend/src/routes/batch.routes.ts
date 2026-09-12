@@ -41,7 +41,23 @@ router.post(
   batchController.transferCustody
 );
 
-// 3b. Custodians deliver batch to final retail / distribution destination
+// 3a. Two-Step Custody Handshake: Propose Transfer
+router.post(
+  "/:batchId/custody/propose",
+  authenticate,
+  authorize("beekeeper", "lab", "processor", "distributor", "transporter", "admin"),
+  batchController.proposeCustodyTransfer
+);
+
+// 3b. Two-Step Custody Handshake: Accept Transfer
+router.post(
+  "/:batchId/custody/accept",
+  authenticate,
+  authorize("lab", "processor", "distributor", "transporter", "admin"),
+  batchController.acceptCustody
+);
+
+// 3c. Custodians deliver batch to final retail / distribution destination
 router.post(
   "/:batchId/deliver",
   authenticate,
@@ -49,7 +65,31 @@ router.post(
   batchController.deliverBatch
 );
 
-// 4. Auditor initiates emergency recall
+// 4. Stakeholder Auditor Review Request
+router.post(
+  "/:batchId/review-request",
+  authenticate,
+  authorize("beekeeper", "lab", "processor", "distributor", "transporter", "auditor", "admin"),
+  batchController.requestAuditorReview
+);
+
+// 4b. Auditor Clears Review Request
+router.post(
+  "/:batchId/review-request/:requestId/clear",
+  authenticate,
+  authorize("auditor", "admin"),
+  batchController.clearAuditorReview
+);
+
+// 4c. Auditor Formally Rejects and Recalls Batch
+router.post(
+  "/:batchId/reject",
+  authenticate,
+  authorize("auditor", "admin"),
+  batchController.rejectBatch
+);
+
+// 4d. Auditor emergency recall (backward-compatible)
 router.post(
   "/:batchId/recall",
   authenticate,
@@ -57,11 +97,11 @@ router.post(
   batchController.recallBatch
 );
 
-// Packaging QR code generation (PNG Data URL & SVG) - Processor Only
+// Packaging QR code generation (PNG Data URL & SVG) - Stakeholders
 router.get(
   "/:batchId/qr",
   authenticate,
-  authorize("processor"),
+  authorize("processor", "beekeeper", "admin", "auditor", "distributor"),
   batchController.getBatchQrCode
 );
 

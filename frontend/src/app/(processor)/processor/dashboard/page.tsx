@@ -57,7 +57,7 @@ export default function ProcessorDashboardPage() {
   const totalBatches = stats?.batches.total ?? recentBatches.length;
   const inTransit = stats?.batches.inTransit ?? 0;
   const certified = stats?.batches.tested ?? 0;
-  const created = stats?.batches.created ?? 0;
+  const delivered = stats?.batches.delivered ?? recentBatches.filter(b => b.status === "Delivered").length;
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -80,18 +80,10 @@ export default function ProcessorDashboardPage() {
       <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={<IconBox size={20} />}
-          label="Active Batches"
+          label="Total Handled Batches"
           numericValue={totalBatches}
           loading={loading}
           pulseColor="blue"
-        />
-
-        <StatCard
-          icon={<IconActivity size={20} />}
-          label="Awaiting Processing"
-          numericValue={created}
-          loading={loading}
-          pulseColor={created > 0 ? "amber" : undefined}
         />
 
         <StatCard
@@ -99,7 +91,7 @@ export default function ProcessorDashboardPage() {
           label="Certified & Ready"
           numericValue={certified}
           loading={loading}
-          pulseColor="emerald"
+          pulseColor={certified > 0 ? "emerald" : undefined}
         />
 
         <StatCard
@@ -107,6 +99,14 @@ export default function ProcessorDashboardPage() {
           label="In Transit"
           numericValue={inTransit}
           loading={loading}
+        />
+
+        <StatCard
+          icon={<IconShieldCheck size={20} />}
+          label="Processed & Delivered"
+          numericValue={delivered}
+          loading={loading}
+          pulseColor={delivered > 0 ? "emerald" : undefined}
         />
       </StaggerContainer>
 

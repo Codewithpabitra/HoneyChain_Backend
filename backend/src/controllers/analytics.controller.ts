@@ -105,6 +105,16 @@ export class AnalyticsController {
           batchOr.push({ creatorAddress: { $regex: new RegExp(`^${addrLower}$`, "i") } });
           batchOr.push({ currentCustodian: { $regex: new RegExp(`^${addrLower}$`, "i") } });
           batchOr.push({ currentOwner: { $regex: new RegExp(`^${addrLower}$`, "i") } });
+          batchOr.push({ processor: { $regex: new RegExp(`^${addrLower}$`, "i") } });
+          batchOr.push({ laboratory: { $regex: new RegExp(`^${addrLower}$`, "i") } });
+          batchOr.push({ distributor: { $regex: new RegExp(`^${addrLower}$`, "i") } });
+          batchOr.push({ "pendingTransfer.recipient": { $regex: new RegExp(`^${addrLower}$`, "i") } });
+          batchOr.push({ "custodyHistory.to": { $regex: new RegExp(`^${addrLower}$`, "i") } });
+          batchOr.push({ "custodyHistory.from": { $regex: new RegExp(`^${addrLower}$`, "i") } });
+        }
+        if (role === "processor") {
+          batchOr.push({ status: "Certified" });
+          batchOr.push({ status: "InTransit" });
         }
         if (user?._id) batchOr.push({ createdBy: user._id });
         if (batchOr.length > 0) {
@@ -119,7 +129,18 @@ export class AnalyticsController {
             _id: null,
             totalBatches: { $sum: 1 },
             createdBatches: {
-              $sum: { $cond: [{ $eq: ["$status", "Created"] }, 1, 0] },
+              $sum: {
+                $cond: [
+                  {
+                    $or: [
+                      { $eq: ["$status", "Created"] },
+                      { $eq: ["$status", "Registered"] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
             },
             inTransitBatches: {
               $sum: { $cond: [{ $eq: ["$status", "InTransit"] }, 1, 0] },
@@ -133,13 +154,27 @@ export class AnalyticsController {
             testedBatches: {
               $sum: {
                 $cond: [
-                  { $eq: ["$qualityDetails.tested", true] },
+                  {
+                    $or: [
+                      { $eq: ["$qualityDetails.tested", true] },
+                      { $eq: ["$status", "Certified"] },
+                      { $ne: ["$quality.grade", "None"] },
+                    ],
+                  },
                   1,
                   0,
                 ],
               },
             },
-            totalQuantityKg: { $sum: "$totalQuantity" },
+            totalQuantityKg: {
+              $sum: {
+                $cond: [
+                  { $gt: ["$quantityGrams", 0] },
+                  { $divide: ["$quantityGrams", 1000] },
+                  { $ifNull: ["$totalQuantity", 0] },
+                ],
+              },
+            },
           },
         },
       ]) || [null];

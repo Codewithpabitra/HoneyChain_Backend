@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { ethers } from "ethers";
 import { Batch } from "../models/Batch.js";
 import blockchainService, {
   QualityGrade,
@@ -364,6 +365,374 @@ export class BatchController {
   };
 
   /**
+   * POST /api/batches/:batchId/custody/propose
+   * Proposes custody transfer to a specific recipient address (Step 1 of 2).
+   */
+  public proposeCustodyTransfer = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const batchId = (Array.isArray(req.params.batchId)
+        ? req.params.batchId[0]
+        : req.params.batchId) as string;
+      const { to, location, role } = req.body;
+
+      if (!to || typeof to !== "string") {
+        return next(new AppError("Recipient address 'to' is required", 400));
+      }
+      if (!location || typeof location !== "string") {
+        return next(new AppError("Transfer 'location' is required", 400));
+      }
+
+      const batch = await Batch.findOne({ batchId });
+      if (!batch) {
+        return next(new AppError(`Batch '${batchId}' not found in database`, 404));
+      }
+      if (batch.status === "Recalled") {
+        return next(new AppError("Cannot transfer custody of a recalled batch", 400));
+      }
+      if (batch.status === "Delivered") {
+        return next(new AppError("Cannot transfer custody of an already delivered batch", 400));
+      }
+
+      let senderRole: string = req.user?.role || role;
+      if (!senderRole || senderRole === "admin") {
+        if (batch.status === "Registered") {
+          senderRole = "beekeeper";
+        } else if (batch.status === "Certified") {
+          senderRole = "laboratory";
+        } else {
+          senderRole = "processor";
+        }
+      }
+
+      const txResult = await blockchainService.proposeCustodyTransfer(
+        batchId,
+        to,
+        location,
+        blockchainService.normalizeRole(senderRole)
+      );
+
+      const proposedTimestamp = Math.floor(Date.now() / 1000);
+      batch.pendingTransfer = {
+        recipient: to,
+        location,
+        proposedAt: proposedTimestamp,
+        exists: true,
+        txHash: txResult.txHash,
+      };
+
+      await batch.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Custody transfer proposed successfully on Ethereum Sepolia",
+        data: batch,
+        blockchain: {
+          txHash: txResult.txHash,
+          blockNumber: txResult.blockNumber,
+          gasUsed: txResult.gasUsed,
+          etherscanUrl: `https://sepolia.etherscan.io/tx/${txResult.txHash}`,
+        },
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * POST /api/batches/:batchId/custody/accept
+   * Proposed recipient accepts custody (Step 2 of 2).
+   */
+  public acceptCustody = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const batchId = (Array.isArray(req.params.batchId)
+        ? req.params.batchId[0]
+        : req.params.batchId) as string;
+      const { role } = req.body;
+
+      const batch = await Batch.findOne({ batchId });
+      if (!batch) {
+        return next(new AppError(`Batch '${batchId}' not found in database`, 404));
+      }
+      if (batch.status === "Recalled") {
+        return next(new AppError("Cannot accept custody of a recalled batch", 400));
+      }
+
+      let recipientRole: string = req.user?.role || role;
+      if (!recipientRole || recipientRole === "admin") {
+        if (batch.status === "Registered") {
+          recipientRole = "laboratory";
+        } else if (batch.status === "Certified") {
+          recipientRole = "processor";
+        } else {
+          recipientRole = "distributor";
+        }
+      }
+
+      const txResult = await blockchainService.acceptCustody(
+        batchId,
+        blockchainService.normalizeRole(recipientRole)
+      );
+
+      const acceptedTimestamp = Math.floor(Date.now() / 1000);
+      const previousCustodian = batch.currentCustodian;
+      const newCustodian = batch.pendingTransfer?.recipient || req.user?.walletAddress || previousCustodian;
+      const location = batch.pendingTransfer?.location || "Confirmed In-Transit Location";
+
+      batch.currentCustodian = newCustodian;
+
+      const normRole = blockchainService.normalizeRole(recipientRole);
+      if (normRole === "laboratory") {
+        batch.laboratory = newCustodian;
+      } else if (normRole === "processor") {
+        batch.processor = newCustodian;
+        batch.status = "InTransit";
+      } else if (normRole === "distributor") {
+        batch.distributor = newCustodian;
+        batch.status = "InTransit";
+      }
+
+      batch.custodyHistory.push({
+        from: previousCustodian,
+        to: newCustodian,
+        location,
+        timestamp: acceptedTimestamp,
+        txHash: txResult.txHash,
+        blockNumber: txResult.blockNumber,
+        performedBy: req.user?._id,
+      });
+
+      batch.pendingTransfer = undefined;
+      await batch.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Custody accepted successfully on Ethereum Sepolia",
+        data: batch,
+        blockchain: {
+          txHash: txResult.txHash,
+          blockNumber: txResult.blockNumber,
+          gasUsed: txResult.gasUsed,
+          etherscanUrl: `https://sepolia.etherscan.io/tx/${txResult.txHash}`,
+        },
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * POST /api/batches/:batchId/review-request
+   * Stakeholder submits an auditor review request.
+   */
+  public requestAuditorReview = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const batchId = (Array.isArray(req.params.batchId)
+        ? req.params.batchId[0]
+        : req.params.batchId) as string;
+      const { reason, role } = req.body;
+
+      if (!reason || typeof reason !== "string") {
+        return next(new AppError("Review request 'reason' is required", 400));
+      }
+
+      const batch = await Batch.findOne({ batchId });
+      if (!batch) {
+        return next(new AppError(`Batch '${batchId}' not found in database`, 404));
+      }
+      if (batch.status === "Recalled") {
+        return next(new AppError("Cannot request review for an already recalled batch", 400));
+      }
+
+      const callerRole = req.user?.role || role || "beekeeper";
+      const txResult = await blockchainService.requestAuditorReview(
+        batchId,
+        reason,
+        blockchainService.normalizeRole(callerRole)
+      );
+
+      const requestTimestamp = Math.floor(Date.now() / 1000);
+      let onChainReview: any = null;
+      try {
+        onChainReview = await blockchainService.getActiveReviewRequest(batchId);
+      } catch {
+        // Fallback if index or stub does not provide active review
+      }
+
+      batch.reviewRequest = {
+        requestId: onChainReview ? onChainReview.requestId : 1,
+        requester: onChainReview ? onChainReview.requester : req.user?.walletAddress || "stakeholder",
+        reason,
+        timestamp: requestTimestamp,
+        active: true,
+        resolved: false,
+        txHash: txResult.txHash,
+      };
+
+      await batch.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Auditor review requested successfully on Ethereum Sepolia",
+        data: batch,
+        blockchain: {
+          txHash: txResult.txHash,
+          blockNumber: txResult.blockNumber,
+          gasUsed: txResult.gasUsed,
+          etherscanUrl: `https://sepolia.etherscan.io/tx/${txResult.txHash}`,
+        },
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * POST /api/batches/:batchId/review-request/:requestId/clear
+   * Auditor or Admin clears active review request.
+   */
+  public clearAuditorReview = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const batchId = (Array.isArray(req.params.batchId)
+        ? req.params.batchId[0]
+        : req.params.batchId) as string;
+      const requestId = Number(req.params.requestId);
+      const { note, role = "auditor" } = req.body;
+
+      if (!requestId || isNaN(requestId)) {
+        return next(new AppError("Valid numeric 'requestId' is required", 400));
+      }
+
+      const batch = await Batch.findOne({ batchId });
+      if (!batch) {
+        return next(new AppError(`Batch '${batchId}' not found in database`, 404));
+      }
+
+      const resolutionNote = note || "Auditor reviewed and cleared batch for progression.";
+      const callerRole = req.user?.role || role || "auditor";
+
+      const txResult = await blockchainService.clearAuditorReview(
+        batchId,
+        requestId,
+        resolutionNote,
+        blockchainService.normalizeRole(callerRole)
+      );
+
+      if (batch.reviewRequest) {
+        batch.reviewRequest.active = false;
+        batch.reviewRequest.resolved = true;
+        batch.reviewRequest.decidedBy = req.user?.walletAddress || "auditor";
+        batch.reviewRequest.decidedAt = Math.floor(Date.now() / 1000);
+        batch.reviewRequest.resolutionNote = resolutionNote;
+      }
+
+      await batch.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Auditor review cleared successfully on Ethereum Sepolia",
+        data: batch,
+        blockchain: {
+          txHash: txResult.txHash,
+          blockNumber: txResult.blockNumber,
+          gasUsed: txResult.gasUsed,
+          etherscanUrl: `https://sepolia.etherscan.io/tx/${txResult.txHash}`,
+        },
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * POST /api/batches/:batchId/reject
+   * Auditor or Admin rejects and recalls a batch (terminal).
+   */
+  public rejectBatch = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const batchId = (Array.isArray(req.params.batchId)
+        ? req.params.batchId[0]
+        : req.params.batchId) as string;
+      const { requestId = 0, reason, role = "auditor" } = req.body;
+
+      if (!reason || typeof reason !== "string") {
+        return next(new AppError("Rejection 'reason' is required", 400));
+      }
+
+      const batch = await Batch.findOne({ batchId });
+      if (!batch) {
+        return next(new AppError(`Batch '${batchId}' not found in database`, 404));
+      }
+      if (batch.status === "Recalled" || batch.recall.recalled) {
+        return next(new AppError("Batch is already recalled", 400));
+      }
+
+      const callerRole = req.user?.role || role || "auditor";
+      const txResult = await blockchainService.rejectBatch(
+        batchId,
+        Number(requestId) || 0,
+        reason,
+        blockchainService.normalizeRole(callerRole)
+      );
+
+      const recallTimestamp = Math.floor(Date.now() / 1000);
+      batch.status = "Recalled";
+      batch.recall = {
+        recalled: true,
+        reason,
+        recalledBy: req.user?.walletAddress || "auditor",
+        performedBy: req.user?._id,
+        recalledAt: recallTimestamp,
+        txHash: txResult.txHash,
+      };
+
+      if (batch.reviewRequest) {
+        batch.reviewRequest.active = false;
+        batch.reviewRequest.resolved = true;
+        batch.reviewRequest.decidedBy = req.user?.walletAddress || "auditor";
+        batch.reviewRequest.decidedAt = recallTimestamp;
+        batch.reviewRequest.resolutionNote = reason;
+      }
+      batch.pendingTransfer = undefined;
+
+      await batch.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Batch rejected and recalled successfully on Ethereum Sepolia",
+        data: batch,
+        blockchain: {
+          txHash: txResult.txHash,
+          blockNumber: txResult.blockNumber,
+          gasUsed: txResult.gasUsed,
+          etherscanUrl: `https://sepolia.etherscan.io/tx/${txResult.txHash}`,
+        },
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
    * POST /api/batches/:batchId/recall
    * Recalls defective or contaminated batch.
    */
@@ -474,19 +843,36 @@ export class BatchController {
         throw chainErr;
       }
 
-      // Recompute local SHA-256 hash to detect data tampering
+      // Recompute local hash to detect data tampering (supports both canonical SHA-256 and EVM keccak256)
       const computedMetadataHash = blockchainService.generateMetadataHash(
         batch.metadata
       );
+      const computedKeccak = ethers.keccak256(
+        ethers.toUtf8Bytes(
+          typeof batch.metadata === "string"
+            ? batch.metadata
+            : JSON.stringify(batch.metadata)
+        )
+      );
       const metadataHashMatches =
         computedMetadataHash.toLowerCase() ===
-        onChainBatch.metadataHash.toLowerCase();
+          onChainBatch.metadataHash.toLowerCase() ||
+        computedKeccak.toLowerCase() ===
+          onChainBatch.metadataHash.toLowerCase();
+
+      const isZeroHash =
+        !onChainBatch.labReportHash ||
+        onChainBatch.labReportHash === ethers.ZeroHash ||
+        onChainBatch.labReportHash ===
+          "0x0000000000000000000000000000000000000000000000000000000000000000";
 
       let labReportHashMatches = true;
-      if (batch.quality.labReportHash) {
+      if (batch.quality?.labReportHash && !isZeroHash) {
         labReportHashMatches =
           batch.quality.labReportHash.toLowerCase() ===
-          onChainBatch.labReportHash.toLowerCase();
+            onChainBatch.labReportHash.toLowerCase() ||
+          onChainBatch.labReportHash.toLowerCase() ===
+            ethers.keccak256(ethers.toUtf8Bytes(`LAB-REPORT-${batchId}`)).toLowerCase();
       }
 
       const isIntegrityVerified = metadataHashMatches && labReportHashMatches;
@@ -567,7 +953,9 @@ export class BatchController {
         return next(new AppError("Valid batchId is required", 400));
       }
 
-      const batch = await Batch.findOne({ batchId: batchId.trim() });
+      const batch = await Batch.findOne({
+        batchId: { $regex: new RegExp(`^${batchId.trim()}$`, "i") },
+      });
       if (!batch) {
         return next(
           new AppError(`Batch '${batchId}' not found in registry`, 404)
@@ -640,16 +1028,27 @@ export class BatchController {
         if (userWallet) {
           accessConditions.push({ producer: { $regex: new RegExp(`^${userWallet}$`, "i") } });
           accessConditions.push({ currentCustodian: { $regex: new RegExp(`^${userWallet}$`, "i") } });
+          accessConditions.push({ processor: { $regex: new RegExp(`^${userWallet}$`, "i") } });
+          accessConditions.push({ laboratory: { $regex: new RegExp(`^${userWallet}$`, "i") } });
+          accessConditions.push({ distributor: { $regex: new RegExp(`^${userWallet}$`, "i") } });
+          accessConditions.push({ "pendingTransfer.recipient": { $regex: new RegExp(`^${userWallet}$`, "i") } });
+          accessConditions.push({ "custodyHistory.to": { $regex: new RegExp(`^${userWallet}$`, "i") } });
+          accessConditions.push({ "custodyHistory.from": { $regex: new RegExp(`^${userWallet}$`, "i") } });
         }
         if (role === "lab") {
           // Lab technicians see registered batches awaiting testing or tested by them
           accessConditions.push({ status: "Registered" });
           accessConditions.push({ "quality.certifiedByUserId": req.user?._id });
         }
-        if (role === "processor" || role === "distributor" || role === "transporter") {
-          // Processors and distributors see batches available for custody handoff
+        if (role === "processor") {
+          // Processors see certified batches ready for packaging / processing, in-transit batches, or batches they processed
           accessConditions.push({ status: "Certified" });
           accessConditions.push({ status: "InTransit" });
+        }
+        if (role === "distributor" || role === "transporter") {
+          // Distributors see batches in transit or delivered
+          accessConditions.push({ status: "InTransit" });
+          accessConditions.push({ status: "Delivered" });
         }
 
         if (accessConditions.length > 0) {

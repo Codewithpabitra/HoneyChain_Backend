@@ -13,6 +13,7 @@ import {
 } from "@tabler/icons-react";
 
 import { verificationService } from "@/services/verification.service";
+import { batchService } from "@/services/batch.service";
 import type { BatchVerification } from "@/types/batch";
 
 export default function FarmerBatchDetailsPage() {
@@ -22,6 +23,11 @@ export default function FarmerBatchDetailsPage() {
   const [batch, setBatch] = useState<BatchVerification | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [qrData, setQrData] = useState<{
+    verificationUrl: string;
+    dataUrl: string;
+    svg: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,10 +37,20 @@ export default function FarmerBatchDetailsPage() {
         setLoading(true);
         setError(null);
 
-        const data = await verificationService.verifyBatch(batchId);
+        const [data, qrRes] = await Promise.allSettled([
+          verificationService.verifyBatch(batchId),
+          batchService.generateQR(batchId),
+        ]);
 
         if (!cancelled) {
-          setBatch(data);
+          if (data.status === "fulfilled") {
+            setBatch(data.value);
+          } else {
+            throw data.reason;
+          }
+          if (qrRes.status === "fulfilled") {
+            setQrData(qrRes.value);
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -156,6 +172,67 @@ export default function FarmerBatchDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Packaging QR Code Card */}
+      {qrData && (
+        <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-50/50 p-6 dark:border-amber-500/10 dark:bg-amber-950/10">
+          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+            <div className="flex shrink-0 items-center justify-center rounded-2xl border border-black/10 bg-white p-3 shadow-xs">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrData.dataUrl}
+                alt={`Packaging QR Code for ${batch.batchId}`}
+                className="h-44 w-44 object-contain"
+              />
+            </div>
+
+            <div className="flex flex-1 flex-col justify-between self-stretch">
+              <div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-honey/20 px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:text-amber-300">
+                  <IconQrcode size={13} />
+                  Tamper-Proof Consumer QR Label
+                </span>
+                <h3 className="mt-2 text-lg font-bold">Official Honey Jar QR Code</h3>
+                <p className="mt-1 text-xs text-black/60 dark:text-white/60">
+                  Affix this QR code to honey jars or packaging. Consumers scan this code to inspect the immutable Ethereum Sepolia provenance trail.
+                </p>
+
+                <div className="mt-3 rounded-xl border border-black/5 bg-white/80 p-2.5 font-mono text-xs dark:border-white/5 dark:bg-white/5">
+                  <span className="text-black/40 dark:text-white/40">Resolves to: </span>
+                  <a
+                    href={qrData.verificationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-honey hover:underline break-all"
+                  >
+                    {qrData.verificationUrl}
+                  </a>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2.5">
+                <a
+                  href={qrData.dataUrl}
+                  download={`${batch.batchId}-qr.png`}
+                  className="inline-flex items-center gap-2 rounded-xl bg-honey px-4 py-2 text-xs font-semibold text-black transition hover:opacity-90 shadow-2xs"
+                >
+                  <IconQrcode size={16} />
+                  Download PNG
+                </a>
+                <a
+                  href={qrData.verificationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3.5 py-2 text-xs font-semibold text-black hover:bg-black/5 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                >
+                  Test Consumer View
+                  <IconExternalLink size={14} />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main information */}
       <div className="grid gap-5 md:grid-cols-2">

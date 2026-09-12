@@ -86,3 +86,6 @@ uploads/*
 **/uploads/*
 !uploads/.gitkeep
 !**/uploads/.gitkeep
+# Generated reports
+reports/
+**/reports/

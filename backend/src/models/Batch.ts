@@ -35,6 +35,27 @@ export interface IRecallDetails {
   txHash?: string;
 }
 
+export interface IPendingTransfer {
+  recipient: string;
+  location: string;
+  proposedAt: number;
+  exists: boolean;
+  txHash?: string;
+}
+
+export interface IAuditorReviewRecord {
+  requestId: number;
+  requester: string;
+  reason: string;
+  timestamp: number;
+  active: boolean;
+  resolved: boolean;
+  decidedBy?: string;
+  decidedAt?: number;
+  resolutionNote?: string;
+  txHash?: string;
+}
+
 export interface IBlockchainMetadata {
   network: string;
   chainId: number;
@@ -49,6 +70,9 @@ export interface IBatch extends Document {
   batchId: string;
   batchIdBytes32: string;
   producer: string;
+  laboratory?: string;
+  processor?: string;
+  distributor?: string;
   currentCustodian: string;
   quantityGrams: number;
   harvestTimestamp: number;
@@ -65,6 +89,8 @@ export interface IBatch extends Document {
   status: "Registered" | "Certified" | "InTransit" | "Delivered" | "Recalled";
   quality: IQualityDetails;
   custodyHistory: ICustodyRecord[];
+  pendingTransfer?: IPendingTransfer;
+  reviewRequest?: IAuditorReviewRecord;
   recall: IRecallDetails;
   blockchain: IBlockchainMetadata;
   createdAt: Date;
@@ -126,6 +152,33 @@ const RecallSchema = new Schema<IRecallDetails>(
   { _id: false }
 );
 
+const PendingTransferSchema = new Schema<IPendingTransfer>(
+  {
+    recipient: { type: String, required: true },
+    location: { type: String, required: true },
+    proposedAt: { type: Number, required: true },
+    exists: { type: Boolean, default: true },
+    txHash: { type: String },
+  },
+  { _id: false }
+);
+
+const AuditorReviewRequestSchema = new Schema<IAuditorReviewRecord>(
+  {
+    requestId: { type: Number, required: true },
+    requester: { type: String, required: true },
+    reason: { type: String, required: true },
+    timestamp: { type: Number, required: true },
+    active: { type: Boolean, default: true },
+    resolved: { type: Boolean, default: false },
+    decidedBy: { type: String },
+    decidedAt: { type: Number },
+    resolutionNote: { type: String },
+    txHash: { type: String },
+  },
+  { _id: false }
+);
+
 const BlockchainMetadataSchema = new Schema<IBlockchainMetadata>(
   {
     network: { type: String, default: "Ethereum Sepolia" },
@@ -156,6 +209,18 @@ const BatchSchema = new Schema<IBatch>(
     producer: {
       type: String,
       required: true,
+      index: true,
+    },
+    laboratory: {
+      type: String,
+      index: true,
+    },
+    processor: {
+      type: String,
+      index: true,
+    },
+    distributor: {
+      type: String,
       index: true,
     },
     currentCustodian: {
@@ -234,6 +299,14 @@ const BatchSchema = new Schema<IBatch>(
     custodyHistory: {
       type: [CustodyRecordSchema],
       default: [],
+    },
+    pendingTransfer: {
+      type: PendingTransferSchema,
+      required: false,
+    },
+    reviewRequest: {
+      type: AuditorReviewRequestSchema,
+      required: false,
     },
     recall: {
       type: RecallSchema,

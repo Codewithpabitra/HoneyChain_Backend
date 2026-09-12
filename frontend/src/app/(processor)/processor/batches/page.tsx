@@ -38,6 +38,33 @@ export default function ProcessorBatchesPage() {
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferSuccess, setTransferSuccess] = useState(false);
 
+  // QR modal state
+  const [selectedQrBatch, setSelectedQrBatch] = useState<BatchItem | null>(null);
+  const [qrResult, setQrResult] = useState<{
+    verificationUrl: string;
+    dataUrl: string;
+    svg: string;
+  } | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+
+  async function handleOpenQrModal(batch: BatchItem) {
+    setSelectedQrBatch(batch);
+    setQrResult(null);
+    setQrError(null);
+    setQrLoading(true);
+    try {
+      const res = await batchService.generateQR(batch.batchId);
+      setQrResult(res);
+    } catch (err) {
+      setQrError(
+        err instanceof Error ? err.message : "Failed to generate QR code"
+      );
+    } finally {
+      setQrLoading(false);
+    }
+  }
+
   async function loadBatches() {
     try {
       setLoading(true);
@@ -299,6 +326,16 @@ export default function ProcessorBatchesPage() {
                             Transfer
                           </button>
 
+                          <button
+                            type="button"
+                            onClick={() => handleOpenQrModal(batch)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-honey/30 bg-honey/10 px-2.5 py-1.5 text-xs font-semibold text-amber-900 shadow-2xs hover:bg-honey/20 dark:bg-honey/20 dark:text-amber-300"
+                            title="Generate / View QR Label"
+                          >
+                            <IconQrcode size={14} className="text-honey" />
+                            QR
+                          </button>
+
                           <Link
                             href={`/verify/${encodeURIComponent(batch.batchId)}`}
                             className="inline-flex items-center gap-1 rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-xs font-semibold text-black shadow-2xs hover:bg-black/5 dark:border-white/10 dark:bg-white/5 dark:text-white"
@@ -453,6 +490,101 @@ export default function ProcessorBatchesPage() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* QR Label Modal */}
+      {selectedQrBatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-black/10 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#121212]">
+            <div className="flex items-center justify-between border-b border-black/5 pb-4 dark:border-white/5">
+              <div>
+                <p className="text-xs font-semibold tracking-wider text-honey uppercase">
+                  Tamper-Proof Consumer QR
+                </p>
+                <h3 className="font-mono text-base font-bold text-black dark:text-white">
+                  {selectedQrBatch.batchId}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedQrBatch(null)}
+                className="rounded-lg p-1.5 text-black/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5"
+              >
+                ✕
+              </button>
+            </div>
+
+            {qrLoading ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <IconLoader2 size={32} className="animate-spin text-honey" />
+                <p className="mt-3 text-sm text-black/60 dark:text-white/60">
+                  Generating official QR label…
+                </p>
+              </div>
+            ) : qrError ? (
+              <div className="py-6 text-center text-sm text-red-600">
+                {qrError}
+              </div>
+            ) : qrResult ? (
+              <div className="py-4 text-center">
+                <div className="mx-auto my-3 flex w-fit items-center justify-center rounded-2xl border border-black/10 bg-white p-4 shadow-xs">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrResult.dataUrl}
+                    alt={`QR Code for ${selectedQrBatch.batchId}`}
+                    className="h-48 w-48 object-contain"
+                  />
+                </div>
+
+                <div className="mt-4 rounded-xl border border-black/5 bg-black/2 p-3 text-left text-xs dark:border-white/5 dark:bg-white/2">
+                  <div className="flex justify-between py-1">
+                    <span className="text-black/50 dark:text-white/50">Status:</span>
+                    <span className="font-semibold text-emerald-600">{selectedQrBatch.status}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-black/50 dark:text-white/50">Floral Origin:</span>
+                    <span className="font-medium text-black dark:text-white">{selectedQrBatch.floralOrigin || "Multifloral"}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-black/50 dark:text-white/50">Grade:</span>
+                    <span className="font-medium text-black dark:text-white">{selectedQrBatch.quality?.grade || "Grade A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-black/50 dark:text-white/50">Verification Link:</span>
+                    <a
+                      href={qrResult.verificationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="truncate max-w-[180px] font-mono text-honey hover:underline"
+                    >
+                      {qrResult.verificationUrl}
+                    </a>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex gap-2">
+                  <a
+                    href={qrResult.dataUrl}
+                    download={`${selectedQrBatch.batchId}-label.png`}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-honey py-2.5 text-xs font-semibold text-black transition hover:opacity-90"
+                  >
+                    <IconQrcode size={16} />
+                    Download PNG
+                  </a>
+                  <a
+                    href={`/verify/${encodeURIComponent(selectedQrBatch.batchId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-black/10 px-4 py-2.5 text-xs font-semibold text-black hover:bg-black/5 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
+                  >
+                    Verify
+                    <IconExternalLink size={14} />
+                  </a>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

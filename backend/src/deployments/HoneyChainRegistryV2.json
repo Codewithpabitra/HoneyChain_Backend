@@ -1,0 +1,1323 @@
+{
+  "contractName": "HoneyChainRegistryV2",
+  "network": "Ethereum Sepolia",
+  "chainId": 11155111,
+  "contractAddress": "0xFc7211528ae5Ef5B302e7807F956e5e306903487",
+  "deployerAddress": "0x0f196CED7e9fd60c64Fd7C1E03909b821EdacF08",
+  "deploymentTxHash": "0x40a57e1f5d504462177dae5957887110b5697d6efff8306004c0339d7f37ee3e",
+  "blockNumber": 11683843,
+  "gasUsed": "2546736",
+  "deployedAt": "2026-09-11T19:05:50.681Z",
+  "explorerUrl": "https://sepolia.etherscan.io/address/0xFc7211528ae5Ef5B302e7807F956e5e306903487",
+  "roles": {
+    "BEEKEEPER_ROLE": {
+      "address": "0x111748e2D54D3f151746Af8B508CE8AD626d7A93",
+      "txHash": "0x07328a0d790afc23a900a007e26fe8c844448a52b91fa6fa32372efe55a90642"
+    },
+    "LABORATORY_ROLE": {
+      "address": "0x88bcE6325a09Fb4943d61A48eA5282EBeEb7744c",
+      "txHash": "0x71d01d130c6ebbfaaf8ddc89c380d9fa88918493a200451617769c6fa83df172"
+    },
+    "PROCESSOR_ROLE": {
+      "address": "0x8D34e7768603473001aEDc1b5eD82C05CbaF6C34",
+      "txHash": "0x3422f293b46fad525ebf80333f9aee4f657b742362498528db0aa692c04d1a47"
+    },
+    "DISTRIBUTOR_ROLE": {
+      "address": "0x3003D5104621e8DD31c8c70DFFAa59816400D2D9",
+      "txHash": "0x88c3f694df44b54c32668070c61813dbb8e944a46ea187baf3ee9256353e1f0d"
+    },
+    "AUDITOR_ROLE": {
+      "address": "0x09C1d432f79fB1Dad516bf688930aAB81aA0978a",
+      "txHash": "0xb3503e0543a6915060a769820e755b338980a5c2416de5cff34ec2aa6de6e31e"
+    }
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "initialAdmin",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "AccessControlBadConfirmation",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "neededRole",
+          "type": "bytes32"
+        }
+      ],
+      "name": "AccessControlUnauthorizedAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "existingRequestId",
+          "type": "uint256"
+        }
+      ],
+      "name": "ActiveReviewRequestExists",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "BatchAlreadyCertified",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "BatchAlreadyDelivered",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "BatchAlreadyExists",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "BatchAlreadyRecalled",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "BatchDoesNotExist",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "expectedRecipient",
+          "type": "address"
+        }
+      ],
+      "name": "CallerNotProposedRecipient",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "EmptyReason",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidBatchId",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidLabReportHash",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "enum HoneyChainRegistryV2.BatchStatus",
+          "name": "currentStatus",
+          "type": "uint8"
+        },
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidLifecycleTransition",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidMetadataHash",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidQualityGrade",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidQuantity",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidRecipient",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoActiveReviewRequest",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoPendingTransfer",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "currentCustodian",
+          "type": "address"
+        }
+      ],
+      "name": "NotCurrentCustodian",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PendingTransferAlreadyExists",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "requestId",
+          "type": "uint256"
+        }
+      ],
+      "name": "ReviewRequestNotFound",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        }
+      ],
+      "name": "UnauthorizedAction",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "requestId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "auditor",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "note",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "timestamp",
+          "type": "uint64"
+        }
+      ],
+      "name": "AuditorReviewCleared",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "requestId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "requester",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "reason",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "timestamp",
+          "type": "uint64"
+        }
+      ],
+      "name": "AuditorReviewRequested",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "laboratory",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "labReportHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum HoneyChainRegistryV2.QualityGrade",
+          "name": "qualityGrade",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "moistureBasisPoints",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "certificationTimestamp",
+          "type": "uint64"
+        }
+      ],
+      "name": "BatchCertified",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "distributor",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "location",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "timestamp",
+          "type": "uint64"
+        }
+      ],
+      "name": "BatchDelivered",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "by",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "reason",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "timestamp",
+          "type": "uint64"
+        }
+      ],
+      "name": "BatchRecalled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "beekeeper",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "quantityGrams",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "metadataHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "harvestTimestamp",
+          "type": "uint64"
+        }
+      ],
+      "name": "BatchRegistered",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "location",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "timestamp",
+          "type": "uint64"
+        }
+      ],
+      "name": "CustodyTransferAccepted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "location",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "timestamp",
+          "type": "uint64"
+        }
+      ],
+      "name": "CustodyTransferProposed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "previousAdminRole",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "newAdminRole",
+          "type": "bytes32"
+        }
+      ],
+      "name": "RoleAdminChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        }
+      ],
+      "name": "RoleGranted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        }
+      ],
+      "name": "RoleRevoked",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "AUDITOR_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "BEEKEEPER_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "DEFAULT_ADMIN_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "DISTRIBUTOR_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "LABORATORY_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "PROCESSOR_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "acceptCustody",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "batchExists",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "labReportHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum HoneyChainRegistryV2.QualityGrade",
+          "name": "qualityGrade",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint16",
+          "name": "moistureBasisPoints",
+          "type": "uint16"
+        }
+      ],
+      "name": "certifyBatch",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "requestId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "resolutionNote",
+          "type": "string"
+        }
+      ],
+      "name": "clearAuditorReview",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "string",
+          "name": "deliveryLocation",
+          "type": "string"
+        }
+      ],
+      "name": "deliverBatch",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getActiveReviewRequest",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "requestId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "batchId",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "address",
+              "name": "requester",
+              "type": "address"
+            },
+            {
+              "internalType": "string",
+              "name": "reason",
+              "type": "string"
+            },
+            {
+              "internalType": "uint64",
+              "name": "timestamp",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "active",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "resolved",
+              "type": "bool"
+            },
+            {
+              "internalType": "address",
+              "name": "decidedBy",
+              "type": "address"
+            },
+            {
+              "internalType": "uint64",
+              "name": "decidedAt",
+              "type": "uint64"
+            },
+            {
+              "internalType": "string",
+              "name": "resolutionNote",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct HoneyChainRegistryV2.AuditorReviewRequest",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getBatch",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32",
+              "name": "metadataHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "labReportHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "address",
+              "name": "producer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "laboratory",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "processor",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "distributor",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "currentCustodian",
+              "type": "address"
+            },
+            {
+              "internalType": "uint64",
+              "name": "quantityGrams",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "harvestTimestamp",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "certificationTimestamp",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint16",
+              "name": "moistureBasisPoints",
+              "type": "uint16"
+            },
+            {
+              "internalType": "enum HoneyChainRegistryV2.BatchStatus",
+              "name": "status",
+              "type": "uint8"
+            },
+            {
+              "internalType": "enum HoneyChainRegistryV2.QualityGrade",
+              "name": "qualityGrade",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct HoneyChainRegistryV2.HoneyBatch",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getPendingTransfer",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "string",
+              "name": "location",
+              "type": "string"
+            },
+            {
+              "internalType": "uint64",
+              "name": "proposedAt",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "exists",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct HoneyChainRegistryV2.PendingTransfer",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "requestId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getReviewRequest",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "requestId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "batchId",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "address",
+              "name": "requester",
+              "type": "address"
+            },
+            {
+              "internalType": "string",
+              "name": "reason",
+              "type": "string"
+            },
+            {
+              "internalType": "uint64",
+              "name": "timestamp",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "active",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "resolved",
+              "type": "bool"
+            },
+            {
+              "internalType": "address",
+              "name": "decidedBy",
+              "type": "address"
+            },
+            {
+              "internalType": "uint64",
+              "name": "decidedAt",
+              "type": "uint64"
+            },
+            {
+              "internalType": "string",
+              "name": "resolutionNote",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct HoneyChainRegistryV2.AuditorReviewRequest",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getRoleAdmin",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "grantRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "hasRole",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "location",
+          "type": "string"
+        }
+      ],
+      "name": "proposeCustodyTransfer",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "quantityGrams",
+          "type": "uint64"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "metadataHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "harvestTimestamp",
+          "type": "uint64"
+        }
+      ],
+      "name": "registerBatch",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "requestId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "reason",
+          "type": "string"
+        }
+      ],
+      "name": "rejectBatch",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "callerConfirmation",
+          "type": "address"
+        }
+      ],
+      "name": "renounceRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "string",
+          "name": "reason",
+          "type": "string"
+        }
+      ],
+      "name": "requestAuditorReview",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "revokeRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "interfaceId",
+          "type": "bytes4"
+        }
+      ],
+      "name": "supportsInterface",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ]
+}

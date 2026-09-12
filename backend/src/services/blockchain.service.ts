@@ -8,12 +8,29 @@ import AppError from "../utils/AppError.js";
 
 const require = createRequire(import.meta.url);
 
-// Load contract deployment artifact
-const artifactPath = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../../blockchain/deployments/sepolia/HoneyChainRegistry.json"
-);
-const deploymentArtifact = require(artifactPath);
+// Load contract deployment artifact (HoneyChainRegistryV2)
+let deploymentArtifact: any;
+try {
+  const v2ArtifactPath = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../../blockchain/deployments/sepolia/HoneyChainRegistryV2.json"
+  );
+  deploymentArtifact = require(v2ArtifactPath);
+} catch {
+  try {
+    const backendV2Path = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../deployments/HoneyChainRegistryV2.json"
+    );
+    deploymentArtifact = require(backendV2Path);
+  } catch {
+    const legacyPath = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../../../blockchain/deployments/sepolia/HoneyChainRegistry.json"
+    );
+    deploymentArtifact = require(legacyPath);
+  }
+}
 
 export enum BatchStatus {
   Registered = 0,
@@ -301,20 +318,43 @@ export class BlockchainService {
   }
 
   /**
-   * Executes batch delivery on-chain by transferring custody with delivery designation.
+   * Executes batch delivery on-chain by distributor or admin.
    */
   public async deliverBatch(
     batchId: string,
-    toAddress: string,
-    deliveryLocation: string,
-    fromRole: "beekeeper" | "processor" | "distributor" = "distributor"
+    toAddressOrLocation: string,
+    deliveryLocation?: string,
+    fromRole: RoleName | string = "distributor"
   ) {
-    return this.transferCustody(
-      batchId,
-      toAddress,
-      `DELIVERED: ${deliveryLocation}`,
-      fromRole
-    );
+    const batchIdBytes32 = this.formatBytes32BatchId(batchId);
+    const actualLocation = deliveryLocation !== undefined ? deliveryLocation : toAddressOrLocation;
+    const canonicalRole = this.normalizeRole(fromRole);
+
+    try {
+      const { contract } = this.getRoleContract(canonicalRole === "admin" ? "admin" : "distributor");
+      if (typeof contract.deliverBatch === "function") {
+        const tx = await contract.deliverBatch(batchIdBytes32, actualLocation);
+        const receipt = await tx.wait(1);
+
+        return {
+          success: true,
+          batchId,
+          batchIdBytes32,
+          txHash: receipt.hash,
+          blockNumber: receipt.blockNumber,
+          gasUsed: receipt.gasUsed.toString(),
+        };
+      }
+
+      return this.transferCustody(
+        batchId,
+        toAddressOrLocation,
+        `DELIVERED: ${actualLocation}`,
+        canonicalRole as any
+      );
+    } catch (err: any) {
+      throw this.parseBlockchainError(err);
+    }
   }
 
   /**
@@ -377,6 +417,8 @@ export class BlockchainService {
               return new AppError(`Batch does not exist on blockchain (${decoded.args[0]})`, 404);
             case "BatchAlreadyRecalled":
               return new AppError(`Batch is already recalled and cannot be modified`, 400);
+            case "BatchAlreadyDelivered":
+              return new AppError(`Batch has already been delivered and cannot be modified`, 400);
             case "BatchAlreadyCertified":
               return new AppError(`Batch has already received laboratory certification`, 400);
             case "InvalidBatchId":
@@ -396,8 +438,35 @@ export class BlockchainService {
                 `Caller (${decoded.args[0]}) is not the current custodian (${decoded.args[1]})`,
                 403
               );
+            case "UnauthorizedAction":
+              return new AppError(`Caller (${decoded.args[0]}) is not authorized to perform this action`, 403);
             case "UnauthorizedRecall":
               return new AppError(`Caller (${decoded.args[0]}) is not authorized to recall this batch`, 403);
+            case "InvalidLifecycleTransition":
+              return new AppError(
+                `Invalid supply chain lifecycle transition from status ${decoded.args[0]} to recipient ${decoded.args[1]}`,
+                400
+              );
+            case "NoPendingTransfer":
+              return new AppError(`No pending custody transfer exists for this batch`, 400);
+            case "PendingTransferAlreadyExists":
+              return new AppError(`A pending custody transfer already exists for this batch`, 409);
+            case "CallerNotProposedRecipient":
+              return new AppError(
+                `Caller (${decoded.args[0]}) is not the proposed transfer recipient (${decoded.args[1]})`,
+                403
+              );
+            case "ActiveReviewRequestExists":
+              return new AppError(
+                `An active auditor review request already exists for this batch (ID: ${decoded.args[0]})`,
+                409
+              );
+            case "NoActiveReviewRequest":
+              return new AppError(`No active auditor review request found for this batch`, 404);
+            case "ReviewRequestNotFound":
+              return new AppError(`Auditor review request ID ${decoded.args[0]} not found`, 404);
+            case "EmptyReason":
+              return new AppError(`A valid reason is required`, 400);
             case "RecipientNotAuthorized":
               return new AppError(`Recipient (${decoded.args[0]}) lacks authorized supply chain role`, 400);
             case "AccessControlUnauthorizedAccount":
@@ -493,18 +562,78 @@ export class BlockchainService {
   }
 
   /**
-   * Transfers custody of a batch to another participant.
+   * Proposes custody transfer of a batch to another participant (Step 1 of 2 in V2).
    */
-  public async transferCustody(
+  public async proposeCustodyTransfer(
     batchId: string,
     toAddress: string,
     location: string,
-    fromRole: "beekeeper" | "processor" | "distributor"
+    fromRole: RoleName | string = "beekeeper"
   ) {
     const batchIdBytes32 = this.formatBytes32BatchId(batchId);
 
     try {
       const { contract } = this.getRoleContract(fromRole);
+      const tx = await contract.proposeCustodyTransfer(batchIdBytes32, toAddress, location);
+      const receipt = await tx.wait(1);
+
+      return {
+        success: true,
+        batchId,
+        batchIdBytes32,
+        txHash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString(),
+      };
+    } catch (err: any) {
+      throw this.parseBlockchainError(err);
+    }
+  }
+
+  /**
+   * Accepts custody transfer of a batch (Step 2 of 2 in V2).
+   */
+  public async acceptCustody(
+    batchId: string,
+    recipientRole: RoleName | string = "laboratory"
+  ) {
+    const batchIdBytes32 = this.formatBytes32BatchId(batchId);
+
+    try {
+      const { contract } = this.getRoleContract(recipientRole);
+      const tx = await contract.acceptCustody(batchIdBytes32);
+      const receipt = await tx.wait(1);
+
+      return {
+        success: true,
+        batchId,
+        batchIdBytes32,
+        txHash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString(),
+      };
+    } catch (err: any) {
+      throw this.parseBlockchainError(err);
+    }
+  }
+
+  /**
+   * Transfers custody of a batch to another participant.
+   * Backward-compatible: If V2 contract is active and has proposeCustodyTransfer, initiates proposal.
+   */
+  public async transferCustody(
+    batchId: string,
+    toAddress: string,
+    location: string,
+    fromRole: "beekeeper" | "processor" | "distributor" | "transporter" | string
+  ) {
+    const batchIdBytes32 = this.formatBytes32BatchId(batchId);
+
+    try {
+      const { contract } = this.getRoleContract(fromRole);
+      if (typeof contract.proposeCustodyTransfer === "function") {
+        return await this.proposeCustodyTransfer(batchId, toAddress, location, fromRole);
+      }
       const tx = await contract.transferCustody(batchIdBytes32, toAddress, location);
       const receipt = await tx.wait(1);
 
@@ -522,7 +651,94 @@ export class BlockchainService {
   }
 
   /**
-   * Recalls a batch on-chain (signed by Auditor, Beekeeper, Lab, or Admin).
+   * Submits a stakeholder request for auditor review.
+   */
+  public async requestAuditorReview(
+    batchId: string,
+    reason: string,
+    callerRole: RoleName | string = "beekeeper"
+  ) {
+    const batchIdBytes32 = this.formatBytes32BatchId(batchId);
+
+    try {
+      const { contract } = this.getRoleContract(callerRole);
+      const tx = await contract.requestAuditorReview(batchIdBytes32, reason);
+      const receipt = await tx.wait(1);
+
+      return {
+        success: true,
+        batchId,
+        batchIdBytes32,
+        txHash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString(),
+      };
+    } catch (err: any) {
+      throw this.parseBlockchainError(err);
+    }
+  }
+
+  /**
+   * Clears an active auditor review request (Auditor or Admin only).
+   */
+  public async clearAuditorReview(
+    batchId: string,
+    requestId: number,
+    resolutionNote: string,
+    auditorRole: RoleName | string = "auditor"
+  ) {
+    const batchIdBytes32 = this.formatBytes32BatchId(batchId);
+
+    try {
+      const { contract } = this.getRoleContract(auditorRole);
+      const tx = await contract.clearAuditorReview(batchIdBytes32, requestId, resolutionNote);
+      const receipt = await tx.wait(1);
+
+      return {
+        success: true,
+        batchId,
+        batchIdBytes32,
+        txHash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString(),
+      };
+    } catch (err: any) {
+      throw this.parseBlockchainError(err);
+    }
+  }
+
+  /**
+   * Rejects and recalls a batch on-chain (Auditor or Admin only).
+   */
+  public async rejectBatch(
+    batchId: string,
+    requestId: number = 0,
+    reason: string,
+    auditorRole: RoleName | string = "auditor"
+  ) {
+    const batchIdBytes32 = this.formatBytes32BatchId(batchId);
+
+    try {
+      const { contract } = this.getRoleContract(auditorRole);
+      const tx = await contract.rejectBatch(batchIdBytes32, requestId, reason);
+      const receipt = await tx.wait(1);
+
+      return {
+        success: true,
+        batchId,
+        batchIdBytes32,
+        txHash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString(),
+      };
+    } catch (err: any) {
+      throw this.parseBlockchainError(err);
+    }
+  }
+
+  /**
+   * Recalls a batch on-chain (signed by Auditor or Admin).
+   * Backward-compatible alias for rejectBatch / recallBatch.
    */
   public async recallBatch(
     batchId: string,
@@ -533,6 +749,9 @@ export class BlockchainService {
 
     try {
       const { contract } = this.getRoleContract(callerRole);
+      if (typeof contract.rejectBatch === "function") {
+        return await this.rejectBatch(batchId, 0, reason, callerRole);
+      }
       const tx = await contract.recallBatch(batchIdBytes32, reason);
       const receipt = await tx.wait(1);
 
@@ -576,8 +795,11 @@ export class BlockchainService {
         metadataHash: raw.metadataHash,
         labReportHash: raw.labReportHash,
         producer: raw.producer,
+        laboratory: raw.laboratory || raw.certifier,
+        processor: raw.processor,
+        distributor: raw.distributor,
         harvestTimestamp: Number(raw.harvestTimestamp),
-        certifier: raw.certifier,
+        certifier: raw.laboratory || raw.certifier,
         certificationTimestamp: Number(raw.certificationTimestamp),
         currentCustodian: raw.currentCustodian,
         quantityGrams: Number(raw.quantityGrams),
@@ -594,27 +816,87 @@ export class BlockchainService {
   }
 
   /**
+   * Reads pending custody transfer details for a batch.
+   */
+  public async getPendingTransfer(batchId: string) {
+    const batchIdBytes32 = this.formatBytes32BatchId(batchId);
+    try {
+      if (typeof this.readOnlyContract.getPendingTransfer !== "function") {
+        return { recipient: ethers.ZeroAddress, location: "", proposedAt: 0, exists: false };
+      }
+      const raw = await this.readOnlyContract.getPendingTransfer(batchIdBytes32);
+      return {
+        recipient: raw.recipient,
+        location: raw.location,
+        proposedAt: Number(raw.proposedAt),
+        exists: Boolean(raw.exists),
+      };
+    } catch (err: any) {
+      throw this.parseBlockchainError(err);
+    }
+  }
+
+  /**
+   * Reads active review request for a batch.
+   */
+  public async getActiveReviewRequest(batchId: string) {
+    const batchIdBytes32 = this.formatBytes32BatchId(batchId);
+    try {
+      if (typeof this.readOnlyContract.getActiveReviewRequest !== "function") {
+        return null;
+      }
+      const raw = await this.readOnlyContract.getActiveReviewRequest(batchIdBytes32);
+      return {
+        requestId: Number(raw.requestId),
+        batchId: raw.batchId,
+        requester: raw.requester,
+        reason: raw.reason,
+        timestamp: Number(raw.timestamp),
+        active: Boolean(raw.active),
+        resolved: Boolean(raw.resolved),
+        decidedBy: raw.decidedBy,
+        decidedAt: Number(raw.decidedAt),
+        resolutionNote: raw.resolutionNote,
+      };
+    } catch (err: any) {
+      throw this.parseBlockchainError(err);
+    }
+  }
+
+  /**
+   * Reads review request by requestId.
+   */
+  public async getReviewRequest(requestId: number) {
+    try {
+      if (typeof this.readOnlyContract.getReviewRequest !== "function") {
+        return null;
+      }
+      const raw = await this.readOnlyContract.getReviewRequest(requestId);
+      return {
+        requestId: Number(raw.requestId),
+        batchId: raw.batchId,
+        requester: raw.requester,
+        reason: raw.reason,
+        timestamp: Number(raw.timestamp),
+        active: Boolean(raw.active),
+        resolved: Boolean(raw.resolved),
+        decidedBy: raw.decidedBy,
+        decidedAt: Number(raw.decidedAt),
+        resolutionNote: raw.resolutionNote,
+      };
+    } catch (err: any) {
+      throw this.parseBlockchainError(err);
+    }
+  }
+
+  /**
    * Queries on-chain events to reconstruct complete historical lifecycle audit trail.
    */
   public async getBatchHistory(batchId: string) {
     const batchIdBytes32 = this.formatBytes32BatchId(batchId);
 
     try {
-      // Query events using indexed batchId filters from contract deployment block
       const fromBlock = this.deploymentBlock;
-
-      const registeredFilter = this.readOnlyContract.filters.BatchRegistered(batchIdBytes32);
-      const certifiedFilter = this.readOnlyContract.filters.BatchCertified(batchIdBytes32);
-      const custodyFilter = this.readOnlyContract.filters.CustodyTransferred(batchIdBytes32);
-      const recalledFilter = this.readOnlyContract.filters.BatchRecalled(batchIdBytes32);
-
-      const [regLogs, certLogs, custodyLogs, recallLogs] = await Promise.all([
-        this.readOnlyContract.queryFilter(registeredFilter, fromBlock),
-        this.readOnlyContract.queryFilter(certifiedFilter, fromBlock),
-        this.readOnlyContract.queryFilter(custodyFilter, fromBlock),
-        this.readOnlyContract.queryFilter(recalledFilter, fromBlock),
-      ]);
-
       const history: Array<{
         stage: string;
         eventType: string;
@@ -624,66 +906,187 @@ export class BlockchainService {
         details: Record<string, any>;
       }> = [];
 
-      for (const log of regLogs as ethers.EventLog[]) {
-        history.push({
-          stage: "Harvest & Batch Registration",
-          eventType: "BatchRegistered",
-          txHash: log.transactionHash,
-          blockNumber: log.blockNumber,
-          timestamp: Number(log.args.harvestTimestamp),
-          details: {
-            beekeeper: log.args.beekeeper,
-            quantityGrams: Number(log.args.quantityGrams),
-            metadataHash: log.args.metadataHash,
-          },
-        });
-      }
+      // Query registered events
+      try {
+        const registeredFilter = this.readOnlyContract.filters.BatchRegistered(batchIdBytes32);
+        const regLogs = await this.readOnlyContract.queryFilter(registeredFilter, fromBlock);
+        for (const log of regLogs as ethers.EventLog[]) {
+          history.push({
+            stage: "Harvest & Batch Registration",
+            eventType: "BatchRegistered",
+            txHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+            timestamp: Number(log.args.harvestTimestamp),
+            details: {
+              beekeeper: log.args.beekeeper,
+              quantityGrams: Number(log.args.quantityGrams),
+              metadataHash: log.args.metadataHash,
+            },
+          });
+        }
+      } catch {}
 
-      for (const log of certLogs as ethers.EventLog[]) {
-        const grade = Number(log.args.qualityGrade);
-        history.push({
-          stage: "Lab Quality Certification",
-          eventType: "BatchCertified",
-          txHash: log.transactionHash,
-          blockNumber: log.blockNumber,
-          timestamp: Number(log.args.certificationTimestamp),
-          details: {
-            laboratory: log.args.laboratory,
-            labReportHash: log.args.labReportHash,
-            qualityGrade: QualityGradeNames[grade] || grade,
-            moisturePercentage: Number(log.args.moistureBasisPoints) / 100,
-          },
-        });
-      }
+      // Query certification events
+      try {
+        const certifiedFilter = this.readOnlyContract.filters.BatchCertified(batchIdBytes32);
+        const certLogs = await this.readOnlyContract.queryFilter(certifiedFilter, fromBlock);
+        for (const log of certLogs as ethers.EventLog[]) {
+          const grade = Number(log.args.qualityGrade);
+          history.push({
+            stage: "Lab Quality Certification",
+            eventType: "BatchCertified",
+            txHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+            timestamp: Number(log.args.certificationTimestamp),
+            details: {
+              laboratory: log.args.laboratory,
+              labReportHash: log.args.labReportHash,
+              qualityGrade: QualityGradeNames[grade] || grade,
+              moisturePercentage: Number(log.args.moistureBasisPoints) / 100,
+            },
+          });
+        }
+      } catch {}
 
-      for (const log of custodyLogs as ethers.EventLog[]) {
-        history.push({
-          stage: "Custody Transfer",
-          eventType: "CustodyTransferred",
-          txHash: log.transactionHash,
-          blockNumber: log.blockNumber,
-          timestamp: Number(log.args.timestamp),
-          details: {
-            from: log.args.from,
-            to: log.args.to,
-            location: log.args.location,
-          },
-        });
-      }
+      // Query custody proposed events (V2)
+      try {
+        const proposedFilter = this.readOnlyContract.filters.CustodyTransferProposed(batchIdBytes32);
+        const propLogs = await this.readOnlyContract.queryFilter(proposedFilter, fromBlock);
+        for (const log of propLogs as ethers.EventLog[]) {
+          history.push({
+            stage: "Custody Transfer Proposed",
+            eventType: "CustodyTransferProposed",
+            txHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+            timestamp: Number(log.args.timestamp),
+            details: {
+              from: log.args.from,
+              to: log.args.to,
+              location: log.args.location,
+            },
+          });
+        }
+      } catch {}
 
-      for (const log of recallLogs as ethers.EventLog[]) {
-        history.push({
-          stage: "Batch Recall",
-          eventType: "BatchRecalled",
-          txHash: log.transactionHash,
-          blockNumber: log.blockNumber,
-          timestamp: Number(log.args.timestamp),
-          details: {
-            recalledBy: log.args.by,
-            reason: log.args.reason,
-          },
-        });
-      }
+      // Query custody accepted events (V2)
+      try {
+        const acceptedFilter = this.readOnlyContract.filters.CustodyTransferAccepted(batchIdBytes32);
+        const accLogs = await this.readOnlyContract.queryFilter(acceptedFilter, fromBlock);
+        for (const log of accLogs as ethers.EventLog[]) {
+          history.push({
+            stage: "Custody Transfer Accepted",
+            eventType: "CustodyTransferAccepted",
+            txHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+            timestamp: Number(log.args.timestamp),
+            details: {
+              from: log.args.from,
+              to: log.args.to,
+              location: log.args.location,
+            },
+          });
+        }
+      } catch {}
+
+      // Query legacy custody transferred events (V1)
+      try {
+        if (this.readOnlyContract.filters.CustodyTransferred) {
+          const custodyFilter = this.readOnlyContract.filters.CustodyTransferred(batchIdBytes32);
+          const custodyLogs = await this.readOnlyContract.queryFilter(custodyFilter, fromBlock);
+          for (const log of custodyLogs as ethers.EventLog[]) {
+            history.push({
+              stage: "Custody Transfer",
+              eventType: "CustodyTransferred",
+              txHash: log.transactionHash,
+              blockNumber: log.blockNumber,
+              timestamp: Number(log.args.timestamp),
+              details: {
+                from: log.args.from,
+                to: log.args.to,
+                location: log.args.location,
+              },
+            });
+          }
+        }
+      } catch {}
+
+      // Query delivered events (V2)
+      try {
+        const deliveredFilter = this.readOnlyContract.filters.BatchDelivered(batchIdBytes32);
+        const delLogs = await this.readOnlyContract.queryFilter(deliveredFilter, fromBlock);
+        for (const log of delLogs as ethers.EventLog[]) {
+          history.push({
+            stage: "Batch Delivered",
+            eventType: "BatchDelivered",
+            txHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+            timestamp: Number(log.args.timestamp),
+            details: {
+              distributor: log.args.distributor,
+              location: log.args.location,
+            },
+          });
+        }
+      } catch {}
+
+      // Query auditor review requested events (V2)
+      try {
+        const reviewReqFilter = this.readOnlyContract.filters.AuditorReviewRequested(batchIdBytes32);
+        const revLogs = await this.readOnlyContract.queryFilter(reviewReqFilter, fromBlock);
+        for (const log of revLogs as ethers.EventLog[]) {
+          history.push({
+            stage: "Auditor Review Requested",
+            eventType: "AuditorReviewRequested",
+            txHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+            timestamp: Number(log.args.timestamp),
+            details: {
+              requestId: Number(log.args.requestId),
+              requester: log.args.requester,
+              reason: log.args.reason,
+            },
+          });
+        }
+      } catch {}
+
+      // Query auditor review cleared events (V2)
+      try {
+        const reviewClearFilter = this.readOnlyContract.filters.AuditorReviewCleared(batchIdBytes32);
+        const clearLogs = await this.readOnlyContract.queryFilter(reviewClearFilter, fromBlock);
+        for (const log of clearLogs as ethers.EventLog[]) {
+          history.push({
+            stage: "Auditor Review Cleared",
+            eventType: "AuditorReviewCleared",
+            txHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+            timestamp: Number(log.args.timestamp),
+            details: {
+              requestId: Number(log.args.requestId),
+              auditor: log.args.auditor,
+              note: log.args.note,
+            },
+          });
+        }
+      } catch {}
+
+      // Query recall events
+      try {
+        const recalledFilter = this.readOnlyContract.filters.BatchRecalled(batchIdBytes32);
+        const recallLogs = await this.readOnlyContract.queryFilter(recalledFilter, fromBlock);
+        for (const log of recallLogs as ethers.EventLog[]) {
+          history.push({
+            stage: "Batch Recall",
+            eventType: "BatchRecalled",
+            txHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+            timestamp: Number(log.args.timestamp),
+            details: {
+              recalledBy: log.args.by,
+              reason: log.args.reason,
+            },
+          });
+        }
+      } catch {}
 
       // Sort timeline chronologically by blockNumber & timestamp
       history.sort((a, b) => a.blockNumber - b.blockNumber || a.timestamp - b.timestamp);

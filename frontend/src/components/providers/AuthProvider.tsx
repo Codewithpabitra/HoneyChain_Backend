@@ -12,6 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth.service";
 import { TOKEN_STORAGE_KEY } from "@/lib/constants";
+import { clearApiCache } from "@/lib/apiCache";
 import type { AuthContextValue, AuthUser } from "@/types/auth";
 
 export const AuthContext = createContext<AuthContextValue | undefined>(
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
+    clearApiCache();
     const response = await authService.login({ email, password });
     localStorage.setItem(TOKEN_STORAGE_KEY, response.token);
     setToken(response.token);
@@ -62,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ignore — we still clear client state below even if the network
       // call fails, so the user is never stuck "logged in" locally.
     } finally {
+      clearApiCache();
       localStorage.removeItem(TOKEN_STORAGE_KEY);
       setToken(null);
       setUser(null);

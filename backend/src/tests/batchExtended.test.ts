@@ -30,6 +30,11 @@ describe("HoneyChain Extended Batch Management, Certificate Upload & Delivery Te
   let auditorToken: string;
 
   let originalDeliverBatch: any;
+  let originalProposeCustodyTransfer: any;
+  let originalAcceptCustody: any;
+  let originalRequestAuditorReview: any;
+  let originalClearAuditorReview: any;
+  let originalRejectBatch: any;
 
   before(async function () {
     mongoServer = await MongoMemoryServer.create();
@@ -103,7 +108,7 @@ describe("HoneyChain Extended Batch Management, Certificate Upload & Delivery Te
     });
     auditorToken = authService.generateToken(auditorUser);
 
-    // Save and stub blockchainService.deliverBatch
+    // Save and stub blockchainService methods
     originalDeliverBatch = blockchainService.deliverBatch;
     blockchainService.deliverBatch = async () => ({
       txHash: "0x" + "aa".repeat(32),
@@ -112,10 +117,55 @@ describe("HoneyChain Extended Batch Management, Certificate Upload & Delivery Te
       gasUsed: "45000",
       status: 1,
     });
+
+    originalProposeCustodyTransfer = blockchainService.proposeCustodyTransfer;
+    blockchainService.proposeCustodyTransfer = async () => ({
+      txHash: "0x" + "bb".repeat(32),
+      blockNumber: 100000,
+      gasUsed: "40000",
+      success: true,
+    });
+
+    originalAcceptCustody = blockchainService.acceptCustody;
+    blockchainService.acceptCustody = async () => ({
+      txHash: "0x" + "cc".repeat(32),
+      blockNumber: 100001,
+      gasUsed: "41000",
+      success: true,
+    });
+
+    originalRequestAuditorReview = blockchainService.requestAuditorReview;
+    blockchainService.requestAuditorReview = async () => ({
+      txHash: "0x" + "dd".repeat(32),
+      blockNumber: 100002,
+      gasUsed: "42000",
+      success: true,
+    });
+
+    originalClearAuditorReview = blockchainService.clearAuditorReview;
+    blockchainService.clearAuditorReview = async () => ({
+      txHash: "0x" + "ee".repeat(32),
+      blockNumber: 100003,
+      gasUsed: "43000",
+      success: true,
+    });
+
+    originalRejectBatch = blockchainService.rejectBatch;
+    blockchainService.rejectBatch = async () => ({
+      txHash: "0x" + "ff".repeat(32),
+      blockNumber: 100004,
+      gasUsed: "44000",
+      success: true,
+    });
   });
 
   after(async function () {
     blockchainService.deliverBatch = originalDeliverBatch;
+    blockchainService.proposeCustodyTransfer = originalProposeCustodyTransfer;
+    blockchainService.acceptCustody = originalAcceptCustody;
+    blockchainService.requestAuditorReview = originalRequestAuditorReview;
+    blockchainService.clearAuditorReview = originalClearAuditorReview;
+    blockchainService.rejectBatch = originalRejectBatch;
     await mongoose.disconnect();
     if (mongoServer) {
       await mongoServer.stop();
@@ -345,6 +395,99 @@ describe("HoneyChain Extended Batch Management, Certificate Upload & Delivery Te
       const custodyRecord = res.body.data.custodyHistory[res.body.data.custodyHistory.length - 1];
       expect(custodyRecord.location).to.include("DELIVERED: Terminal Distribution Facility 12");
       expect(custodyRecord.to.toLowerCase()).to.equal(recipient.toLowerCase());
+    });
+  });
+
+  describe("5. HoneyChainRegistryV2 Two-Step Custody Handshake & Auditor Governance", function () {
+    it("proposes custody transfer (Step 1) and stores pendingTransfer", async function () {
+      const res = await request(app)
+        .post("/api/batches/HC-BATCH-TEST-001/custody/propose")
+        .set("Authorization", `Bearer ${beekeeperToken}`)
+        .send({
+          to: "0x2222222222222222222222222222222222222222",
+          location: "Testing Laboratory Central Dock",
+        });
+
+      expect(res.status).to.equal(200);
+      expect(res.body.success).to.be.true;
+      expect(res.body.data.pendingTransfer).to.exist;
+      expect(res.body.data.pendingTransfer.recipient).to.equal("0x2222222222222222222222222222222222222222");
+      expect(res.body.data.pendingTransfer.location).to.equal("Testing Laboratory Central Dock");
+    });
+
+    it("accepts custody transfer (Step 2) and records to custody history", async function () {
+      // First propose
+      await request(app)
+        .post("/api/batches/HC-BATCH-TEST-001/custody/propose")
+        .set("Authorization", `Bearer ${beekeeperToken}`)
+        .send({
+          to: "0x2222222222222222222222222222222222222222",
+          location: "Testing Laboratory Central Dock",
+        });
+
+      // Recipient accepts
+      const res = await request(app)
+        .post("/api/batches/HC-BATCH-TEST-001/custody/accept")
+        .set("Authorization", `Bearer ${labToken}`)
+        .send({});
+
+      expect(res.status).to.equal(200);
+      expect(res.body.success).to.be.true;
+      expect(res.body.data.currentCustodian).to.equal("0x2222222222222222222222222222222222222222");
+      expect(res.body.data.pendingTransfer).to.be.undefined;
+      expect(res.body.data.custodyHistory).to.have.lengthOf(2);
+    });
+
+    it("stakeholder requests auditor review", async function () {
+      const res = await request(app)
+        .post("/api/batches/HC-BATCH-TEST-001/review-request")
+        .set("Authorization", `Bearer ${labToken}`)
+        .send({
+          reason: "Anomalous moisture delta detected during lab titration",
+        });
+
+      expect(res.status).to.equal(200);
+      expect(res.body.success).to.be.true;
+      expect(res.body.data.reviewRequest).to.exist;
+      expect(res.body.data.reviewRequest.active).to.be.true;
+      expect(res.body.data.reviewRequest.reason).to.equal("Anomalous moisture delta detected during lab titration");
+    });
+
+    it("auditor clears review request", async function () {
+      await request(app)
+        .post("/api/batches/HC-BATCH-TEST-001/review-request")
+        .set("Authorization", `Bearer ${labToken}`)
+        .send({
+          reason: "Anomalous moisture delta detected",
+        });
+
+      const res = await request(app)
+        .post("/api/batches/HC-BATCH-TEST-001/review-request/1/clear")
+        .set("Authorization", `Bearer ${auditorToken}`)
+        .send({
+          note: "Assay re-run confirmed moisture 17.5%. Cleared.",
+        });
+
+      expect(res.status).to.equal(200);
+      expect(res.body.success).to.be.true;
+      expect(res.body.data.reviewRequest.active).to.be.false;
+      expect(res.body.data.reviewRequest.resolved).to.be.true;
+    });
+
+    it("auditor rejects batch into terminal Recalled status", async function () {
+      const res = await request(app)
+        .post("/api/batches/HC-BATCH-TEST-001/reject")
+        .set("Authorization", `Bearer ${auditorToken}`)
+        .send({
+          requestId: 1,
+          reason: "Chloramphenicol antibiotic contamination confirmed. Batch recalled.",
+        });
+
+      expect(res.status).to.equal(200);
+      expect(res.body.success).to.be.true;
+      expect(res.body.data.status).to.equal("Recalled");
+      expect(res.body.data.recall.recalled).to.be.true;
+      expect(res.body.data.recall.reason).to.include("Chloramphenicol");
     });
   });
 });
