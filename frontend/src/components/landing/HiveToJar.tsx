@@ -15,6 +15,21 @@ const steps = [
     title: "A lab certifies it",
     body: "Moisture, sugar profile, and pollen analysis are recorded on-chain against the batch, before it ever reaches a processor.",
   },
+  {
+    image: "/images/landing/custody-illustration.png",
+    title: "Custody moves, on record",
+    body: "Processor, distributor, retailer — every handoff is a signed transaction with a location and timestamp, building an unbroken chain.",
+  },
+  {
+    image: "/images/landing/qr-illustration.png",
+    title: "The jar gets a QR",
+    body: "Printed straight onto the label. It points to one thing: the full, tamper-evident history of that exact batch.",
+  },
+  {
+    image: "/images/landing/consumer-illustration.png",
+    title: "Anyone can verify it",
+    body: "No app, no login. Scan the jar, and the buyer sees origin, lab grade, and custody — pulled live from Ethereum.",
+  },
 ];
 
 export default function HiveToJar() {
@@ -22,7 +37,10 @@ export default function HiveToJar() {
     <section id="how-it-works" className="relative px-6 md:px-12 py-28">
       <FlightBeeDecor side="left" top="4%" />
 
-      <ScrollReveal from="bottom" className="max-w-5xl mx-auto text-center mb-20">
+      <ScrollReveal
+        from="bottom"
+        className="max-w-5xl mx-auto text-center mb-20"
+      >
         <h2 className="font-sans font-bold text-3xl md:text-5xl text-ink dark:text-ink-dark">
           From Hive To Jar
         </h2>
@@ -43,7 +61,13 @@ export default function HiveToJar() {
                 exitDirection={imageFirst ? "left" : "right"}
                 className="w-48 h-48 md:w-64 md:h-64 relative shrink-0"
               >
-                <Image src={step.image} alt={step.title} fill className="object-contain" />
+                <Image
+                  src={step.image}
+                  alt={step.title}
+                  fill
+                  priority
+                  className="object-contain"
+                />
               </ScrollReveal>
 
               <ScrollReveal

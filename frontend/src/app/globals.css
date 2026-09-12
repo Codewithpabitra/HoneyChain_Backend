@@ -8,7 +8,7 @@
   --font-sans: "Inter", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  --color-paper: #fbf7ec;
+  --color-paper: oklch(96.2% 0.059 95.617);
   --color-paper-dark: #17130e;
 
   --color-ink: #211a12;
@@ -23,20 +23,22 @@
 }
 
 @layer base {
-  html {
+    html {
     scroll-behavior: smooth;
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* old Edge/IE */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overflow-x: hidden;
   }
 
-   html::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, new Edge */
+  html::-webkit-scrollbar {
+    display: none;
   }
 
   body {
     background-color: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    overflow-x: hidden;
     transition:
       background-color 0.2s ease,
       color 0.2s ease;

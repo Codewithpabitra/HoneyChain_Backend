@@ -5,7 +5,7 @@ import Link from "next/link";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { BeeIcon } from "@/components/ui/BeeIcon";
+import { IconLogout } from "@tabler/icons-react";
 
 const navLinks = [
   { label: "How it works", href: "/#how-it-works" },
@@ -39,6 +39,7 @@ export default function Header() {
             alt="HoneyChain logo"
             fill
             priority
+            sizes="36px"
             className="object-contain transition-transform duration-300 group-hover:scale-105"
           />
         </div>
@@ -61,11 +62,26 @@ export default function Header() {
 
       <div className="flex items-center gap-3">
         <ThemeToggle />
-        <Link href="/login">
-          <Button size="sm" variant="outline">
-            Sign in
-          </Button>
-        </Link>
+
+        {user ? (
+          <>
+            <Link href={dashboardHref}>
+              <Button size="sm" variant="outline">
+                Dashboard
+              </Button>
+            </Link>
+            <Button size="sm" variant="ghost" onClick={logout}>
+              <IconLogout size={16} stroke={1.75} />
+              Sign out
+            </Button>
+          </>
+        ) : (
+          <Link href="/login">
+            <Button size="sm" variant="outline">
+              Sign in
+            </Button>
+          </Link>
+        )}
       </div>
     </header>
   );
