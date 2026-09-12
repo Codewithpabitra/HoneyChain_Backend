@@ -4,6 +4,7 @@ import type {
   Telemetry,
   TelemetryResponse,
   TelemetryHistoryResponse,
+  TelemetryRecentResponse,
   DeviceStatusResponse,
 } from "@/types/telemetry";
 
@@ -18,6 +19,13 @@ export const telemetryService = {
     const response = await api.post<TelemetryResponse>(
       "/api/iot/telemetry",
       data
+    );
+    return response.data;
+  },
+
+  async getRecent(hiveId: string): Promise<TelemetryRecentResponse> {
+    const response = await api.get<TelemetryRecentResponse>(
+      `/api/iot/telemetry/${encodeURIComponent(hiveId)}/recent`
     );
     return response.data;
   },

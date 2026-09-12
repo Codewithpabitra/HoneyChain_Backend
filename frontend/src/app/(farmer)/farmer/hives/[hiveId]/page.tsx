@@ -35,6 +35,7 @@ import {
 
 import { hiveService } from "@/services/hive.service";
 import { telemetryService } from "@/services/telemetry.service";
+import { socketService } from "@/services/socket.service";
 import { mlService } from "@/services/ml.service";
 import type { Hive, HiveStatus } from "@/types/hive";
 import type { TelemetryHistoryPoint } from "@/types/telemetry";
@@ -55,9 +56,11 @@ export default function HiveDetailsPage() {
   const [hive, setHive] = useState<Hive | null>(null);
   const [hiveLoading, setHiveLoading] = useState(true);
 
-  // Telemetry history
+  // Telemetry history & live socket stream
   const [telemetry, setTelemetry] = useState<TelemetryHistoryPoint[]>([]);
   const [telemetryLoading, setTelemetryLoading] = useState(true);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [nowMs, setNowMs] = useState(Date.now());
   const [activeMetricTab, setActiveMetricTab] = useState<
     "temperature" | "humidity" | "weight" | "acoustics" | "flow"
   >("temperature");
@@ -96,7 +99,19 @@ export default function HiveDetailsPage() {
   const loadTelemetry = useCallback(async () => {
     try {
       setTelemetryLoading(true);
-      const res = await telemetryService.getHistory(hiveId, { limit: 50 });
+      // 1. First fetch latest 10 readings from Redis rolling buffer
+      try {
+        const recentRes = await telemetryService.getRecent(hiveId);
+        if (recentRes?.data && recentRes.data.length > 0) {
+          setTelemetry(recentRes.data);
+          return;
+        }
+      } catch {
+        // Fallback to MongoDB history if Redis route is unavailable
+      }
+
+      // 2. Cold-start fallback
+      const res = await telemetryService.getHistory(hiveId, { limit: 10 });
       setTelemetry(res.data || []);
     } catch {
       // Telemetry might be empty for newly created hive
@@ -124,6 +139,37 @@ export default function HiveDetailsPage() {
     loadPrediction();
   }, [loadHive, loadTelemetry, loadPrediction]);
 
+  // Periodic heartbeat timer to keep Live / Stale status fresh
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Connect to Socket.IO, join hive room, and receive live telemetry updates
+  useEffect(() => {
+    const unsubStatus = socketService.onConnectionChange(setIsSocketConnected);
+    socketService.joinHive(hiveId);
+
+    const unsubTelemetry = socketService.onTelemetry((newReading) => {
+      setTelemetry((prev) => {
+        const exists = prev.some(
+          (r) =>
+            (r.id && newReading.id && r.id === newReading.id) ||
+            new Date(r.timestamp).getTime() === new Date(newReading.timestamp).getTime()
+        );
+        if (exists) return prev;
+        const updated = [...prev, newReading];
+        return updated.slice(-10);
+      });
+    });
+
+    return () => {
+      unsubStatus();
+      unsubTelemetry();
+      socketService.leaveHive(hiveId);
+    };
+  }, [hiveId]);
+
   // Latest readings from telemetry or prediction
   const latestReading = useMemo(() => {
     if (telemetry.length > 0) {
@@ -141,6 +187,26 @@ export default function HiveDetailsPage() {
     }
     return null;
   }, [telemetry, prediction]);
+
+  // Live / Stale telemetry indicator based on expected interval (30s)
+  const telemetryStatus = useMemo(() => {
+    if (!latestReading?.timestamp) {
+      return { label: "Offline", color: "bg-gray-400", isLive: false };
+    }
+    const readingMs = new Date(latestReading.timestamp).getTime();
+    if (isNaN(readingMs)) {
+      return { label: "Offline", color: "bg-gray-400", isLive: false };
+    }
+    const ageSeconds = Math.max(0, Math.round((nowMs - readingMs) / 1000));
+    if (ageSeconds <= 45) {
+      return { label: "Live", color: "bg-emerald-500", isLive: true };
+    }
+    return {
+      label: ageSeconds < 60 ? `Stale (${ageSeconds}s ago)` : `Stale (${Math.round(ageSeconds / 60)}m ago)`,
+      color: "bg-amber-500",
+      isLive: false,
+    };
+  }, [latestReading, nowMs]);
 
   // Run AI analysis
   async function runAnalysis() {
@@ -338,7 +404,10 @@ export default function HiveDetailsPage() {
               {hive?.deviceMetadata?.batteryLevelPct ?? 100}%
             </span>
             <span>•</span>
-            <span>{hive?.deviceMetadata?.communicationProtocol || "MQTT"}</span>
+            <span className="flex items-center gap-1.5">
+              <span className={`inline-block h-2 w-2 rounded-full ${telemetryStatus.color} ${telemetryStatus.isLive ? "animate-pulse" : ""}`} />
+              <span className="font-medium text-ink dark:text-ink-dark">{telemetryStatus.label}</span>
+            </span>
           </div>
         </div>
 
@@ -411,11 +480,24 @@ export default function HiveDetailsPage() {
       <section className="rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-white/3">
         <div className="flex flex-col justify-between gap-4 border-b border-black/5 pb-4 dark:border-white/5 sm:flex-row sm:items-center">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <IconActivity size={20} className="text-honey" />
               <h2 className="font-semibold text-ink dark:text-ink-dark">
                 Telemetry Analytics
               </h2>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${
+                telemetryStatus.isLive
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${telemetryStatus.color} ${telemetryStatus.isLive ? "animate-pulse" : ""}`} />
+                {telemetryStatus.label}
+              </span>
+              {isSocketConnected && (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-black/40 dark:text-white/40">
+                  • Socket.IO Connected
+                </span>
+              )}
             </div>
             <p className="mt-1 text-xs text-black/50 dark:text-white/50">
               Continuous IoT sensor metrics recorded from Edge Gateway {hive?.deviceMetadata?.deviceId || `ESP32-${hiveId}`}

@@ -65,7 +65,12 @@ const envSchema = z.object({
 
   // IoT High-Frequency Telemetry & Persistence Intervals
   TELEMETRY_PERSIST_INTERVAL_SECONDS: z.string().default("600"),
-  TELEMETRY_EXPECTED_INTERVAL_SECONDS: z.string().default("15"),
+  TELEMETRY_EXPECTED_INTERVAL_SECONDS: z.string().default("30"),
+  TELEMETRY_RECENT_LIMIT: z.string().default("10"),
+
+  // Redis Live Telemetry Buffer
+  REDIS_URL: z.string().optional(),
+  REDIS_PASSWORD: z.string().optional(),
 
   // Twilio SMS Alerting
   TWILIO_ACCOUNT_SID: z.string().optional(),
@@ -93,6 +98,7 @@ export const env = {
     ? parsed.data.PUBLIC_BASE_URL.replace(/\/+$/, "")
     : (parsed.data.FRONTEND_URL ? parsed.data.FRONTEND_URL.split(",")[0].trim().replace(/\/+$/, "") : undefined),
   TELEMETRY_PERSIST_INTERVAL_SECONDS: parseInt(parsed.data.TELEMETRY_PERSIST_INTERVAL_SECONDS || "600", 10) || 600,
-  TELEMETRY_EXPECTED_INTERVAL_SECONDS: parseInt(parsed.data.TELEMETRY_EXPECTED_INTERVAL_SECONDS || "15", 10) || 15,
+  TELEMETRY_EXPECTED_INTERVAL_SECONDS: parseInt(parsed.data.TELEMETRY_EXPECTED_INTERVAL_SECONDS || "30", 10) || 30,
+  TELEMETRY_RECENT_LIMIT: parseInt(parsed.data.TELEMETRY_RECENT_LIMIT || "10", 10) || 10,
   TWILIO_SMS_COOLDOWN_SECONDS: parseInt(parsed.data.TWILIO_SMS_COOLDOWN_SECONDS || "900", 10) || 900,
 };

@@ -1,15 +1,22 @@
+import http from "node:http";
 import app from "./app.js";
 import { env } from "./config/env.js";
 import { connectDB, setupGracefulShutdown } from "./config/db.js";
 import { mlService } from "./services/ml.service.js";
+import { socketService } from "./services/socket.service.js";
+import { redisService } from "./services/redis.service.js";
+
 const PORT = env.PORT || 5000;
+
+const httpServer = http.createServer(app);
+socketService.init(httpServer);
 
 async function startServer() {
   try {
     // Initialize production-quality database connection with connection pooling
     await connectDB(env.MONGO_URI);
 
-    const server = app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`[HoneyChain] API server running on http://localhost:${PORT}`);
       console.log(`[HoneyChain] Connected to Ethereum Sepolia contract: ${env.CONTRACT_ADDRESS}`);
 
@@ -24,7 +31,10 @@ async function startServer() {
     });
 
     // Register graceful shutdown listeners for SIGINT and SIGTERM
-    setupGracefulShutdown(server);
+    setupGracefulShutdown(httpServer, async () => {
+      socketService.close();
+      await redisService.close();
+    });
   } catch (err: any) {
     console.error("[HoneyChain] Fatal startup failure:", err.message);
     process.exit(1);
@@ -35,4 +45,5 @@ if (process.env.NODE_ENV !== "test") {
   startServer();
 }
 
+export { httpServer };
 export default app;

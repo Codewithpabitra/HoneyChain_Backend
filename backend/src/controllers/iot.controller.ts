@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { SensorReading, Hive, ActiveAlertState } from "../models/index.js";
 import alertService from "../services/alert.service.js";
 import notificationService from "../services/notification.service.js";
+import redisService from "../services/redis.service.js";
+import socketService from "../services/socket.service.js";
 import { env } from "../config/env.js";
 import AppError from "../utils/AppError.js";
 
@@ -524,6 +526,28 @@ export class IoTController {
         hive.deviceMetadata.batteryLevelPct = batteryLevelPct;
         await hive.save();
 
+        const readingPayload = {
+          id: newReading._id,
+          hiveId: cleanHiveId,
+          deviceId: cleanDeviceId,
+          timestamp: parsedTimestamp,
+          temperature,
+          humidity,
+          weightKg,
+          flow,
+          beeInCount,
+          beeOutCount,
+          soundFrequencyHz,
+          acousticsDb,
+          batteryLevelPct,
+          ambientTemperature,
+          ambientHumidity,
+        };
+
+        // Emit live telemetry over Socket.IO and store in Redis rolling buffer
+        await redisService.addRecentReading(cleanHiveId, readingPayload);
+        socketService.emitHiveTelemetry(cleanHiveId, readingPayload);
+
         return res.status(201).json({
           success: true,
           persisted: true,
@@ -545,6 +569,7 @@ export class IoTController {
       await hive.save();
 
       const inMemoryProcessed = {
+        id: `mem-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         hiveId: cleanHiveId,
         hive: hive._id,
         deviceId: cleanDeviceId,
@@ -565,6 +590,10 @@ export class IoTController {
           source: metadata.source || "device",
         },
       };
+
+      // Emit live telemetry over Socket.IO and store in Redis rolling buffer
+      await redisService.addRecentReading(cleanHiveId, inMemoryProcessed);
+      socketService.emitHiveTelemetry(cleanHiveId, inMemoryProcessed);
 
       return res.status(200).json({
         success: true,
@@ -651,6 +680,27 @@ export class IoTController {
         hive.deviceMetadata.lastPingAt = now;
         hive.deviceMetadata.batteryLevelPct = batteryLevelPct;
         await hive.save();
+
+        const readingPayload = {
+          id: newReading._id,
+          hiveId: hive.hiveId,
+          deviceId,
+          timestamp: now,
+          temperature: temp,
+          humidity,
+          weightKg,
+          flow: diurnalFlow,
+          beeInCount: newReading.beeInCount,
+          beeOutCount: newReading.beeOutCount,
+          soundFrequencyHz,
+          acousticsDb,
+          batteryLevelPct,
+          ambientTemperature: newReading.ambientTemperature,
+          ambientHumidity: newReading.ambientHumidity,
+        };
+
+        await redisService.addRecentReading(hive.hiveId, readingPayload);
+        socketService.emitHiveTelemetry(hive.hiveId, readingPayload);
 
         results.push({
           hiveId: hive.hiveId,
@@ -848,6 +898,96 @@ export class IoTController {
               }
             : null,
         },
+      });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  /**
+   * GET /api/iot/telemetry/:hiveId/recent
+   * Returns the latest up to 10 telemetry readings from Redis rolling cache
+   * (with MongoDB fallback on cold-start) in chronological order.
+   */
+  public getRecentTelemetry = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const hiveId = (Array.isArray(req.params.hiveId) ? req.params.hiveId[0] : req.params.hiveId) as string;
+      if (!hiveId || !hiveId.trim()) {
+        return next(new AppError("hiveId parameter is required", 400));
+      }
+
+      const cleanHiveId = hiveId.trim();
+      const hive = await Hive.findOne({ hiveId: cleanHiveId }).lean();
+      if (!hive) {
+        return next(new AppError(`Hive '${cleanHiveId}' not found in registry`, 404));
+      }
+
+      // Tenant authorization check
+      const isAdmin = req.user?.role === "admin" || req.user?.role === "auditor";
+      if (!isAdmin) {
+        const userOrgId = (req.user?.organizationId as any)?._id?.toString() || req.user?.organizationId?.toString();
+        const hiveOrgId = (hive.organizationId as any)?._id?.toString() || hive.organizationId?.toString();
+        const userWallet = ((req.user as any)?.walletAddress || (req.user?.organizationId as any)?.walletAddress || "").toLowerCase();
+        const hiveBeekeeper = (hive.beekeeper || "").toLowerCase();
+
+        const isOrgMatch = Boolean(userOrgId && hiveOrgId && userOrgId === hiveOrgId);
+        const isBeekeeperMatch = Boolean(userWallet && hiveBeekeeper && (userWallet === hiveBeekeeper || hiveBeekeeper.includes(req.user?.email?.toLowerCase() || "")));
+        const isCreator = Boolean(hive.createdBy && hive.createdBy.toString() === req.user?._id?.toString());
+
+        if (!isOrgMatch && !isBeekeeperMatch && !isCreator) {
+          return next(new AppError("Cannot view telemetry outside your organization", 403));
+        }
+      }
+
+      // 1. Fetch from Redis rolling list
+      const redisReadings = await redisService.getRecentReadings(cleanHiveId);
+      if (redisReadings && redisReadings.length > 0) {
+        return res.status(200).json({
+          success: true,
+          hiveId: cleanHiveId,
+          source: "redis",
+          count: redisReadings.length,
+          data: redisReadings,
+        });
+      }
+
+      // 2. Cold start fallback: fetch latest readings from MongoDB
+      const mongoReadings = await SensorReading.find({ hiveId: cleanHiveId })
+        .sort({ timestamp: -1 })
+        .limit(env.TELEMETRY_RECENT_LIMIT || 10)
+        .lean();
+
+      mongoReadings.reverse();
+
+      const formatted = mongoReadings.map((r) => ({
+        id: r._id,
+        hiveId: r.hiveId,
+        deviceId: r.deviceId,
+        timestamp: r.timestamp,
+        temperature: r.temperature,
+        humidity: r.humidity,
+        weightKg: r.weightKg,
+        soundFrequencyHz: r.soundFrequencyHz,
+        acousticsDb: r.acousticsDb,
+        batteryLevelPct: r.batteryLevelPct,
+        flow: r.flow,
+        beeInCount: r.beeInCount,
+        beeOutCount: r.beeOutCount,
+        ambientTemperature: r.ambientTemperature,
+        ambientHumidity: r.ambientHumidity,
+      }));
+
+      // Optionally populate Redis cache with historical items so subsequent calls hit Redis
+      for (const item of formatted) {
+        await redisService.addRecentReading(cleanHiveId, item);
+      }
+
+      return res.status(200).json({
+        success: true,
+        hiveId: cleanHiveId,
+        source: "mongodb-fallback",
+        count: formatted.length,
+        data: formatted,
       });
     } catch (err) {
       return next(err);

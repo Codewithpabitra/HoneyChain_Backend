@@ -48,6 +48,14 @@ export interface TelemetryHistoryResponse {
   data: TelemetryHistoryPoint[];
 }
 
+export interface TelemetryRecentResponse {
+  success: boolean;
+  hiveId: string;
+  source: "redis" | "mongodb-fallback";
+  count: number;
+  data: TelemetryHistoryPoint[];
+}
+
 export interface DeviceStatusResponse {
   success: boolean;
   data: {
