@@ -271,18 +271,46 @@ ${weatherText}
         signal: AbortSignal.timeout(this.timeoutMs),
       });
 
-      if (!res.ok) {
-        const errorText = await res.text().catch(() => "");
+      let responseToUse = res;
+      let modelUsed = this.model;
+
+      if (!responseToUse.ok && (responseToUse.status === 503 || responseToUse.status === 404 || responseToUse.status === 429) && this.model !== "gemini-2.5-flash") {
+        console.log(`[GeminiService] Model '${this.model}' returned HTTP ${responseToUse.status}. Retrying with stable 'gemini-2.5-flash'...`);
+        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
+        try {
+          const fallbackRes = await fetch(fallbackUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.2,
+                responseMimeType: "application/json",
+              },
+            }),
+            signal: AbortSignal.timeout(this.timeoutMs),
+          });
+          if (fallbackRes.ok) {
+            responseToUse = fallbackRes;
+            modelUsed = "gemini-2.5-flash";
+          }
+        } catch (fallbackErr: any) {
+          console.warn("[GeminiService] Secondary model fallback failed:", fallbackErr.message);
+        }
+      }
+
+      if (!responseToUse.ok) {
+        const errorText = await responseToUse.text().catch(() => "");
         console.warn(
-          `[GeminiService] Gemini API returned HTTP ${res.status}: ${errorText.slice(0, 150)}`
+          `[GeminiService] Gemini API returned HTTP ${responseToUse.status}: ${errorText.slice(0, 150)}`
         );
         return this.generateFallbackAnalysis(
           input,
-          `Gemini API returned HTTP ${res.status}: ${errorText.slice(0, 120)}`
+          `Gemini API returned HTTP ${responseToUse.status}: ${errorText.slice(0, 120)}`
         );
       }
 
-      const json = (await res.json()) as any;
+      const json = (await responseToUse.json()) as any;
       const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!rawText) {
@@ -310,7 +338,7 @@ ${weatherText}
         urgency: parsed.urgency || "medium",
         rawResponse: rawText,
         generatedAt: new Date(),
-        modelUsed: this.model,
+        modelUsed: modelUsed,
       };
     } catch (err: any) {
       console.warn(`[GeminiService] Error contacting Gemini: ${err.message}`);
