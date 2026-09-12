@@ -106,6 +106,19 @@ export interface TamperAudit {
   offChainMetadataHash: string;
 }
 
+export interface AuditorReviewRecord {
+  requestId: number;
+  requester: string;
+  reason: string;
+  timestamp: number;
+  active: boolean;
+  resolved: boolean;
+  decidedBy?: string;
+  decidedAt?: number;
+  resolutionNote?: string;
+  txHash?: string;
+}
+
 export interface BatchItem {
   _id: string;
   batchId: string;
@@ -140,6 +153,7 @@ export interface BatchItem {
   quality?: QualityInfo;
   custodyHistory: CustodyEvent[];
   recall?: RecallInfo;
+  reviewRequest?: AuditorReviewRecord;
   organizationId?: {
     _id: string;
     name: string;

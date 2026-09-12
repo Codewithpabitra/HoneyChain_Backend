@@ -4,6 +4,31 @@ All notable changes to the HoneyChain backend and blockchain subsystems will be 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Phase 10: Regulatory Food Safety Authority Portal, Role Separation & Refresh UX] - 2026-09-12
+
+### Added
+- **Regulatory Food Safety Authority Portal (`frontend/src/app/(authority)/authority/audits/page.tsx`)**:
+  - Dedicated operational portal for Food Safety & Licensing Authorities (e.g., FSSAI / Food License Committee members).
+  - Filter tabs: `NEEDS_AUDIT` (batches requiring regulatory inspection), `CERTIFIED` (passed quality standards), `RECALLED` (withdrawn from commercial chain), and `ALL`.
+  - On-chain Action Modals:
+    - **Pass Audit**: Approves flagged batches and clears pending reviews (`POST /api/batches/:batchId/review-request/:requestId/clear`) with optional regulatory inspection notes.
+    - **Execute Batch Recall**: Enforces immediate on-chain batch recall (`POST /api/batches/:batchId/recall`) requiring an official legal and public health justification.
+  - Direct links to tamper-proof PDF laboratory assay reports (`resolveLabReportUrl`) and decentralized supply chain traceability.
+- **Auditor vs. Admin Role Separation**:
+  - Clarified role definitions across navigation and dashboards:
+    - `auditor`: Food Safety & Regulatory Authority focused on honey purity compliance, lab review inspections, batch recall enforcement, and apiary cluster health.
+    - `admin`: System Administrator focused on stakeholder organization onboarding, user directory administration, IoT device fleets, and smart contract gas management.
+  - Navigation (`frontend/src/config/navigation.ts`):
+    - `auditor`: Dashboard, Audit & Recalls (`/authority/audits`), Apiary Clusters, Beekeepers, Hive Health, Quality Alerts, Blockchain Proofs.
+    - `admin`: System Dashboard, Org Applications (`#requests`), User Directory, Device & Hives, Blockchain & Gas.
+  - Dashboard Distinction (`frontend/src/app/(authority)/authority/dashboard/page.tsx`):
+    - Admin views system infrastructure metrics (Active Hives, Healthy Colonies, Verified Batches, System Alerts) and organization registration queues.
+    - Auditor views regulatory stats (Pending Audits, Quality Certified, Enforced Recalls, Anomaly Alerts) and a live preview queue of batches requiring regulatory review with direct links to the audit console.
+- **Instant Refresh Feedback & Cache Invalidation (`frontend/src/lib/refresh.ts`)**:
+  - Created `refreshWithFeedback` utility: invalidates the 60-second Axios client cache (`clearApiCache()`) and enforces a guaranteed minimum 500ms spinner duration.
+  - Resolved issue where clicking "Refresh" with identical or cached data showed no visible re-render feedback.
+  - Integrated across: Authority Dashboard, Authority Hives, Farmer Hives, Farmer Batches, Lab Dashboard, and Lab Quality Tests.
+
 ## [Phase 9: High-Frequency IoT Real-Time Monitoring & Twilio SMS Alerting] - 2026-09-11
 
 ### Added

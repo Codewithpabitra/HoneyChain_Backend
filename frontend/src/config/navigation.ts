@@ -10,6 +10,7 @@ import {
   IconHome,
   IconPackage,
   IconRoute,
+  IconShieldExclamation,
   IconUsers,
 } from "@tabler/icons-react";
 
@@ -122,32 +123,32 @@ export const ROLE_NAVIGATION: Record<Role, NavigationItem[]> = {
       icon: IconHome,
     },
     {
-      label: "Farmers",
+      label: "Audit & Recalls",
+      href: "/authority/audits",
+      icon: IconShieldExclamation,
+    },
+    {
+      label: "Apiary Clusters",
+      href: "/authority/clusters",
+      icon: IconBuildingCommunity,
+    },
+    {
+      label: "Beekeepers",
       href: "/authority/farmers",
       icon: IconUsers,
     },
     {
-      label: "Hives",
+      label: "Hive Health",
       href: "/authority/hives",
       icon: IconHexagon,
     },
     {
-      label: "Clusters",
-      href: "/authority/clusters",
-      icon: IconRoute,
-    },
-    {
-      label: "Analytics",
-      href: "/authority/analytics",
-      icon: IconChartBar,
-    },
-    {
-      label: "Alerts",
+      label: "Quality Alerts",
       href: "/authority/alerts",
       icon: IconAlertTriangle,
     },
     {
-      label: "Blockchain",
+      label: "Blockchain Proofs",
       href: "/authority/blockchain",
       icon: IconActivity,
     },
@@ -155,22 +156,27 @@ export const ROLE_NAVIGATION: Record<Role, NavigationItem[]> = {
 
   admin: [
     {
-      label: "Dashboard",
+      label: "System Dashboard",
       href: "/authority/dashboard",
       icon: IconHome,
     },
     {
-      label: "Org Requests",
+      label: "Org Applications",
       href: "/authority/dashboard#requests",
       icon: IconBuildingCommunity,
     },
     {
-      label: "Users",
+      label: "User Directory",
       href: "/authority/users",
       icon: IconUsers,
     },
     {
-      label: "Blockchain",
+      label: "Device & Hives",
+      href: "/authority/hives",
+      icon: IconHexagon,
+    },
+    {
+      label: "Blockchain & Gas",
       href: "/authority/blockchain",
       icon: IconActivity,
     },

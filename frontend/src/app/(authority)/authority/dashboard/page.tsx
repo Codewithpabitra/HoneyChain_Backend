@@ -1,7 +1,7 @@
 // src/app/(authority)/authority/dashboard/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   IconAlertTriangle,
@@ -12,50 +12,83 @@ import {
   IconFileDescription,
   IconHexagon,
   IconRefresh,
+  IconShieldExclamation,
   IconShieldCheck,
   IconUsers,
   IconX,
   IconBox,
+  IconClipboardCheck,
 } from "@tabler/icons-react";
 
 import { useAuth } from "@/components/providers/AuthProvider";
 import { organizationService } from "@/services/organization.service";
 import { analyticsService } from "@/services/analytics.service";
+import { batchService } from "@/services/batch.service";
 import type { DashboardStats } from "@/types/analytics";
 import type {
   OrganizationApplication,
   ApplicationStatus,
   ProposedMember,
 } from "@/types/organization";
+import type { BatchItem } from "@/types/batch";
 import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import { StaggerContainer, StaggerItem, LivePulse } from "@/components/ui/MotionComponents";
 import { clearApiCache } from "@/lib/apiCache";
+import { refreshWithFeedback } from "@/lib/refresh";
 
-// Auditor default modules
-const auditorModules = [
+// System Admin default modules
+const adminModules = [
   {
-    title: "Farmers",
-    description: "Monitor registered beekeepers and their apiary operations.",
-    href: "/authority/farmers",
+    title: "Organization Applications",
+    description: "Review pending onboarding requests, verify credentials, and approve cryptographic identities.",
+    href: "#requests",
+    icon: IconBuildingCommunity,
+  },
+  {
+    title: "User Directory & Access",
+    description: "Manage system accounts, user roles, security credentials, and platform access.",
+    href: "/authority/users",
     icon: IconUsers,
   },
   {
-    title: "Hive Monitoring",
-    description: "View hive health, telemetry and AI-based risk indicators.",
+    title: "IoT Gateways & Hardware",
+    description: "Supervise deployed IoT hardware telemetry, gateways, and colony sensor feeds.",
     href: "/authority/hives",
     icon: IconHexagon,
   },
   {
-    title: "Clusters",
-    description: "Monitor beekeeping clusters and regional activity.",
+    title: "Blockchain & Smart Contracts",
+    description: "Inspect Ethereum Sepolia transactions, gas budgets, and contract provenance logs.",
+    href: "/authority/blockchain",
+    icon: IconShieldCheck,
+  },
+];
+
+// Food Safety Authority / Auditor default modules
+const auditorModules = [
+  {
+    title: "Audit Requests & Recalls",
+    description: "Inspect honey batches flagged for regulatory review or initiate product recalls.",
+    href: "/authority/audits",
+    icon: IconShieldExclamation,
+  },
+  {
+    title: "Apiary Clusters",
+    description: "Inspect cooperative apiary clusters, regional yields, and harvest zones.",
     href: "/authority/clusters",
     icon: IconBuildingCommunity,
   },
   {
-    title: "Blockchain",
-    description: "Inspect traceability records and on-chain activity.",
-    href: "/authority/blockchain",
-    icon: IconShieldCheck,
+    title: "Colony Health & Sensors",
+    description: "Monitor live hive telemetry, environmental stressors, and colony risk metrics.",
+    href: "/authority/hives",
+    icon: IconHexagon,
+  },
+  {
+    title: "Quality & Safety Alerts",
+    description: "Track adulteration flags, moisture violations, and pesticide alerts.",
+    href: "/authority/alerts",
+    icon: IconAlertTriangle,
   },
 ];
 
@@ -64,6 +97,9 @@ export default function AuthorityDashboardPage() {
   const isAdmin = user?.role === "admin";
 
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [batches, setBatches] = useState<BatchItem[]>([]);
+  const [isLoadingBatches, setIsLoadingBatches] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Organization requests state (Admin)
   const [applications, setApplications] = useState<OrganizationApplication[]>([]);
@@ -100,6 +136,41 @@ export default function AuthorityDashboardPage() {
     }
   }, [isAdmin, statusFilter]);
 
+  const fetchBatches = useCallback(async () => {
+    if (isAdmin) return;
+    setIsLoadingBatches(true);
+    try {
+      const res = await batchService.getAll({ limit: 100 });
+      setBatches(res.data || []);
+    } catch {
+      // Handled silently
+    } finally {
+      setIsLoadingBatches(false);
+    }
+  }, [isAdmin]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshWithFeedback(async () => {
+        const promises: Promise<any>[] = [
+          analyticsService
+            .getDashboardStats()
+            .then((res) => setDashboardStats(res.data))
+            .catch(() => {}),
+        ];
+        if (isAdmin) {
+          promises.push(fetchApplications());
+        } else {
+          promises.push(fetchBatches());
+        }
+        await Promise.all(promises);
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   useEffect(() => {
     let active = true;
     async function load() {
@@ -130,7 +201,37 @@ export default function AuthorityDashboardPage() {
       .getDashboardStats()
       .then((res) => setDashboardStats(res.data))
       .catch((err) => console.error("Failed to load dashboard stats", err));
-  }, []);
+
+    if (!isAdmin) {
+      fetchBatches();
+    }
+  }, [isAdmin, fetchBatches]);
+
+  // Auditor-specific derived counts
+  const pendingAudits = useMemo(() => {
+    return batches.filter(
+      (b) =>
+        Boolean(b.reviewRequest?.active && !b.reviewRequest?.resolved) ||
+        (b.status as string) === "FLAGGED"
+    );
+  }, [batches]);
+
+  const certifiedBatches = useMemo(() => {
+    return batches.filter(
+      (b) =>
+        b.status === "Certified" ||
+        b.quality?.certified === true ||
+        (b.quality?.grade && b.quality.grade !== "None" && b.quality.grade !== "Substandard")
+    );
+  }, [batches]);
+
+  const recalledBatches = useMemo(() => {
+    return batches.filter(
+      (b) =>
+        b.status === "Recalled" ||
+        b.recall?.recalled === true
+    );
+  }, [batches]);
 
   // Handle hash scrolling on load or hashchange
   useEffect(() => {
@@ -260,128 +361,230 @@ export default function AuthorityDashboardPage() {
       <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <p className="mb-2 text-sm font-medium text-honey">
-            {isAdmin ? "HoneyChain Platform Administration" : "Compliance & Monitoring"}
+            {isAdmin ? "HoneyChain Platform Administration" : "Food Safety & Regulatory Compliance"}
           </p>
 
           <h1 className="text-3xl font-bold tracking-tight">
-            {isAdmin ? "Admin Dashboard" : "Auditor Dashboard"}
+            {isAdmin ? "System Administration" : "Authority & Auditor Dashboard"}
           </h1>
 
           <p className="mt-2 max-w-2xl text-sm text-black/50 dark:text-white/50">
             {isAdmin
-              ? "Oversee organization onboarding applications, provision stakeholder blockchain identities, and administer platform users."
-              : "Monitor beekeeping operations, honey traceability, hive health and blockchain-backed records across registered clusters."}
+              ? "Oversee organization onboarding applications, provision stakeholder blockchain identities, and monitor platform health."
+              : "Inspect honey batches submitted for food licensing review, manage batch quality audits, enforce regulatory recalls, and monitor apiary compliance."}
           </p>
         </div>
 
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={() => {
-              clearApiCache();
-              fetchApplications();
-              analyticsService.getDashboardStats().then((res) => setDashboardStats(res.data));
-            }}
-            disabled={isLoadingApps}
-            className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white/70 px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-black/5 dark:border-white/10 dark:bg-white/4 dark:text-ink-dark dark:hover:bg-white/8"
-          >
-            <IconRefresh size={16} className={isLoadingApps ? "animate-spin" : ""} />
-            Refresh
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={isRefreshing || isLoadingApps || isLoadingBatches}
+          className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white/70 px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-black/5 dark:border-white/10 dark:bg-white/4 dark:text-ink-dark dark:hover:bg-white/8"
+        >
+          <IconRefresh size={16} className={isRefreshing || isLoadingApps || isLoadingBatches ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
       {/* Network Overview Stats */}
-      <StaggerContainer className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StaggerItem>
-          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <p className="text-xs text-black/50 dark:text-white/50">Active Hives</p>
-                  <LivePulse color="emerald" />
+      {isAdmin ? (
+        <StaggerContainer className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StaggerItem>
+            <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs text-black/50 dark:text-white/50">Active Hives</p>
+                    <LivePulse color="emerald" />
+                  </div>
+                  <p className="mt-2 text-2xl font-bold">
+                    {dashboardStats ? (
+                      <AnimatedNumber value={dashboardStats.hives.active} />
+                    ) : (
+                      <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                    )}
+                  </p>
                 </div>
-                <p className="mt-2 text-2xl font-bold">
-                  {dashboardStats ? (
-                    <AnimatedNumber value={dashboardStats.hives.active} />
-                  ) : (
-                    <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
-                  )}
-                </p>
-              </div>
-              <div className="rounded-xl bg-honey/10 p-2.5 text-honey">
-                <IconHexagon size={20} />
-              </div>
-            </div>
-          </div>
-        </StaggerItem>
-
-        <StaggerItem>
-          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <p className="text-xs text-black/50 dark:text-white/50">Healthy Colonies</p>
-                  <LivePulse color="emerald" />
+                <div className="rounded-xl bg-honey/10 p-2.5 text-honey">
+                  <IconHexagon size={20} />
                 </div>
-                <p className="mt-2 text-2xl font-bold">
-                  {dashboardStats ? (
-                    <AnimatedNumber value={dashboardStats.hives.healthy} />
-                  ) : (
-                    <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
-                  )}
-                </p>
-              </div>
-              <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-600 dark:text-emerald-400">
-                <IconShieldCheck size={20} />
               </div>
             </div>
-          </div>
-        </StaggerItem>
+          </StaggerItem>
 
-        <StaggerItem>
-          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-black/50 dark:text-white/50">Verified Batches</p>
-                <p className="mt-2 text-2xl font-bold">
-                  {dashboardStats ? (
-                    <AnimatedNumber value={dashboardStats.batches.total} />
-                  ) : (
-                    <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
-                  )}
-                </p>
-              </div>
-              <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600 dark:text-blue-400">
-                <IconBox size={20} />
-              </div>
-            </div>
-          </div>
-        </StaggerItem>
-
-        <StaggerItem>
-          <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <p className="text-xs text-black/50 dark:text-white/50">System Alerts</p>
-                  {(dashboardStats?.alerts?.active ?? 0) > 0 && <LivePulse color="rose" />}
+          <StaggerItem>
+            <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs text-black/50 dark:text-white/50">Healthy Colonies</p>
+                    <LivePulse color="emerald" />
+                  </div>
+                  <p className="mt-2 text-2xl font-bold">
+                    {dashboardStats ? (
+                      <AnimatedNumber value={dashboardStats.hives.healthy} />
+                    ) : (
+                      <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                    )}
+                  </p>
                 </div>
-                <p className="mt-2 text-2xl font-bold">
-                  {dashboardStats ? (
-                    <AnimatedNumber value={dashboardStats.alerts.active} />
-                  ) : (
-                    <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
-                  )}
-                </p>
-              </div>
-              <div className="rounded-xl bg-red-500/10 p-2.5 text-red-500">
-                <IconAlertTriangle size={20} />
+                <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-600 dark:text-emerald-400">
+                  <IconShieldCheck size={20} />
+                </div>
               </div>
             </div>
-          </div>
-        </StaggerItem>
-      </StaggerContainer>
+          </StaggerItem>
+
+          <StaggerItem>
+            <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-black/50 dark:text-white/50">Verified Batches</p>
+                  <p className="mt-2 text-2xl font-bold">
+                    {dashboardStats ? (
+                      <AnimatedNumber value={dashboardStats.batches.total} />
+                    ) : (
+                      <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600 dark:text-blue-400">
+                  <IconBox size={20} />
+                </div>
+              </div>
+            </div>
+          </StaggerItem>
+
+          <StaggerItem>
+            <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs text-black/50 dark:text-white/50">System Alerts</p>
+                    {(dashboardStats?.alerts?.active ?? 0) > 0 && <LivePulse color="rose" />}
+                  </div>
+                  <p className="mt-2 text-2xl font-bold">
+                    {dashboardStats ? (
+                      <AnimatedNumber value={dashboardStats.alerts.active} />
+                    ) : (
+                      <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-red-500/10 p-2.5 text-red-500">
+                  <IconAlertTriangle size={20} />
+                </div>
+              </div>
+            </div>
+          </StaggerItem>
+        </StaggerContainer>
+      ) : (
+        <StaggerContainer className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StaggerItem>
+            <Link
+              href="/authority/audits"
+              className="block rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 transition-all duration-200 hover:-translate-y-1 hover:border-amber-500/40 hover:shadow-md"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Pending Audits</p>
+                    {pendingAudits.length > 0 && <LivePulse color="amber" />}
+                  </div>
+                  <p className="mt-2 text-2xl font-bold text-amber-700 dark:text-amber-300">
+                    {isLoadingBatches ? (
+                      <span className="inline-block h-7 w-10 animate-pulse rounded bg-amber-500/10" />
+                    ) : (
+                      <AnimatedNumber value={pendingAudits.length} />
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-amber-500/10 p-2.5 text-amber-600 dark:text-amber-400">
+                  <IconShieldExclamation size={20} />
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] text-amber-600/70 dark:text-amber-400/70">
+                Action required in Regulatory Console →
+              </p>
+            </Link>
+          </StaggerItem>
+
+          <StaggerItem>
+            <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs text-black/50 dark:text-white/50">Quality Certified</p>
+                    <LivePulse color="emerald" />
+                  </div>
+                  <p className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {isLoadingBatches ? (
+                      <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                    ) : (
+                      <AnimatedNumber value={certifiedBatches.length} />
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-600 dark:text-emerald-400">
+                  <IconShieldCheck size={20} />
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] text-black/40 dark:text-white/40">
+                Compliant with lab assay thresholds
+              </p>
+            </div>
+          </StaggerItem>
+
+          <StaggerItem>
+            <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-black/50 dark:text-white/50">Enforced Recalls</p>
+                  <p className="mt-2 text-2xl font-bold text-red-600 dark:text-red-400">
+                    {isLoadingBatches ? (
+                      <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                    ) : (
+                      <AnimatedNumber value={recalledBatches.length} />
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-red-500/10 p-2.5 text-red-500">
+                  <IconAlertTriangle size={20} />
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] text-black/40 dark:text-white/40">
+                Withdrawn from commercial chain
+              </p>
+            </div>
+          </StaggerItem>
+
+          <StaggerItem>
+            <div className="rounded-2xl border border-black/10 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-white/10 dark:bg-white/3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs text-black/50 dark:text-white/50">Apiary & Purity Alerts</p>
+                    {(dashboardStats?.alerts?.active ?? 0) > 0 && <LivePulse color="rose" />}
+                  </div>
+                  <p className="mt-2 text-2xl font-bold">
+                    {dashboardStats ? (
+                      <AnimatedNumber value={dashboardStats.alerts.active} />
+                    ) : (
+                      <span className="inline-block h-7 w-10 animate-pulse rounded bg-black/5 dark:bg-white/10" />
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-rose-500/10 p-2.5 text-rose-500">
+                  <IconHexagon size={20} />
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] text-black/40 dark:text-white/40">
+                Active colony anomaly notices
+              </p>
+            </div>
+          </StaggerItem>
+        </StaggerContainer>
+      )}
 
       {/* Admin Organization Requests Section */}
       {isAdmin && (
@@ -819,48 +1022,165 @@ export default function AuthorityDashboardPage() {
         </div>
       )}
 
-      {/* Modules (Auditor view or general monitoring) */}
+      {/* Auditor Pending Audits Section */}
       {!isAdmin && (
-        <div className="mt-8">
-          <div className="mb-5">
-            <h2 className="text-lg font-semibold">Monitoring Modules</h2>
-            <p className="mt-1 text-sm text-black/50 dark:text-white/50">
-              Access operational and traceability information.
-            </p>
+        <section className="mb-10">
+          <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <div className="flex items-center gap-2">
+                <IconShieldExclamation size={22} className="text-honey" />
+                <h2 className="text-xl font-bold tracking-tight">Pending Regulatory Audits</h2>
+                {pendingAudits.length > 0 && (
+                  <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                    {pendingAudits.length} awaiting review
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-black/50 dark:text-white/50">
+                Batches flagged by labs, anomalous sensor profiles, or requiring official Food Licensing approval.
+              </p>
+            </div>
+
+            <Link
+              href="/authority/audits"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-honey hover:underline"
+            >
+              Open Regulatory Console
+              <IconArrowUpRight size={15} />
+            </Link>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {auditorModules.map((module) => {
-              const Icon = module.icon;
+          <div className="overflow-hidden rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-white/3">
+            {isLoadingBatches ? (
+              <div className="flex items-center justify-center p-12 text-sm text-black/50 dark:text-white/50">
+                <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-honey border-t-transparent" />
+                Loading audit requests…
+              </div>
+            ) : pendingAudits.length === 0 ? (
+              <div className="p-10 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <IconShieldCheck size={24} />
+                </div>
+                <h3 className="mt-4 font-semibold text-ink dark:text-ink-dark">
+                  All Honey Batches Compliant
+                </h3>
+                <p className="mt-1 text-xs text-black/50 dark:text-white/50">
+                  No honey batches are currently pending regulatory review or quality dispute.
+                </p>
+                <div className="mt-4">
+                  <Link
+                    href="/authority/audits"
+                    className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2 text-xs font-medium text-ink transition hover:bg-black/5 dark:border-white/10 dark:bg-white/5 dark:text-ink-dark"
+                  >
+                    View All Batches & Recalls
+                    <IconArrowUpRight size={14} />
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-black/10 bg-black/2 text-xs font-semibold uppercase tracking-wider text-black/50 dark:border-white/10 dark:bg-white/2 dark:text-white/50">
+                    <tr>
+                      <th className="px-5 py-3.5">Batch ID</th>
+                      <th className="px-5 py-3.5">Floral Origin</th>
+                      <th className="px-5 py-3.5">Volume</th>
+                      <th className="px-5 py-3.5">Producer</th>
+                      <th className="px-5 py-3.5">Review Reason</th>
+                      <th className="px-5 py-3.5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/5 dark:divide-white/5">
+                    {pendingAudits.slice(0, 5).map((batch) => {
+                      const producerLabel =
+                        (typeof batch.organizationId === "object" && batch.organizationId?.name) ||
+                        batch.producer ||
+                        "Apiary Producer";
 
-              return (
-                <Link
-                  key={module.title}
-                  href={module.href}
-                  className="group rounded-2xl border border-black/10 bg-white p-6 transition hover:-translate-y-0.5 hover:border-honey/40 hover:shadow-lg hover:shadow-black/5 dark:border-white/10 dark:bg-white/3 dark:hover:border-honey/40 dark:hover:shadow-black/20"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="rounded-xl bg-honey/10 p-3 text-honey">
-                      <Icon size={22} stroke={1.8} />
-                    </div>
+                      return (
+                        <tr key={batch.batchId} className="transition hover:bg-black/2 dark:hover:bg-white/2">
+                          <td className="px-5 py-4 font-mono font-medium text-ink dark:text-ink-dark">
+                            {batch.batchId}
+                          </td>
+                          <td className="px-5 py-4 font-medium text-ink dark:text-ink-dark">
+                            {batch.floralOrigin || "Raw Honey"}
+                          </td>
+                          <td className="px-5 py-4 text-xs font-medium">
+                            {batch.quantityKg ? `${batch.quantityKg} kg` : "—"}
+                          </td>
+                          <td className="px-5 py-4 text-xs text-black/60 dark:text-white/60">
+                            {producerLabel}
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                              <IconClock size={12} />
+                              {batch.reviewRequest?.reason || "Review Pending"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <Link
+                              href={`/authority/audits?search=${encodeURIComponent(batch.batchId)}`}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-honey/10 px-3 py-1.5 text-xs font-semibold text-honey transition hover:bg-honey/20"
+                            >
+                              Inspect & Audit
+                              <IconArrowUpRight size={13} />
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
-                    <IconArrowUpRight
-                      size={19}
-                      className="text-black/30 transition group-hover:text-honey dark:text-white/30 dark:group-hover:text-honey"
-                    />
+      {/* Modules (Auditor view or Admin view) */}
+      <div className="mt-8">
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold">
+            {isAdmin ? "System Administration Modules" : "Regulatory Authority Modules"}
+          </h2>
+          <p className="mt-1 text-sm text-black/50 dark:text-white/50">
+            {isAdmin
+              ? "Direct access to organization applications, user directories, IoT gateways, and smart contracts."
+              : "Direct access to food safety audits, regional cluster supervision, hive health, and quality alerts."}
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {(isAdmin ? adminModules : auditorModules).map((module) => {
+            const Icon = module.icon;
+
+            return (
+              <Link
+                key={module.title}
+                href={module.href}
+                className="group rounded-2xl border border-black/10 bg-white p-6 transition hover:-translate-y-0.5 hover:border-honey/40 hover:shadow-lg hover:shadow-black/5 dark:border-white/10 dark:bg-white/3 dark:hover:border-honey/40 dark:hover:shadow-black/20"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="rounded-xl bg-honey/10 p-3 text-honey">
+                    <Icon size={22} stroke={1.8} />
                   </div>
 
-                  <h3 className="mt-5 font-semibold">{module.title}</h3>
+                  <IconArrowUpRight
+                    size={19}
+                    className="text-black/30 transition group-hover:text-honey dark:text-white/30 dark:group-hover:text-honey"
+                  />
+                </div>
 
-                  <p className="mt-2 text-sm leading-6 text-black/50 dark:text-white/50">
-                    {module.description}
-                  </p>
-                </Link>
-              );
-            })}
-          </div>
+                <h3 className="mt-5 font-semibold">{module.title}</h3>
+
+                <p className="mt-2 text-sm leading-6 text-black/50 dark:text-white/50">
+                  {module.description}
+                </p>
+              </Link>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Traceability / Blockchain banner */}
       <div className="mt-8 rounded-2xl border border-honey/20 bg-honey/6 p-6">

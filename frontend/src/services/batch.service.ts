@@ -105,4 +105,32 @@ export const batchService = {
     }>(`/api/batches/${encodeURIComponent(batchId)}/recall`, data);
     return response.data;
   },
+
+  async clearReview(
+    batchId: string,
+    requestId: string,
+    data?: { notes?: string }
+  ): Promise<{ success: boolean; message: string; data: BatchItem }> {
+    const response = await api.post<{
+      success: boolean;
+      message: string;
+      data: BatchItem;
+    }>(
+      `/api/batches/${encodeURIComponent(batchId)}/review-request/${encodeURIComponent(requestId)}/clear`,
+      data || {}
+    );
+    return response.data;
+  },
+
+  async reject(
+    batchId: string,
+    data: { reason: string; requestId?: string }
+  ): Promise<{ success: boolean; message: string; data: BatchItem }> {
+    const response = await api.post<{
+      success: boolean;
+      message: string;
+      data: BatchItem;
+    }>(`/api/batches/${encodeURIComponent(batchId)}/reject`, data);
+    return response.data;
+  },
 };

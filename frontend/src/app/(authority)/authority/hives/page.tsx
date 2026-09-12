@@ -19,6 +19,7 @@ import { hiveService } from "@/services/hive.service";
 import { analyticsService } from "@/services/analytics.service";
 import type { Hive } from "@/types/hive";
 import type { DashboardStats } from "@/types/analytics";
+import { refreshWithFeedback } from "@/lib/refresh";
 
 export default function AuthorityHivesPage() {
   const [hives, setHives] = useState<Hive[]>([]);
@@ -95,7 +96,7 @@ export default function AuthorityHivesPage() {
 
         <button
           type="button"
-          onClick={loadData}
+          onClick={() => refreshWithFeedback(loadData)}
           disabled={loading}
           className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white/70 px-4 py-2.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/10 dark:bg-white/4"
         >
