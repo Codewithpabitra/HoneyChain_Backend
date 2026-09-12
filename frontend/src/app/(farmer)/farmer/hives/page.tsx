@@ -16,7 +16,11 @@ import {
 } from "@tabler/icons-react";
 
 import { hiveService } from "@/services/hive.service";
+import { telemetryService } from "@/services/telemetry.service";
+import { socketService } from "@/services/socket.service";
 import type { Hive, HiveStatus } from "@/types/hive";
+import type { TelemetryHistoryPoint } from "@/types/telemetry";
+import RecentTelemetryTable from "@/components/telemetry/RecentTelemetryTable";
 
 export default function HivesPage() {
   const [hives, setHives] = useState<Hive[]>([]);
@@ -24,6 +28,9 @@ export default function HivesPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [telemetryMap, setTelemetryMap] = useState<Record<string, TelemetryHistoryPoint[]>>({});
+  const [selectedHiveId, setSelectedHiveId] = useState<string>("");
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
   async function fetchHives() {
     setLoading(true);
@@ -33,7 +40,29 @@ export default function HivesPage() {
         status: statusFilter === "ALL" ? undefined : statusFilter,
         search: search.trim() || undefined,
       });
-      setHives(res.data || []);
+      const hivesList = res.data || [];
+      setHives(hivesList);
+      if (hivesList.length > 0) {
+        setSelectedHiveId((curr) =>
+          curr && hivesList.some((h) => h.hiveId === curr) ? curr : hivesList[0].hiveId
+        );
+      }
+
+      // Fetch recent 10 readings from Redis for each hive
+      const tPromises = hivesList.map(async (h) => {
+        try {
+          const tRes = await telemetryService.getRecent(h.hiveId);
+          return { hiveId: h.hiveId, readings: tRes.data || [] };
+        } catch {
+          return { hiveId: h.hiveId, readings: [] };
+        }
+      });
+      const tResults = await Promise.all(tPromises);
+      const map: Record<string, TelemetryHistoryPoint[]> = {};
+      tResults.forEach(({ hiveId, readings }) => {
+        map[hiveId] = readings;
+      });
+      setTelemetryMap(map);
     } catch {
       setError("Failed to load hives. Please ensure the backend service is running.");
     } finally {
@@ -44,6 +73,36 @@ export default function HivesPage() {
   useEffect(() => {
     fetchHives();
   }, [statusFilter]);
+
+  // Connect to Socket.IO and stream live telemetry for all hives
+  useEffect(() => {
+    if (hives.length === 0) return;
+    const unsubStatus = socketService.onConnectionChange(setIsSocketConnected);
+    hives.forEach((h) => socketService.joinHive(h.hiveId));
+
+    const unsubTelemetry = socketService.onTelemetry((reading: any) => {
+      if (!reading?.hiveId) return;
+      setTelemetryMap((prev) => {
+        const current = prev[reading.hiveId] || [];
+        const exists = current.some(
+          (r) =>
+            (r.id && reading.id && r.id === reading.id) ||
+            new Date(r.timestamp).getTime() === new Date(reading.timestamp).getTime()
+        );
+        if (exists) return prev;
+        return {
+          ...prev,
+          [reading.hiveId]: [reading, ...current].slice(0, 10),
+        };
+      });
+    });
+
+    return () => {
+      unsubStatus();
+      unsubTelemetry();
+      hives.forEach((h) => socketService.leaveHive(h.hiveId));
+    };
+  }, [hives]);
 
   const filteredHives = useMemo(() => {
     if (!search.trim()) return hives;
@@ -226,6 +285,9 @@ export default function HivesPage() {
             const healthStatus = hive.currentHealthSummary?.status || "healthy";
             const battery = hive.deviceMetadata?.batteryLevelPct ?? null;
 
+            const readings = telemetryMap[hive.hiveId] || [];
+            const latestTelemetry = readings.length > 0 ? readings[readings.length - 1] : null;
+
             return (
               <Link
                 key={hive._id || hive.hiveId}
@@ -293,10 +355,42 @@ export default function HivesPage() {
                       </span>
                     </div>
                   )}
+
+                  {/* Live Telemetry Snapshot Strip */}
+                  {latestTelemetry && (
+                    <div className="mt-3 grid grid-cols-3 gap-1.5 rounded-xl border border-black/5 bg-black/2 p-2 text-center dark:border-white/5 dark:bg-white/2">
+                      <div>
+                        <span className="text-[10px] text-black/40 dark:text-white/40">Brood Temp</span>
+                        <p className="text-xs font-semibold text-ink dark:text-ink-dark">
+                          {typeof latestTelemetry.temperature === "number" ? `${latestTelemetry.temperature.toFixed(1)}°C` : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-black/40 dark:text-white/40">Humidity</span>
+                        <p className="text-xs font-semibold text-ink dark:text-ink-dark">
+                          {typeof latestTelemetry.humidity === "number" ? `${latestTelemetry.humidity.toFixed(1)}%` : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-black/40 dark:text-white/40">Weight</span>
+                        <p className="text-xs font-semibold text-ink dark:text-ink-dark">
+                          {typeof latestTelemetry.weightKg === "number" ? `${latestTelemetry.weightKg.toFixed(2)}kg` : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-4 flex items-center justify-between border-t border-black/5 pt-3 text-xs font-medium text-honey dark:border-white/5">
-                  <span>View Telemetry & ML</span>
+                  <div className="flex items-center gap-1.5">
+                    {readings.length > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        {readings.length} buffered
+                      </span>
+                    )}
+                    <span>View Telemetry & ML</span>
+                  </div>
                   <IconChevronRight
                     size={15}
                     className="transition group-hover:translate-x-1"
@@ -307,6 +401,22 @@ export default function HivesPage() {
           })}
         </div>
       )}
+
+      {/* Live Redis Telemetry Buffer Section (Last 10 Readings) */}
+      <RecentTelemetryTable
+        readings={telemetryMap[selectedHiveId] || []}
+        hiveId={selectedHiveId}
+        loading={loading}
+        isSocketConnected={isSocketConnected}
+        title="Live Telemetry Rolling Buffer (Last 10 Readings)"
+        subtitle="Real-time IoT readings streaming from Redis rolling buffer (10 items max per hive)."
+        hives={hives.map((h) => ({
+          hiveId: h.hiveId,
+          count: (telemetryMap[h.hiveId] || []).length,
+        }))}
+        selectedHiveId={selectedHiveId}
+        onSelectHive={setSelectedHiveId}
+      />
     </div>
   );
 }

@@ -45,6 +45,7 @@ import TelemetrySimulator from "@/components/telemetry/TelemetrySimulator";
 import TelemetryForm from "@/components/telemetry/TelemetryForm";
 import PredictionHistory from "@/components/telemetry/PredictionHistory";
 import MLHealthIndicator from "@/components/telemetry/MLHealthIndicator";
+import RecentTelemetryTable from "@/components/telemetry/RecentTelemetryTable";
 
 export default function HiveDetailsPage() {
   const params = useParams<{ hiveId: string }>();
@@ -633,6 +634,14 @@ export default function HiveDetailsPage() {
           )}
         </div>
       </section>
+
+      {/* Live Telemetry Rolling Buffer Table (Last 10 Readings from Redis) */}
+      <RecentTelemetryTable
+        readings={telemetry}
+        hiveId={hiveId}
+        loading={telemetryLoading}
+        isSocketConnected={isSocketConnected}
+      />
 
       {/* AI Health Summary & Model Prediction */}
       <section className="rounded-2xl border border-black/8 bg-white p-6 dark:border-white/10 dark:bg-white/5">

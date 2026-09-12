@@ -1,5 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
+const path = require("path");
 require("dotenv").config();
+require("dotenv").config({ path: path.resolve(__dirname, "../backend/.env") });
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -19,10 +21,10 @@ module.exports = {
         process.env.SEPOLIA_RPC_URL ||
         "https://ethereum-sepolia-rpc.publicnode.com",
       accounts:
-        process.env.DEPLOYER_PRIVATE_KEY &&
-        process.env.DEPLOYER_PRIVATE_KEY !==
+        (process.env.DEPLOYER_PRIVATE_KEY || process.env.ADMIN_PRIVATE_KEY) &&
+        (process.env.DEPLOYER_PRIVATE_KEY || process.env.ADMIN_PRIVATE_KEY) !==
           "0x0000000000000000000000000000000000000000000000000000000000000000"
-          ? [process.env.DEPLOYER_PRIVATE_KEY]
+          ? [process.env.DEPLOYER_PRIVATE_KEY || process.env.ADMIN_PRIVATE_KEY]
           : [],
       chainId: 11155111,
     },
