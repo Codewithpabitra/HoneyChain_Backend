@@ -6,9 +6,18 @@ import type {
 } from "@/types/prediction";
 
 export const mlService = {
-  async predict(hiveId: string): Promise<MLPredictionResponse> {
+  async predict(
+    hiveId: string,
+    options: { forceAi?: boolean } = { forceAi: true }
+  ): Promise<MLPredictionResponse> {
     const response = await api.post<MLPredictionResponse>(
       `/api/ml/predict/${encodeURIComponent(hiveId)}`,
+      {},
+      {
+        params: {
+          forceAi: options.forceAi ?? true,
+        },
+      }
     );
 
     return response.data;

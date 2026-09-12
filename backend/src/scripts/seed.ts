@@ -151,6 +151,12 @@ async function seed() {
       },
       installationDate: new Date("2025-04-15"),
       status: "active" as const,
+      location: {
+        latitude: 21.9497,
+        longitude: 88.9008,
+        address: "Sundarbans Mangrove Delta, Sector 4, WB",
+        isApproximate: true,
+      },
       deviceMetadata: {
         deviceId: "ESP32-SB-GW-01",
         hardwareModel: "ESP32-WROOM-32U + BME280 + HX711 + I2S Mic",
@@ -184,6 +190,12 @@ async function seed() {
       },
       installationDate: new Date("2025-05-05"),
       status: "active" as const,
+      location: {
+        latitude: 21.9497,
+        longitude: 88.9008,
+        address: "Sundarbans Mangrove Delta, Sector 4, WB",
+        isApproximate: true,
+      },
       deviceMetadata: {
         deviceId: "ESP32-SB-GW-02",
         hardwareModel: "ESP32-WROOM-32U + HX711 Load Cell",
@@ -216,6 +228,12 @@ async function seed() {
       },
       installationDate: new Date("2025-06-15"),
       status: "active" as const,
+      location: {
+        latitude: 34.0837,
+        longitude: 74.7973,
+        address: "Pampore Saffron & Acacia Valley, Kashmir",
+        isApproximate: true,
+      },
       deviceMetadata: {
         deviceId: "ESP32-KV-GW-01",
         hardwareModel: "ESP32-S3 + LoRa SX1262 + Environmental Array",
@@ -243,6 +261,12 @@ async function seed() {
       beeSpecies: "Apis mellifera",
       installationDate: new Date("2025-06-20"),
       status: "active" as const,
+      location: {
+        latitude: 34.0837,
+        longitude: 74.7973,
+        address: "Pampore Saffron & Acacia Valley, Kashmir",
+        isApproximate: true,
+      },
       deviceMetadata: {
         deviceId: "ESP32-KV-GW-02",
         hardwareModel: "ESP32-C3 + BLE Beacon",
@@ -269,6 +293,12 @@ async function seed() {
       beeSpecies: "Apis cerana indica",
       installationDate: new Date("2025-08-01"),
       status: "active" as const,
+      location: {
+        latitude: 14.167,
+        longitude: 74.833,
+        address: "Sirsi Evergreen Forest Buffer Zone, KA",
+        isApproximate: true,
+      },
       deviceMetadata: {
         deviceId: "ESP32-WG-GW-01",
         hardwareModel: "ESP32-WROOM-32U",
@@ -295,6 +325,12 @@ async function seed() {
       beeSpecies: "Tetragonula iridipennis", // Stingless bee
       installationDate: new Date("2025-08-10"),
       status: "active" as const,
+      location: {
+        latitude: 14.167,
+        longitude: 74.833,
+        address: "Sirsi Evergreen Forest Buffer Zone, KA",
+        isApproximate: true,
+      },
       currentHealthSummary: {
         healthScore: 89,
         status: "healthy" as const,

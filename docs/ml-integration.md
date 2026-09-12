@@ -255,3 +255,35 @@ db.aipredictions.find({ hiveId: "HIVE-KV-201" }).sort({ predictionTimestamp: -1 
 > [!NOTE]
 > **Engineering Integration vs. Agricultural Validation**:
 > While this implementation guarantees **100% technical integration correctness** (exact tensor alignment, deterministic feature extraction, thread-safe memory residency, sub-100ms inference, and zero hardcoded labels), the underlying machine learning weights were trained on open apiculture datasets (Würzburg / Schwartau). Further agricultural field validation is required before relying on predictions for commercial treatment decisions in Indian tropical/sub-tropical microclimates.
+
+---
+
+## 10. Hybrid Gemini AI Decision Support Layer
+
+### 10.1 Architecture & Pipeline Flow
+```text
+Sensors (IoT) ───> 48h Rolling Window ───> ML Prediction (Hourly) ───> Trigger Evaluation ───> Gemini Reasoning ───> MongoDB
+                                                                              │
+                                                                   (Healthy / Cooldown)
+                                                                              ▼
+                                                                       Saved to DB (Skip LLM)
+```
+
+1. **Hourly Evaluation**: Active hives are evaluated every hour over a 48-hour rolling telemetry window (`hiveHealthScheduler.service.ts`).
+2. **Selective Trigger Layer (`predictionTrigger.service.ts`)**:
+   - Evaluates whether expensive LLM calls are warranted:
+     - **Critical Health**: Score $\le 40$ or status `critical`.
+     - **State Transition**: `normal` $\rightarrow$ `warning`/`critical`, `warning` $\rightarrow$ `critical`.
+     - **Health Drop**: Drop $\ge 10$ points in 1 hour, or $\ge 15$ points across 24 hours.
+     - **Persistent Abnormal**: 3 or more consecutive non-healthy predictions.
+     - **Sensor Anomalies**: Brood hypothermia ($<31.5^\circ\text{C}$), hyperthermia ($>38.0^\circ\text{C}$), rapid weight drop ($<-1.5\text{kg}$), or internal humidity ($>85\%$).
+   - **Cooldown**: 6-hour suppression window (`GEMINI_COOLDOWN_HOURS=6`), automatically bypassed by critical health escalations.
+3. **Structured Gemini Inference (`gemini.service.ts`)**:
+   - Model: `gemini-1.5-flash` with `responseMimeType: "application/json"`.
+   - Multi-source Context: ML health score/tier/drivers, 24h prediction timeline, 48h sensor aggregates (min/max/avg/latest/trend), and live Open-Meteo local weather.
+   - Non-diagnostic Guarantee: Framed as apiculture advisory and veterinary decision support without claiming definitive pathogen diagnosis.
+   - Fault Tolerance: Built-in heuristic apiculture reasoner fallback ensures ML predictions are never dropped if the Gemini API is unreachable or rate-limited.
+4. **Data Persistence**:
+   - Every hourly ML prediction is saved in `AIPrediction` with its full input window and results.
+   - If triggered, `AIPrediction.gemini` stores the reasoning result.
+   - `Hive.currentHealthSummary` updates with `healthScore`, `status`, `stressIndex`, and `latestGeminiAnalysis`.

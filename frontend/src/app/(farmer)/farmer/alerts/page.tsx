@@ -231,7 +231,7 @@ export default function FarmerAlertsPage() {
                     </span>
 
                     <Link
-                      href={`/farmer/hives/${encodeURIComponent(alert.hiveId)}`}
+                      href={`/farmer/hives/${encodeURIComponent(alert.hiveId)}#ai-insight`}
                       className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-honey hover:underline"
                     >
                       <IconHexagon size={13} />
@@ -262,17 +262,26 @@ export default function FarmerAlertsPage() {
                 </div>
               </div>
 
-              {!alert.isResolved && (
-                <button
-                  type="button"
-                  onClick={() => handleResolve(alert._id)}
-                  disabled={resolvingId === alert._id}
-                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-ink shadow-2xs transition hover:bg-black/5 dark:border-white/10 dark:bg-white/5 dark:text-ink-dark dark:hover:bg-white/10"
+              <div className="flex shrink-0 items-center gap-2">
+                <Link
+                  href={`/farmer/hives/${encodeURIComponent(alert.hiveId)}#ai-insight`}
+                  className="inline-flex shrink-0 items-center justify-center gap-1 rounded-xl border border-honey/20 bg-honey/10 px-3.5 py-2 text-xs font-semibold text-honey transition hover:bg-honey/15"
                 >
-                  <IconCheck size={14} />
-                  {resolvingId === alert._id ? "Resolving…" : "Resolve Alert"}
-                </button>
-              )}
+                  View AI Insight →
+                </Link>
+
+                {!alert.isResolved && (
+                  <button
+                    type="button"
+                    onClick={() => handleResolve(alert._id)}
+                    disabled={resolvingId === alert._id}
+                    className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-ink shadow-2xs transition hover:bg-black/5 dark:border-white/10 dark:bg-white/5 dark:text-ink-dark dark:hover:bg-white/10"
+                  >
+                    <IconCheck size={14} />
+                    {resolvingId === alert._id ? "Resolving…" : "Resolve Alert"}
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

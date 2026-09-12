@@ -4,6 +4,48 @@ All notable changes to the HoneyChain backend and blockchain subsystems will be 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Phase 12: Simplified Beekeeper AI Experience & Secondary Alert Routing] - 2026-09-13
+
+### Added
+- **Simplified Hive Health & AI Experience (`frontend/src/app/(farmer)/farmer/hives/[hiveId]/page.tsx`)**:
+  - Streamlined the hive detail view into an intuitive 3-part layout adhering strictly to existing theme styles and layout language:
+    1. **Hive Health**: Shows the current ML health score, status badge, and rolling trend (`Improving`, `Declining`, `Stable`).
+    2. **AI Hive Insight**: Highlights the latest Gemini analysis with a concise explanation, contributing factors (possible factors, sensor evidence, weather impact), actionable recommendation, severity/urgency, and timestamp.
+    3. **Action Trigger**: On-demand "Analyze with AI" / "Re-analyze" button with loading spinners and error handling that directly displays new AI insights upon completion.
+  - User-friendly fallback when no prior AI assessment exists:
+    > "No AI analysis available yet. Analyze this hive to get an AI-assisted assessment."
+- **On-Demand Manual AI Force Trigger (`backend/src/services/ml.service.ts`, `backend/src/controllers/ml.controller.ts`)**:
+  - Added `forceAi` parameter to `predictForHive` and `predictHiveHealth` endpoint (`POST /api/ml/predict/:hiveId?forceAi=true`).
+  - Allows beekeepers to manually request Gemini AI reasoning on demand without waiting for automatic degradation threshold triggers.
+- **Secondary Alert Routing**:
+  - Updated farmer and authority alerts (`farmer/alerts/page.tsx`, `authority/alerts/page.tsx`) to link directly to `#ai-insight` on the hive details page.
+  - Added direct "View AI Insight →" action on farmer alert cards so alerts serve as secondary notifications pointing to the AI insight.
+
+## [Phase 11: Hybrid Hive Health ML + Gemini AI Decision Support System] - 2026-09-12
+
+### Added
+- **Hive Geolocation & Automatic Inheritance**:
+  - Added `location: { latitude, longitude, address, isApproximate }` to `Hive` schema with optional coordinates.
+  - Implemented backfill script (`populateHiveLocations.ts`) to automatically populate coordinates for existing hives from parent apiary locations with `isApproximate: true`.
+  - Updated `createHive` and `updateHive` controllers to accept custom location coordinates or inherit from parent apiaries automatically.
+- **Selective Gemini AI Decision Support Layer (`backend/src/services/gemini.service.ts`)**:
+  - Apiculture reasoning engine utilizing Google Gemini (`gemini-1.5-flash`) via structured JSON schema output (`responseMimeType: "application/json"`).
+  - Integrates 4 core inputs: current ML health score and drivers, past 24-hour prediction history, 48-hour sensor summary (min/max/avg/latest/trend), and live local weather conditions.
+  - Strict veterinary prompt guidelines: advises and assists beekeepers without claiming definitive pathogen diagnosis.
+  - Resilient apiculture heuristic fallback engine activating automatically when Gemini API quota or network issues occur, preserving 100% of ML inference records.
+- **Intelligent Trigger Layer & Cooldown Management (`backend/src/services/predictionTrigger.service.ts`)**:
+  - Triggers Gemini reasoning only on critical health ($\le 40$), state transitions (`normal` $\rightarrow$ `warning`/`critical`), rapid health drops ($\ge 10$ drop in 1h, $\ge 15$ drop in 24h), persistent abnormal states ($\ge 3$ consecutive), and environmental anomalies.
+  - Configurable 6-hour cooldown (`GEMINI_COOLDOWN_HOURS=6`) preventing duplicate reasoning calls and API costs.
+  - Critical escalation override: urgent deteriorations automatically bypass the cooldown period.
+- **Automated Hourly Rolling 48-Hour Scheduler (`backend/src/services/hiveHealthScheduler.service.ts`)**:
+  - Recurring hourly background pipeline evaluating active hives across rolling 48h windows.
+  - Deduplication safeguard: skips hives evaluated within the past 50 minutes to avoid redundant hourly processing.
+  - Full persistence into `AIPrediction` (with `gemini` subdocument) and `Hive.currentHealthSummary.latestGeminiAnalysis`.
+- **Open-Meteo Weather Integration (`backend/src/services/weather.service.ts`)**:
+  - Zero-cost, keyless weather lookup providing ambient temperature, humidity, precipitation, wind speed, and human-readable WMO condition descriptions with a 30-minute in-memory cache.
+- **Comprehensive Hybrid Pipeline Test Suite (`backend/src/tests/hiveHealthGemini.test.ts`)**:
+  - 15 automated test cases validating location backfills, weather mapping, 48h gating, trigger evaluation, 6h cooldown suppression, critical escalation bypass, structured output, and scheduler deduplication (suite total: 200 passing tests).
+
 ## [Phase 10: Regulatory Food Safety Authority Portal, Role Separation & Refresh UX] - 2026-09-12
 
 ### Added

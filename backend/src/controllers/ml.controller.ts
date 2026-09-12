@@ -19,15 +19,17 @@ export class MLController {
       }
 
       const persist = req.query.persist !== "false";
-      const result = await mlService.predictForHive(hiveId, { persist });
+      const require48Hours = req.query.require48Hours === "true";
+      const forceAi = req.query.forceAi === "true" || req.body?.forceAi === true;
+      const result = await mlService.predictForHive(hiveId, { persist, require48Hours, forceAi });
 
       if (!result.success) {
-        if (result.status === "INSUFFICIENT_DATA") {
+        if (result.status === "INSUFFICIENT_DATA" || result.status === "INSUFFICIENT_TIME_WINDOW") {
           return res.status(200).json({
             success: false,
-            status: "INSUFFICIENT_DATA",
+            status: result.status,
             message: result.message,
-            data: null,
+            data: result.modelOutput || null,
           });
         }
         if (result.status === "SERVICE_UNAVAILABLE" || result.status === "SERVICE_TIMEOUT") {
@@ -52,6 +54,7 @@ export class MLController {
         data: {
           prediction: result.prediction,
           modelOutput: result.modelOutput,
+          geminiAnalysis: result.geminiAnalysis,
         },
       });
     } catch (err) {

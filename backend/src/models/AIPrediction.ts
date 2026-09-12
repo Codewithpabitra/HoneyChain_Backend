@@ -38,6 +38,23 @@ export interface IAIPredictionResult {
   caveat?: string;
 }
 
+export interface IGeminiAnalysis {
+  triggered: boolean;
+  triggerReason?: string;
+  status?: string;
+  severity?: "low" | "medium" | "high" | "critical";
+  summary?: string;
+  possibleFactors?: string[];
+  sensorEvidence?: string[];
+  weatherImpact?: string;
+  recommendedAction?: string;
+  urgency?: "low" | "medium" | "high" | "immediate";
+  rawResponse?: string;
+  generatedAt?: Date;
+  modelUsed?: string;
+  error?: string;
+}
+
 export interface IAIPrediction extends Document {
   predictionId: string;
   targetType: "hive" | "batch" | "apiary";
@@ -58,6 +75,7 @@ export interface IAIPrediction extends Document {
   predictionTimestamp: Date;
   inputWindow?: IInputWindowSummary;
   result: IAIPredictionResult;
+  gemini?: IGeminiAnalysis;
   status: "active" | "acknowledged" | "resolved" | "dismissed";
   acknowledgedBy?: string;
   acknowledgedAt?: Date;
@@ -116,6 +134,26 @@ const AIPredictionResultSchema = new Schema<IAIPredictionResult>(
     drivers: { type: Schema.Types.Mixed, default: {} },
     recommendation: { type: String },
     caveat: { type: String },
+  },
+  { _id: false }
+);
+
+const GeminiAnalysisSchema = new Schema<IGeminiAnalysis>(
+  {
+    triggered: { type: Boolean, default: false },
+    triggerReason: { type: String },
+    status: { type: String },
+    severity: { type: String, enum: ["low", "medium", "high", "critical"] },
+    summary: { type: String },
+    possibleFactors: { type: [String], default: [] },
+    sensorEvidence: { type: [String], default: [] },
+    weatherImpact: { type: String },
+    recommendedAction: { type: String },
+    urgency: { type: String, enum: ["low", "medium", "high", "immediate"] },
+    rawResponse: { type: String },
+    generatedAt: { type: Date },
+    modelUsed: { type: String },
+    error: { type: String },
   },
   { _id: false }
 );
@@ -206,6 +244,10 @@ const AIPredictionSchema = new Schema<IAIPrediction>(
       type: AIPredictionResultSchema,
       required: true,
     },
+    gemini: {
+      type: GeminiAnalysisSchema,
+      default: () => ({ triggered: false }),
+    },
     status: {
       type: String,
       enum: ["active", "acknowledged", "resolved", "dismissed"],
@@ -223,6 +265,7 @@ const AIPredictionSchema = new Schema<IAIPrediction>(
 
 // High-performance compound indexes for dashboards and alerts
 AIPredictionSchema.index({ hiveId: 1, predictionTimestamp: -1 });
+AIPredictionSchema.index({ hiveId: 1, "gemini.triggered": 1, predictionTimestamp: -1 });
 AIPredictionSchema.index({ batchId: 1, predictionTimestamp: -1 });
 AIPredictionSchema.index({ predictionType: 1, status: 1, predictionTimestamp: -1 });
 

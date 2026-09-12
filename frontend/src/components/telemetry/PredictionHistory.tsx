@@ -71,32 +71,51 @@ export default function PredictionHistory({
       </div>
 
       <div className="divide-y divide-black/10 dark:divide-white/10">
-        {predictions.map((prediction) => (
-          <div
-            key={prediction._id}
-            className="flex items-center justify-between gap-4 px-5 py-4"
-          >
-            <div>
-              <p className="text-sm font-medium">
-                {prediction.status.replaceAll("_", " ")}
-              </p>
+        {predictions.map((prediction: any) => {
+          const rawStatus = prediction.result?.status || prediction.status || "HEALTHY";
+          const statusText = String(rawStatus).replaceAll("_", " ");
+          const score = prediction.result?.healthScore ?? prediction.healthScore;
+          const timestamp = prediction.predictionTimestamp || prediction.createdAt;
+          const hasGemini = prediction.gemini?.triggered === true;
 
-              <p className="mt-1 text-xs text-black/40 dark:text-white/40">
-                {new Date(prediction.createdAt).toLocaleString()}
-              </p>
+          return (
+            <div
+              key={prediction._id || prediction.predictionId}
+              className="flex items-center justify-between gap-4 px-5 py-4"
+            >
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium capitalize">
+                    {statusText}
+                  </p>
+                  {hasGemini && (
+                    <span className="rounded-full bg-honey/15 px-2 py-0.5 text-[10px] font-semibold text-honey">
+                      AI Analyzed
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+                  {timestamp ? new Date(timestamp).toLocaleString() : "Recent"}
+                </p>
+              </div>
+
+              <div className="text-right">
+                <p className="text-sm font-semibold">
+                  {typeof score === "number"
+                    ? `${score}%`
+                    : typeof prediction.confidence === "number"
+                    ? `${(prediction.confidence * 100).toFixed(0)}%`
+                    : "—"}
+                </p>
+
+                <p className="text-xs text-black/40 dark:text-white/40">
+                  Health Score
+                </p>
+              </div>
             </div>
-
-            <div className="text-right">
-              <p className="text-sm font-semibold">
-                {(prediction.confidence * 100).toFixed(1)}%
-              </p>
-
-              <p className="text-xs text-black/40 dark:text-white/40">
-                Confidence
-              </p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

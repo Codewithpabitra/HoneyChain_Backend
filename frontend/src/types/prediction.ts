@@ -14,19 +14,57 @@ export interface PredictionMetrics {
   beeFlow?: number;
 }
 
+export interface GeminiAnalysis {
+  triggered: boolean;
+  triggerReason?: string;
+  status?: string;
+  severity?: "low" | "medium" | "high" | "critical";
+  summary?: string;
+  possibleFactors?: string[];
+  sensorEvidence?: string[];
+  weatherImpact?: string;
+  recommendedAction?: string;
+  urgency?: "low" | "medium" | "high" | "immediate";
+  generatedAt?: string | Date;
+  modelUsed?: string;
+  error?: string;
+}
+
+export interface PredictionResult {
+  status: "normal" | "warning" | "critical" | "inconclusive" | string;
+  riskScore?: number;
+  healthScore?: number;
+  tier?: string;
+  stressRisk?: string;
+  stressProbability?: number;
+  abnormalityRisk?: number;
+  stressBasis?: string;
+  drivers?: Record<string, any>;
+  recommendation?: string;
+  detectedAnomalies?: string[];
+  recommendedActions?: string[];
+  metricsSnapshot?: Record<string, any>;
+}
+
 export interface Prediction {
+  _id?: string;
+  predictionId?: string;
   hiveId: string;
-  tier: string;
-  status: PredictionStatus;
-  confidence: number;
+  tier?: string;
+  status?: PredictionStatus | string;
+  confidence?: number;
   healthScore?: number;
   anomalyDetected?: boolean;
-  anomaliesDetected: string[];
-  alerts: string[];
-  recommendations: string[];
-  drivers?: any[];
-  metricsSnapshot: PredictionMetrics;
-  timestamp: number;
+  anomaliesDetected?: string[];
+  alerts?: string[];
+  recommendations?: string[];
+  drivers?: any;
+  metricsSnapshot?: PredictionMetrics;
+  timestamp?: number | string;
+  predictionTimestamp?: string;
+  result?: PredictionResult;
+  gemini?: GeminiAnalysis;
+  createdAt?: string;
 }
 
 export interface ModelOutput {
@@ -34,15 +72,21 @@ export interface ModelOutput {
   probabilities: Record<string, number>;
   tierUsed: string;
   featuresExtracted: Record<string, unknown>;
+  healthScore?: number;
+  tier?: string;
+  stressRisk?: string;
+  recommendation?: string;
 }
 
 export interface MLPredictionResponse {
   success: boolean;
-  status: "OK";
+  status: "OK" | string;
+  message?: string;
   data: {
     prediction: Prediction;
-    modelOutput: ModelOutput;
-  };
+    modelOutput?: ModelOutput;
+    geminiAnalysis?: GeminiAnalysis;
+  } | null;
 }
 
 export interface HistoricalPrediction {

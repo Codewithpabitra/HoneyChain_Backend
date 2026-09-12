@@ -4,12 +4,31 @@ import type { ApiaryLocation } from "./apiary";
 export type HiveStatus = "active" | "inactive" | "quarantined" | "collapsed";
 export type HiveHealthStatus = "healthy" | "attention_needed" | "critical" | "unknown";
 
+export interface LatestGeminiAnalysis {
+  triggered: boolean;
+  triggerReason?: string;
+  severity?: "low" | "medium" | "high" | "critical";
+  summary?: string;
+  recommendedAction?: string;
+  urgency?: "low" | "medium" | "high" | "immediate";
+  generatedAt?: string;
+}
+
+export interface HiveLocation {
+  latitude: number;
+  longitude: number;
+  address?: string;
+  isApproximate?: boolean;
+}
+
 export interface HiveHealthSummary {
   healthScore?: number;
   status: HiveHealthStatus;
   stressIndex?: number;
   activeAlerts?: string[];
   latestReadingAt?: string;
+  lastAIPredictionId?: string;
+  latestGeminiAnalysis?: LatestGeminiAnalysis;
 }
 
 export interface HiveDeviceMetadata {
@@ -49,6 +68,7 @@ export interface Hive {
   queenInfo?: HiveQueenInfo;
   installationDate?: string;
   status: HiveStatus;
+  location?: HiveLocation;
   deviceMetadata?: HiveDeviceMetadata;
   currentHealthSummary?: HiveHealthSummary;
   organizationId?: {

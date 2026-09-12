@@ -20,6 +20,7 @@ export class HiveController {
         queenInfo,
         deviceMetadata,
         installationDate,
+        location,
         notes,
       } = req.body;
 
@@ -62,6 +63,22 @@ export class HiveController {
       const beekeeper = req.user?.walletAddress || req.user?.email || apiary.beekeeper;
       const organizationId = (req.user?.organizationId as any)?._id || apiary.organizationId;
 
+      const hiveLocation = location
+        ? {
+            latitude: Number(location.latitude),
+            longitude: Number(location.longitude),
+            address: location.address?.trim() || apiary.location?.address,
+            isApproximate: location.isApproximate ?? false,
+          }
+        : apiary.location && typeof apiary.location.latitude === "number"
+        ? {
+            latitude: apiary.location.latitude,
+            longitude: apiary.location.longitude,
+            address: apiary.location.address || `${apiary.name}, ${apiary.location.region || "Local Apiary"}`,
+            isApproximate: true,
+          }
+        : undefined;
+
       const newHive = new Hive({
         hiveId,
         apiary: apiary._id,
@@ -72,6 +89,7 @@ export class HiveController {
         queenInfo,
         installationDate: installationDate ? new Date(installationDate) : new Date(),
         status: "active",
+        location: hiveLocation,
         deviceMetadata: {
           deviceId: deviceMetadata?.deviceId?.trim() || `ESP32-${hiveId}`,
           hardwareModel: deviceMetadata?.hardwareModel || "ESP32-WROOM-32U",
@@ -263,12 +281,21 @@ export class HiveController {
         }
       }
 
-      const { status, hiveType, beeSpecies, queenInfo, deviceMetadata, notes } = req.body;
+      const { status, hiveType, beeSpecies, queenInfo, deviceMetadata, location, notes } = req.body;
 
       if (status) hive.status = status;
       if (hiveType) hive.hiveType = hiveType;
       if (beeSpecies) hive.beeSpecies = beeSpecies;
       if (notes !== undefined) hive.notes = notes;
+
+      if (location) {
+        hive.location = {
+          latitude: Number(location.latitude ?? hive.location?.latitude),
+          longitude: Number(location.longitude ?? hive.location?.longitude),
+          address: location.address !== undefined ? location.address : hive.location?.address,
+          isApproximate: location.isApproximate !== undefined ? location.isApproximate : hive.location?.isApproximate ?? false,
+        };
+      }
 
       if (queenInfo) {
         hive.queenInfo = {

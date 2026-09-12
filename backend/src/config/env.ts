@@ -76,6 +76,11 @@ const envSchema = z.object({
   TWILIO_FROM_NUMBER: z.string().optional(),
   TWILIO_ALERT_TO_NUMBER: z.string().optional(),
   TWILIO_SMS_COOLDOWN_SECONDS: z.string().default("900"),
+
+  // Gemini AI Decision Support & Reasoning
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default("gemini-1.5-flash"),
+  GEMINI_COOLDOWN_HOURS: z.string().default("6"),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -99,4 +104,5 @@ export const env = {
   TELEMETRY_EXPECTED_INTERVAL_SECONDS: parseInt(parsed.data.TELEMETRY_EXPECTED_INTERVAL_SECONDS || "30", 10) || 30,
   TELEMETRY_RECENT_LIMIT: parseInt(parsed.data.TELEMETRY_RECENT_LIMIT || "10", 10) || 10,
   TWILIO_SMS_COOLDOWN_SECONDS: parseInt(parsed.data.TWILIO_SMS_COOLDOWN_SECONDS || "900", 10) || 900,
+  GEMINI_COOLDOWN_HOURS: parseInt(parsed.data.GEMINI_COOLDOWN_HOURS || "6", 10) || 6,
 };

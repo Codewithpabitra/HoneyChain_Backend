@@ -9,15 +9,21 @@ import {
   IconArrowLeft,
   IconBattery,
   IconBrain,
+  IconCheck,
   IconClock,
   IconDeviceAnalytics,
   IconDroplets,
   IconEdit,
   IconHexagon,
   IconMapPin,
+  IconMinus,
   IconRefresh,
+  IconShieldCheck,
+  IconSparkles,
   IconTemperature,
   IconTrash,
+  IconTrendingDown,
+  IconTrendingUp,
   IconWeight,
   IconActivity,
 } from "@tabler/icons-react";
@@ -67,6 +73,7 @@ export default function HiveDetailsPage() {
 
   // AI Prediction
   const [prediction, setPrediction] = useState<Prediction | null>(null);
+  const [predictionHistory, setPredictionHistory] = useState<any[]>([]);
   const [predictionLoading, setPredictionLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -124,10 +131,28 @@ export default function HiveDetailsPage() {
   const loadPrediction = useCallback(async () => {
     try {
       setPredictionLoading(true);
-      const res = await mlService.getLatest(hiveId);
-      setPrediction(res.data);
+      const [latestRes, historyRes] = await Promise.allSettled([
+        mlService.getLatest(hiveId),
+        mlService.getHistory(hiveId, 1, 5),
+      ]);
+
+      if (latestRes.status === "fulfilled" && latestRes.value?.data) {
+        setPrediction(latestRes.value.data);
+      } else {
+        setPrediction(null);
+      }
+
+      if (
+        historyRes.status === "fulfilled" &&
+        historyRes.value?.data?.predictions
+      ) {
+        setPredictionHistory(historyRes.value.data.predictions);
+      } else {
+        setPredictionHistory([]);
+      }
     } catch {
       setPrediction(null);
+      setPredictionHistory([]);
     } finally {
       setPredictionLoading(false);
     }
@@ -216,15 +241,172 @@ export default function HiveDetailsPage() {
     try {
       setIsAnalyzing(true);
       setActionError(null);
-      await mlService.predict(hiveId);
+      const res = await mlService.predict(hiveId, { forceAi: true });
+      if (res?.data?.prediction) {
+        const pred = { ...res.data.prediction };
+        if (!pred.gemini && res.data.geminiAnalysis) {
+          pred.gemini = res.data.geminiAnalysis;
+        }
+        setPrediction(pred);
+      } else if (res?.data?.geminiAnalysis) {
+        setPrediction((prev: any) =>
+          prev ? { ...prev, gemini: res.data.geminiAnalysis } : ({ gemini: res.data.geminiAnalysis } as any)
+        );
+      }
       await loadPrediction();
       await loadHive();
-    } catch {
-      setActionError("AI analysis failed. Ensure IoT readings are ingested first.");
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "AI analysis failed. Ensure IoT readings are ingested first.";
+      setActionError(msg);
     } finally {
       setIsAnalyzing(false);
     }
   }
+
+  // 1. Current Hive Health (ML Score & Status)
+  const currentHealth = useMemo(() => {
+    const score =
+      prediction?.result?.healthScore ??
+      prediction?.healthScore ??
+      hive?.currentHealthSummary?.healthScore ??
+      null;
+
+    const rawStatus =
+      prediction?.result?.status ||
+      prediction?.status ||
+      hive?.currentHealthSummary?.status ||
+      "healthy";
+
+    const normalizedStatus = String(rawStatus).toLowerCase().replace("_", " ");
+
+    let badgeColor =
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800";
+    let statusText = "Healthy Colony";
+
+    if (
+      normalizedStatus.includes("critical") ||
+      (typeof score === "number" && score <= 40)
+    ) {
+      badgeColor =
+        "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800";
+      statusText = "Critical Health Risk";
+    } else if (
+      normalizedStatus.includes("warning") ||
+      normalizedStatus.includes("attention") ||
+      normalizedStatus.includes("stress") ||
+      (typeof score === "number" && score < 75)
+    ) {
+      badgeColor =
+        "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800";
+      statusText = "Attention Needed";
+    }
+
+    return {
+      score: score ?? 100,
+      statusText,
+      badgeColor,
+    };
+  }, [prediction, hive]);
+
+  // Existing health trend computed from past evaluations
+  const healthTrend = useMemo(() => {
+    const currentScore =
+      prediction?.result?.healthScore ??
+      prediction?.healthScore ??
+      hive?.currentHealthSummary?.healthScore ??
+      null;
+
+    if (currentScore === null || predictionHistory.length < 2) {
+      return {
+        direction: "stable" as const,
+        label: "Stable (Continuous Monitoring)",
+        diff: 0,
+      };
+    }
+
+    const prevScore =
+      predictionHistory[1]?.result?.healthScore ??
+      predictionHistory[1]?.healthScore ??
+      null;
+
+    if (prevScore === null) {
+      return {
+        direction: "stable" as const,
+        label: "Stable Baseline",
+        diff: 0,
+      };
+    }
+
+    const diff = Math.round((currentScore - prevScore) * 10) / 10;
+    if (diff > 1) {
+      return {
+        direction: "up" as const,
+        label: `Improving (+${diff} pts)`,
+        diff,
+      };
+    }
+    if (diff < -1) {
+      return {
+        direction: "down" as const,
+        label: `Declining (${diff} pts)`,
+        diff,
+      };
+    }
+    return {
+      direction: "stable" as const,
+      label: "Stable (±1 pt)",
+      diff,
+    };
+  }, [prediction, predictionHistory, hive]);
+
+  // 2. AI Hive Insight (Gemini AI Analysis)
+  const aiInsight = useMemo(() => {
+    const gemini =
+      prediction?.gemini && (prediction.gemini.triggered || prediction.gemini.summary)
+        ? prediction.gemini
+        : hive?.currentHealthSummary?.latestGeminiAnalysis &&
+          (hive.currentHealthSummary.latestGeminiAnalysis.triggered ||
+            hive.currentHealthSummary.latestGeminiAnalysis.summary)
+        ? hive.currentHealthSummary.latestGeminiAnalysis
+        : null;
+
+    if (!gemini || !gemini.summary) {
+      return null;
+    }
+
+    const summary = gemini.summary;
+    const factors: string[] = [
+      ...(Array.isArray((gemini as any).possibleFactors) ? (gemini as any).possibleFactors : []),
+      ...(Array.isArray((gemini as any).sensorEvidence) ? (gemini as any).sensorEvidence : []),
+    ];
+
+    const weather = (gemini as any).weatherImpact || null;
+    const action =
+      gemini.recommendedAction ||
+      prediction?.result?.recommendation ||
+      prediction?.recommendations?.[0] ||
+      null;
+    const severity = gemini.severity || "low";
+    const urgency = gemini.urgency || "low";
+    const timestamp =
+      gemini.generatedAt ||
+      prediction?.predictionTimestamp ||
+      prediction?.createdAt ||
+      null;
+
+    return {
+      summary,
+      factors,
+      weather,
+      action,
+      severity,
+      urgency,
+      timestamp,
+    };
+  }, [prediction, hive]);
 
   // Save hive edits
   async function handleSaveEdit(e?: React.FormEvent) {
@@ -666,20 +848,34 @@ export default function HiveDetailsPage() {
         isSocketConnected={isSocketConnected}
       />
 
-      {/* AI Health Summary & Model Prediction */}
-      <section className="rounded-2xl border border-black/8 bg-white p-6 dark:border-white/10 dark:bg-white/5">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* 
+        =======================================================
+        HIVE HEALTH & AI HIVE INSIGHT (GEMINI AI DECISION SUPPORT)
+        Flow: Hive Health → AI Insight → Recommendation
+        =======================================================
+      */}
+      <section
+        id="ai-insight"
+        className="scroll-mt-6 rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-white/4 sm:p-7"
+      >
+        {/* Section Header with Simple Action Button */}
+        <div className="flex flex-col justify-between gap-4 border-b border-black/5 pb-5 dark:border-white/5 sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-honey/15 p-2.5 text-honey">
               <IconBrain size={22} />
             </div>
-
             <div>
-              <h2 className="font-semibold text-ink dark:text-ink-dark">
-                AI Hive Health & Anomaly Detection
-              </h2>
-              <p className="text-xs text-black/50 dark:text-white/50">
-                Continuous machine-learning assessment from sensor patterns
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-ink dark:text-ink-dark">
+                  AI Hive Health & Insight
+                </h2>
+                <span className="inline-flex items-center gap-1 rounded-full bg-honey/10 px-2.5 py-0.5 text-[10px] font-semibold text-honey">
+                  <IconSparkles size={11} />
+                  Gemini Supported
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-black/50 dark:text-white/50">
+                Continuous ML colony diagnostics coupled with AI-assisted decision support
               </p>
             </div>
           </div>
@@ -688,79 +884,251 @@ export default function HiveDetailsPage() {
             type="button"
             onClick={runAnalysis}
             disabled={isAnalyzing}
-            className="inline-flex items-center gap-2 rounded-xl bg-honey px-4 py-2 text-xs font-semibold text-comb shadow-xs transition hover:brightness-95 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-honey px-4 py-2.5 text-xs font-semibold text-comb shadow-xs transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <IconRefresh
               size={15}
               className={isAnalyzing ? "animate-spin" : ""}
             />
-            {isAnalyzing ? "Evaluating AI Model…" : "Run Live AI Analysis"}
+            {isAnalyzing
+              ? "Analyzing Hive…"
+              : aiInsight
+              ? "Re-analyze"
+              : "Analyze with AI"}
           </button>
         </div>
 
-        <MLHealthIndicator />
-
-        {predictionLoading ? (
-          <div className="py-6 text-sm text-black/50 dark:text-white/50">
-            Loading AI prediction…
+        {/* Loading State during active inference */}
+        {isAnalyzing ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="h-10 w-10 animate-spin rounded-full border-3 border-honey border-t-transparent" />
+            <p className="mt-4 text-sm font-semibold text-ink dark:text-ink-dark">
+              Evaluating 48h rolling telemetry…
+            </p>
+            <p className="mt-1 max-w-sm text-xs text-black/50 dark:text-white/50">
+              Querying Hive Health ML baseline and consulting Gemini decision support for current brood conditions.
+            </p>
           </div>
-        ) : prediction ? (
-          <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black/5 pb-4 dark:border-white/5">
+        ) : predictionLoading ? (
+          <div className="flex items-center justify-center py-10 text-xs text-black/50 dark:text-white/50">
+            <IconRefresh size={16} className="mr-2 animate-spin text-honey" />
+            Loading colony health assessment…
+          </div>
+        ) : (
+          <div className="mt-6 space-y-6">
+            {/* 1. Hive Health (ML Score, Status, Trend) */}
+            <div className="grid gap-4 rounded-xl border border-black/5 bg-black/[0.015] p-4.5 dark:border-white/5 dark:bg-white/[0.02] sm:grid-cols-3">
+              {/* Health Score */}
               <div>
-                <p className="text-xl font-bold tracking-tight text-ink dark:text-ink-dark">
-                  {prediction.status.replaceAll("_", " ")}
-                </p>
-
-                <p className="mt-1 text-xs text-black/50 dark:text-white/50">
-                  Model Confidence: {(prediction.confidence * 100).toFixed(1)}% • Health Score: {prediction.healthScore ?? hive?.currentHealthSummary?.healthScore ?? 85}%
-                </p>
-
-                <p className="mt-1 flex items-center gap-1 text-[11px] text-black/40 dark:text-white/40">
-                  <IconClock size={12} />
-                  Analyzed {new Date(prediction.timestamp).toLocaleString()}
-                </p>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-black/45 dark:text-white/45">
+                  Hive Health Score
+                </span>
+                <div className="mt-1.5 flex items-baseline gap-2.5">
+                  <span className="text-3xl font-bold tracking-tight text-ink dark:text-ink-dark">
+                    {currentHealth.score}%
+                  </span>
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${currentHealth.badgeColor}`}
+                  >
+                    {currentHealth.statusText}
+                  </span>
+                </div>
+                <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      currentHealth.score >= 80
+                        ? "bg-emerald-500"
+                        : currentHealth.score >= 50
+                        ? "bg-amber-500"
+                        : "bg-red-500"
+                    }`}
+                    style={{ width: `${Math.max(5, Math.min(100, currentHealth.score))}%` }}
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="rounded-full border border-black/10 px-3 py-1 text-xs font-semibold dark:border-white/10">
-                  Risk Tier {prediction.tier}
+              {/* Health Trend */}
+              <div>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-black/45 dark:text-white/45">
+                  Health Trend
                 </span>
-                {(prediction.anomalyDetected || (prediction.anomaliesDetected && prediction.anomaliesDetected.length > 0)) && (
-                  <span className="rounded-full bg-alert/10 px-3 py-1 text-xs font-semibold text-alert">
-                    Anomaly Flagged
-                  </span>
-                )}
+                <div className="mt-2 flex items-center gap-2">
+                  {healthTrend.direction === "up" ? (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                      <IconTrendingUp size={16} />
+                    </div>
+                  ) : healthTrend.direction === "down" ? (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/15 text-red-600 dark:text-red-400">
+                      <IconTrendingDown size={16} />
+                    </div>
+                  ) : (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/10 text-black/60 dark:bg-white/10 dark:text-white/60">
+                      <IconMinus size={16} />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold text-ink dark:text-ink-dark">
+                      {healthTrend.label}
+                    </p>
+                    <p className="text-[11px] text-black/45 dark:text-white/45">
+                      Compared to previous evaluations
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Monitoring Baseline Window */}
+              <div>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-black/45 dark:text-white/45">
+                  Diagnostics Model
+                </span>
+                <p className="mt-2 text-sm font-semibold text-ink dark:text-ink-dark">
+                  48-Hour Rolling Window
+                </p>
+                <p className="text-[11px] text-black/45 dark:text-white/45">
+                  {prediction?.tier ? `Tier ${prediction.tier}` : "Automated Hourly"} • Circadian Baseline
+                </p>
               </div>
             </div>
 
-            {/* Drivers & Recommendations */}
-            {prediction.drivers && prediction.drivers.length > 0 && (
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-honey">
-                  Health Drivers & Sensor Signals
-                </h3>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {prediction.drivers.map((driver: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="rounded-xl border border-black/5 bg-black/1 p-3 text-xs dark:border-white/5 dark:bg-white/2"
-                    >
-                      <span className="font-semibold text-ink dark:text-ink-dark">
-                        {driver.feature || "Sensor"}:{" "}
+            {/* 2. AI Hive Insight & 3. Recommendation */}
+            {aiInsight ? (
+              <div className="space-y-5">
+                {/* Meta Banner: Severity, Urgency & Timestamp */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/5 pb-3 text-xs dark:border-white/5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-black/60 dark:text-white/60">
+                      AI Assessment:
+                    </span>
+                    {aiInsight.severity && (
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
+                          aiInsight.severity === "critical"
+                            ? "bg-red-500/15 text-red-700 dark:text-red-400"
+                            : aiInsight.severity === "high"
+                            ? "bg-orange-500/15 text-orange-700 dark:text-orange-400"
+                            : aiInsight.severity === "medium"
+                            ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                            : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                        }`}
+                      >
+                        Severity: {aiInsight.severity}
                       </span>
-                      <span className="text-black/60 dark:text-white/60">
-                        {driver.direction || "impact"} ({typeof driver.contribution === "number" ? (driver.contribution > 0 ? "+" : "") + driver.contribution.toFixed(2) : "normal"})
+                    )}
+                    {aiInsight.urgency && (
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
+                          aiInsight.urgency === "immediate"
+                            ? "animate-pulse bg-red-600 text-white"
+                            : aiInsight.urgency === "high"
+                            ? "bg-orange-500/20 text-orange-800 dark:text-orange-300"
+                            : aiInsight.urgency === "medium"
+                            ? "bg-amber-500/20 text-amber-800 dark:text-amber-300"
+                            : "bg-black/5 text-black/60 dark:bg-white/10 dark:text-white/60"
+                        }`}
+                      >
+                        Urgency: {aiInsight.urgency}
+                      </span>
+                    )}
+                  </div>
+
+                  {aiInsight.timestamp && (
+                    <div className="flex items-center gap-1.5 text-black/45 dark:text-white/45">
+                      <IconClock size={13} />
+                      <span>
+                        Analyzed {new Date(aiInsight.timestamp).toLocaleString()}
                       </span>
                     </div>
-                  ))}
+                  )}
                 </div>
+
+                {/* Explanation: What's Happening */}
+                <div className="rounded-xl bg-honey/10 p-4.5 text-ink dark:text-ink-dark">
+                  <div className="flex items-start gap-3">
+                    <IconSparkles size={18} className="mt-0.5 shrink-0 text-honey" />
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-honey">
+                        What&apos;s Happening
+                      </h4>
+                      <p className="mt-1 text-sm leading-relaxed text-ink/90 dark:text-ink-dark/90">
+                        {aiInsight.summary}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Key Contributing Factors */}
+                {aiInsight.factors && aiInsight.factors.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-black/60 dark:text-white/60">
+                      Key Contributing Factors
+                    </h4>
+                    <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
+                      {aiInsight.factors.map((factor, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-2.5 rounded-xl border border-black/5 bg-black/[0.02] p-3 text-xs text-ink/80 dark:border-white/5 dark:bg-white/[0.02] dark:text-ink-dark/80"
+                        >
+                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-honey" />
+                          <span>{factor}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Weather Context Impact */}
+                {aiInsight.weather && (
+                  <div className="flex items-center gap-2 rounded-xl border border-black/5 bg-black/[0.015] px-3.5 py-2.5 text-xs text-black/65 dark:border-white/5 dark:bg-white/[0.02] dark:text-white/65">
+                    <span className="font-semibold text-ink dark:text-ink-dark">
+                      Local Weather Impact:
+                    </span>
+                    <span>{aiInsight.weather}</span>
+                  </div>
+                )}
+
+                {/* 3. Recommended Action */}
+                {aiInsight.action && (
+                  <div className="rounded-xl border border-honey/30 bg-honey/5 p-4.5 dark:border-honey/20 dark:bg-honey/10">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-lg bg-honey/20 p-2 text-honey">
+                        <IconShieldCheck size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-honey">
+                          Recommended Beekeeper Action
+                        </h4>
+                        <p className="mt-1 text-sm font-medium text-ink dark:text-ink-dark">
+                          {aiInsight.action}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* If No AI Analysis Exists Yet */
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-black/10 p-8 text-center dark:border-white/10">
+                <div className="rounded-xl bg-honey/10 p-3 text-honey">
+                  <IconBrain size={28} />
+                </div>
+                <h3 className="mt-3 text-sm font-semibold text-ink dark:text-ink-dark">
+                  No AI analysis available yet
+                </h3>
+                <p className="mt-1 max-w-md text-xs text-black/50 dark:text-white/50">
+                  No AI analysis available yet. Analyze this hive to get an AI-assisted assessment.
+                </p>
+                <button
+                  type="button"
+                  onClick={runAnalysis}
+                  disabled={isAnalyzing}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-honey px-4 py-2 text-xs font-semibold text-comb shadow-xs transition hover:brightness-95 disabled:opacity-50"
+                >
+                  <IconRefresh size={14} className={isAnalyzing ? "animate-spin" : ""} />
+                  Analyze with AI
+                </button>
               </div>
             )}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-black/10 p-6 text-center text-xs text-black/50 dark:border-white/10 dark:text-white/50">
-            No AI prediction generated yet. Click &quot;Run Live AI Analysis&quot; above after telemetry has been ingested.
           </div>
         )}
       </section>

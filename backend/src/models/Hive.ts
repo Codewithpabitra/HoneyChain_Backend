@@ -17,6 +17,23 @@ export interface IDeviceMetadata {
   batteryLevelPct?: number;
 }
 
+export interface IHiveLocation {
+  latitude: number;
+  longitude: number;
+  address?: string;
+  isApproximate?: boolean;
+}
+
+export interface ILatestGeminiAnalysis {
+  triggered: boolean;
+  triggerReason?: string;
+  severity?: "low" | "medium" | "high" | "critical";
+  summary?: string;
+  recommendedAction?: string;
+  urgency?: "low" | "medium" | "high" | "immediate";
+  generatedAt?: Date;
+}
+
 export interface ICurrentHealthSummary {
   healthScore?: number; // 0 to 100
   status: "healthy" | "warning" | "critical" | "unknown";
@@ -25,6 +42,7 @@ export interface ICurrentHealthSummary {
   latestReadingAt?: Date;
   activeAlerts?: string[];
   lastAIPredictionId?: string;
+  latestGeminiAnalysis?: ILatestGeminiAnalysis;
 }
 
 export interface IHive extends Document {
@@ -37,6 +55,7 @@ export interface IHive extends Document {
   queenInfo?: IQueenInfo;
   installationDate: Date;
   status: "active" | "inactive" | "swarmed" | "collapsed" | "quarantined";
+  location?: IHiveLocation;
   deviceMetadata?: IDeviceMetadata;
   currentHealthSummary?: ICurrentHealthSummary;
   organizationId?: Types.ObjectId;
@@ -95,6 +114,33 @@ const CurrentHealthSummarySchema = new Schema<ICurrentHealthSummary>(
     latestReadingAt: { type: Date },
     activeAlerts: { type: [String], default: [] },
     lastAIPredictionId: { type: String },
+    latestGeminiAnalysis: {
+      triggered: { type: Boolean, default: false },
+      triggerReason: { type: String },
+      severity: { type: String, enum: ["low", "medium", "high", "critical"] },
+      summary: { type: String },
+      recommendedAction: { type: String },
+      urgency: { type: String, enum: ["low", "medium", "high", "immediate"] },
+      generatedAt: { type: Date },
+    },
+  },
+  { _id: false }
+);
+
+const HiveLocationSchema = new Schema<IHiveLocation>(
+  {
+    latitude: {
+      type: Number,
+      min: [-90, "Latitude cannot be less than -90"],
+      max: [90, "Latitude cannot exceed 90"],
+    },
+    longitude: {
+      type: Number,
+      min: [-180, "Longitude cannot be less than -180"],
+      max: [180, "Longitude cannot exceed 180"],
+    },
+    address: { type: String, trim: true },
+    isApproximate: { type: Boolean, default: true },
   },
   { _id: false }
 );
@@ -148,6 +194,10 @@ const HiveSchema = new Schema<IHive>(
       enum: ["active", "inactive", "swarmed", "collapsed", "quarantined"],
       default: "active",
       index: true,
+    },
+    location: {
+      type: HiveLocationSchema,
+      required: false,
     },
     deviceMetadata: {
       type: DeviceMetadataSchema,

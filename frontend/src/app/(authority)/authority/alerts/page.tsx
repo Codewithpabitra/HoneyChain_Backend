@@ -277,7 +277,7 @@ export default function AuthorityAlertsPage() {
                       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-black/50 dark:text-white/50">
                         {alert.hiveId && (
                           <Link
-                            href={`/farmer/hives/${encodeURIComponent(alert.hiveId)}`}
+                            href={`/farmer/hives/${encodeURIComponent(alert.hiveId)}#ai-insight`}
                             className="font-mono text-honey hover:underline"
                           >
                             Hive: {alert.hiveId}
