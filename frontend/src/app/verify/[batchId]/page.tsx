@@ -17,6 +17,7 @@ import {
 import { BeeIcon } from "@/components/ui/BeeIcon";
 
 import TraceabilityTimeline from "@/components/traceability/TraceabilityTimeline";
+import { formatAddressOrOrg, shortenAddress } from "@/lib/organizations";
 import { verificationService } from "@/services/verification.service";
 import type {
   BatchVerification,
@@ -179,11 +180,38 @@ export default function VerifyBatchPage() {
                     <p className="mt-1 text-sm font-semibold text-black dark:text-white">
                       &ldquo;{recall.reason}&rdquo;
                     </p>
-                    {recall.recalledBy && (
-                      <p className="mt-2 font-mono text-xs text-black/60 dark:text-white/60">
-                        Auditor Authority: {recall.recalledBy}
-                      </p>
-                    )}
+                    {recall.recalledBy && (() => {
+                      const auditorOrg = formatAddressOrOrg(
+                        recall.recalledByName || recall.recalledByOrg?.name || recall.recalledBy,
+                        verification.organizations
+                      );
+                      const auditorName =
+                        recall.recalledByName || recall.recalledByOrg?.name || auditorOrg.displayName;
+                      return (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                          <span className="text-black/60 dark:text-white/60">
+                            Auditor Authority:
+                          </span>
+                          <span className="font-bold text-black dark:text-white">
+                            {auditorName}
+                          </span>
+                          {recall.recalledBy.startsWith("0x") && (
+                            <span className="font-mono text-[11px] text-black/50 dark:text-white/50 inline-flex items-center gap-1">
+                              ({shortenAddress(recall.recalledBy)})
+                              <a
+                                href={`https://sepolia.etherscan.io/address/${recall.recalledBy}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-honey hover:underline inline-flex items-center"
+                                title={`View ${recall.recalledBy} on Sepolia Etherscan`}
+                              >
+                                <IconExternalLink size={11} />
+                              </a>
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {recall.txHash && (
                       <a
                         href={`https://sepolia.etherscan.io/tx/${recall.txHash}`}
@@ -287,9 +315,12 @@ export default function VerifyBatchPage() {
               value={String(harvest.sourceHives.length)}
             />
 
-            <InfoCard
+            <ActorCard
               label="Producer"
-              value={harvest.producer}
+              address={harvest.producer}
+              orgName={harvest.producerName || harvest.producerOrg?.name}
+              role={harvest.producerOrg?.role || "Beekeeper / Producer"}
+              dynamicOrgs={verification.organizations}
             />
           </div>
         </section>
@@ -406,9 +437,28 @@ export default function VerifyBatchPage() {
                         Certified By
                       </p>
 
-                      <p className="mt-2 text-sm font-semibold">
-                        {quality.certifiedBy}
+                      <p className="mt-2 text-sm font-bold text-black dark:text-white">
+                        {quality.certifiedByName ||
+                          quality.certifiedByOrg?.name ||
+                          formatAddressOrOrg(quality.certifiedBy, verification.organizations).displayName}
                       </p>
+
+                      {quality.certifiedBy && (
+                        <div className="mt-1 flex items-center gap-1.5 font-mono text-xs text-black/60 dark:text-white/60">
+                          <span title={quality.certifiedBy}>
+                            {shortenAddress(quality.certifiedBy)}
+                          </span>
+                          <a
+                            href={`https://sepolia.etherscan.io/address/${quality.certifiedBy}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-honey hover:underline inline-flex items-center"
+                            title={`View ${quality.certifiedBy} on Sepolia Etherscan`}
+                          >
+                            <IconExternalLink size={12} />
+                          </a>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -500,9 +550,12 @@ export default function VerifyBatchPage() {
                 value={blockchain.status}
               />
 
-              <InfoCard
+              <ActorCard
                 label="Current Custodian"
-                value={blockchain.currentCustodian}
+                address={blockchain.currentCustodian}
+                orgName={blockchain.currentCustodianName || blockchain.currentCustodianOrg?.name}
+                role={blockchain.currentCustodianOrg?.role || "Current Custodian"}
+                dynamicOrgs={verification.organizations}
               />
 
               <div className="rounded-xl border border-black/10 p-4 dark:border-white/10 sm:col-span-2">
@@ -596,7 +649,10 @@ export default function VerifyBatchPage() {
             </p>
           </div>
 
-          <TraceabilityTimeline events={verification.custodyTimeline} />
+          <TraceabilityTimeline
+            events={verification.custodyTimeline}
+            organizations={verification.organizations}
+          />
         </section>
 
         {/* Footer */}
@@ -616,6 +672,57 @@ export default function VerifyBatchPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function ActorCard({
+  label,
+  address,
+  orgName,
+  role,
+  dynamicOrgs,
+}: {
+  label: string;
+  address?: string | null;
+  orgName?: string;
+  role?: string;
+  dynamicOrgs?: Record<string, any>;
+}) {
+  const resolved = formatAddressOrOrg(orgName || address, dynamicOrgs);
+  const displayTitle = orgName || resolved.displayName;
+  const displayAddress = address || (resolved.isAddress ? resolved.address : undefined);
+  const displayRole = role || resolved.roleLabel;
+
+  return (
+    <div className="rounded-xl border border-black/10 p-4 dark:border-white/10">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-black/40 dark:text-white/40">{label}</p>
+        {displayRole && (
+          <span className="rounded bg-honey/10 px-1.5 py-0.5 text-[10px] font-semibold text-honey">
+            {displayRole}
+          </span>
+        )}
+      </div>
+
+      <p className="mt-2 text-sm font-bold text-black dark:text-white truncate" title={displayTitle}>
+        {displayTitle}
+      </p>
+
+      {displayAddress && (
+        <div className="mt-1 flex items-center gap-1.5 font-mono text-xs text-black/60 dark:text-white/60">
+          <span title={displayAddress}>{shortenAddress(displayAddress)}</span>
+          <a
+            href={`https://sepolia.etherscan.io/address/${displayAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-honey hover:underline inline-flex items-center"
+            title={`View ${displayAddress} on Sepolia Etherscan`}
+          >
+            <IconExternalLink size={12} />
+          </a>
+        </div>
+      )}
+    </div>
   );
 }
 

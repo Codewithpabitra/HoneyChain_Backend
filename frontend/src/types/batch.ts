@@ -37,6 +37,13 @@ export interface BlockchainInfo {
   etherscanUrl?: string;
 }
 
+export interface OrganizationRef {
+  name: string;
+  role?: string;
+  walletAddress?: string;
+  address?: string;
+}
+
 export interface CustodyEvent {
   from: string;
   to: string;
@@ -45,6 +52,10 @@ export interface CustodyEvent {
   txHash?: string;
   blockNumber?: number;
   performedBy?: string;
+  fromName?: string;
+  toName?: string;
+  fromOrg?: OrganizationRef;
+  toOrg?: OrganizationRef;
 }
 
 export interface QualityInfo {
@@ -52,6 +63,8 @@ export interface QualityInfo {
   moisturePercentage?: number;
   moistureBasisPoints?: number;
   certifiedBy?: string;
+  certifiedByName?: string;
+  certifiedByOrg?: OrganizationRef;
   certifiedByUserId?: string;
   certifiedAt?: number;
   certificationTimestamp?: number;
@@ -59,12 +72,15 @@ export interface QualityInfo {
   labReportUrl?: string;
   labReportData?: Record<string, any>;
   txHash?: string;
+  certified?: boolean;
 }
 
 export interface RecallInfo {
   recalled: boolean;
   reason?: string;
   recalledBy?: string;
+  recalledByName?: string;
+  recalledByOrg?: OrganizationRef;
   performedBy?: string;
   recalledAt?: number;
   txHash?: string;
@@ -72,6 +88,8 @@ export interface RecallInfo {
 
 export interface HarvestInfo {
   producer: string;
+  producerName?: string;
+  producerOrg?: OrganizationRef;
   harvestTimestamp: number;
   quantityGrams: number;
   quantityKg: number;
@@ -137,10 +155,15 @@ export interface BatchVerification {
   batchId: string;
   verifiedOnChain: boolean;
   tamperProofAudit: TamperAudit;
+  organizations?: Record<string, OrganizationRef>;
   blockchain: BlockchainInfo & {
     status: BatchStatus;
     producer: string;
+    producerOrg?: OrganizationRef;
+    producerName?: string;
     currentCustodian: string;
+    currentCustodianOrg?: OrganizationRef;
+    currentCustodianName?: string;
   };
   quality?: QualityInfo;
   harvest: HarvestInfo;

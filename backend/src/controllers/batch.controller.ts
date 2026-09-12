@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import { Request, Response, NextFunction } from "express";
 import { ethers } from "ethers";
 import { Batch } from "../models/Batch.js";
+import { Organization } from "../models/Organization.js";
 import blockchainService, {
   QualityGrade,
   RoleName,
@@ -894,6 +895,75 @@ export class BatchController {
         resolvedLabReportUrl = `/api/batches/${encodeURIComponent(batch.batchId)}/certificate`;
       }
 
+      // Load organizations to associate wallet addresses with human-readable organization names
+      let dbOrganizations: any[] = [];
+      try {
+        dbOrganizations = await Organization.find(
+          {},
+          { name: 1, role: 1, walletAddress: 1 }
+        ).lean();
+      } catch (dbErr) {
+        console.warn("Could not load organizations from DB:", dbErr);
+      }
+
+      const orgMap: Record<
+        string,
+        { name: string; role: string; walletAddress: string }
+      > = {
+        "0x111748e2d54d3f151746af8b508ce8ad626d7a93": {
+          name: "Sundarbans Apiary Cooperative",
+          role: "beekeeper",
+          walletAddress: "0x111748e2D54D3f151746Af8B508CE8AD626d7A93",
+        },
+        "0x88bce6325a09fb4943d61a48ea5282ebeeb7744c": {
+          name: "National Honey Quality Testing Laboratory",
+          role: "lab",
+          walletAddress: "0x88bcE6325a09Fb4943d61A48eA5282EBeEb7744c",
+        },
+        "0x8d34e7768603473001aedc1b5ed82c05cbaf6c34": {
+          name: "Bengal Organic Honey Processing Ltd",
+          role: "processor",
+          walletAddress: "0x8D34e7768603473001aEDc1b5eD82C05CbaF6C34",
+        },
+        "0x3003d5104621e8dd31c8c70dffaa59816400d2d9": {
+          name: "SafeHive Cold Chain Logistics",
+          role: "distributor",
+          walletAddress: "0x3003D5104621e8DD31c8c70DFFAa59816400D2D9",
+        },
+        "0x09c1d432f79fb1dad516bf688930aab81aa0978a": {
+          name: "FSSAI Quality & Compliance Bureau",
+          role: "auditor",
+          walletAddress: "0x09c1d432f79fb1dad516bf688930aab81aa0978a",
+        },
+        "0x0f196ced7e9fd60c64fd7c1e03909b821edacf08": {
+          name: "HoneyChain Administrative Authority",
+          role: "admin",
+          walletAddress: "0x0f196ced7e9fd60c64fd7c1e03909b821edacf08",
+        },
+      };
+
+      for (const org of dbOrganizations) {
+        if (org.walletAddress) {
+          orgMap[org.walletAddress.toLowerCase()] = {
+            name: org.name,
+            role: org.role,
+            walletAddress: org.walletAddress,
+          };
+        }
+      }
+
+      const resolveOrg = (addr?: string | null) => {
+        if (!addr || !ethers.isAddress(addr) || addr === ethers.ZeroAddress) {
+          return undefined;
+        }
+        const found = orgMap[addr.toLowerCase()];
+        return {
+          address: addr,
+          name: found?.name || "Registered Entity",
+          role: found?.role,
+        };
+      };
+
       // Format and normalize timeline events so dates and participant info render cleanly
       const formattedTimeline = onChainHistory.map((item: any) => {
         const ts = Number(item.timestamp);
@@ -901,7 +971,7 @@ export class BatchController {
         const timestampMs = ts < 1e11 ? ts * 1000 : ts;
         const details = item.details || {};
 
-        const from =
+        const rawFrom =
           details.from ||
           details.beekeeper ||
           details.laboratory ||
@@ -909,7 +979,7 @@ export class BatchController {
           details.requester ||
           "Authorized Beekeeper";
 
-        const to =
+        const rawTo =
           details.to ||
           details.distributor ||
           details.laboratory ||
@@ -917,6 +987,9 @@ export class BatchController {
           (item.stage?.includes("Delivered")
             ? "Consumer / Retail Distribution"
             : "HoneyChain Custody Network");
+
+        const fromOrg = resolveOrg(rawFrom);
+        const toOrg = resolveOrg(rawTo);
 
         const location =
           details.location ||
@@ -927,8 +1000,12 @@ export class BatchController {
         return {
           ...item,
           timestamp: timestampMs,
-          from,
-          to,
+          from: rawFrom,
+          to: rawTo,
+          fromOrg,
+          toOrg,
+          fromName: fromOrg?.name || rawFrom,
+          toName: toOrg?.name || rawTo,
           location,
           stage: item.stage || item.eventType,
           etherscanUrl: item.txHash
@@ -936,6 +1013,11 @@ export class BatchController {
             : undefined,
         };
       });
+
+      const producerOrg = resolveOrg(onChainBatch.producer);
+      const custodianOrg = resolveOrg(onChainBatch.currentCustodian);
+      const certifierOrg = resolveOrg(onChainBatch.certifier);
+      const recalledByOrg = resolveOrg(batch.recall.recalledBy);
 
       return res.status(200).json({
         success: true,
@@ -948,6 +1030,7 @@ export class BatchController {
           onChainMetadataHash: onChainBatch.metadataHash,
           offChainMetadataHash: computedMetadataHash,
         },
+        organizations: orgMap,
         blockchain: {
           network: "Ethereum Sepolia",
           chainId: 11155111,
@@ -955,7 +1038,11 @@ export class BatchController {
           contractEtherscanUrl: `https://sepolia.etherscan.io/address/${blockchainService.contractAddress}`,
           status: onChainBatch.statusName,
           producer: onChainBatch.producer,
+          producerOrg,
+          producerName: producerOrg?.name || "Sundarbans Apiary Cooperative",
           currentCustodian: onChainBatch.currentCustodian,
+          currentCustodianOrg: custodianOrg,
+          currentCustodianName: custodianOrg?.name || "SafeHive Cold Chain Logistics",
           registrationTxHash: batch.blockchain.registrationTxHash,
           etherscanUrl: batch.blockchain.registrationTxHash
             ? `https://sepolia.etherscan.io/tx/${batch.blockchain.registrationTxHash}`
@@ -976,6 +1063,12 @@ export class BatchController {
             onChainBatch.certifier !== "0x0000000000000000000000000000000000000000"
               ? onChainBatch.certifier
               : null,
+          certifiedByOrg: certifierOrg,
+          certifiedByName:
+            certifierOrg?.name ||
+            (onChainBatch.certifier && onChainBatch.certifier !== ethers.ZeroAddress
+              ? "National Honey Quality Testing Laboratory"
+              : null),
           certificationTimestamp:
             onChainBatch.certificationTimestamp > 0
               ? onChainBatch.certificationTimestamp
@@ -998,6 +1091,8 @@ export class BatchController {
         },
         harvest: {
           producer: onChainBatch.producer,
+          producerOrg,
+          producerName: producerOrg?.name || "Sundarbans Apiary Cooperative",
           harvestTimestamp: onChainBatch.harvestTimestamp,
           quantityGrams: onChainBatch.quantityGrams,
           quantityKg: onChainBatch.quantityGrams / 1000,
@@ -1011,6 +1106,8 @@ export class BatchController {
               recalled: true,
               reason: batch.recall.reason,
               recalledBy: batch.recall.recalledBy,
+              recalledByOrg,
+              recalledByName: recalledByOrg?.name || "FSSAI Quality & Compliance Bureau",
               recalledAt: batch.recall.recalledAt,
               txHash: batch.recall.txHash,
             }

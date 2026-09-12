@@ -15,6 +15,7 @@ import {
 } from "@tabler/icons-react";
 
 import TraceabilityTimeline from "@/components/traceability/TraceabilityTimeline";
+import { formatAddressOrOrg, shortenAddress } from "@/lib/organizations";
 import { verificationService } from "@/services/verification.service";
 import type { BatchVerification, QualityGrade } from "@/types/batch";
 
@@ -174,7 +175,15 @@ export default function TraceabilityPage() {
               value={harvest.sourceHives.join(", ") || "—"}
             />
 
-            <DetailCard label="Producer" value={harvest.producer} />
+            <DetailCard
+              label="Producer"
+              value={
+                harvest.producerName ||
+                harvest.producerOrg?.name ||
+                formatAddressOrOrg(harvest.producer, data.organizations).displayName
+              }
+              address={harvest.producer}
+            />
           </div>
         </section>
 
@@ -203,7 +212,12 @@ export default function TraceabilityPage() {
 
                 <DetailCard
                   label="Certified By"
-                  value={quality.certifiedBy || "Accredited Laboratory"}
+                  value={
+                    quality.certifiedByName ||
+                    quality.certifiedByOrg?.name ||
+                    formatAddressOrOrg(quality.certifiedBy, data.organizations).displayName
+                  }
+                  address={quality.certifiedBy}
                 />
               </div>
             </div>
@@ -246,7 +260,12 @@ export default function TraceabilityPage() {
 
               <DetailCard
                 label="Current Custodian"
-                value={blockchain.currentCustodian}
+                value={
+                  blockchain.currentCustodianName ||
+                  blockchain.currentCustodianOrg?.name ||
+                  formatAddressOrOrg(blockchain.currentCustodian, data.organizations).displayName
+                }
+                address={blockchain.currentCustodian}
               />
             </div>
 
@@ -310,7 +329,10 @@ export default function TraceabilityPage() {
             </p>
           </div>
 
-          <TraceabilityTimeline events={data.custodyTimeline} />
+          <TraceabilityTimeline
+            events={data.custodyTimeline}
+            organizations={data.organizations}
+          />
         </section>
 
         {/* Footer */}
@@ -333,12 +355,39 @@ export default function TraceabilityPage() {
   );
 }
 
-function DetailCard({ label, value }: { label: string; value: string }) {
+function DetailCard({
+  label,
+  value,
+  address,
+}: {
+  label: string;
+  value: string;
+  address?: string;
+}) {
+  const isAddr = address && address.startsWith("0x") && address.length >= 30;
+
   return (
     <div className="rounded-xl border border-black/10 p-4 dark:border-white/10">
       <p className="text-xs text-black/40 dark:text-white/40">{label}</p>
 
-      <p className="mt-2 wrap-break-word text-sm font-semibold">{value}</p>
+      <p className="mt-2 wrap-break-word text-sm font-semibold truncate" title={value}>
+        {value}
+      </p>
+
+      {isAddr && (
+        <div className="mt-1 flex items-center gap-1.5 font-mono text-xs text-black/60 dark:text-white/60">
+          <span title={address}>{shortenAddress(address)}</span>
+          <a
+            href={`https://sepolia.etherscan.io/address/${address}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-honey hover:underline inline-flex items-center"
+            title={`View ${address} on Sepolia Etherscan`}
+          >
+            <IconExternalLink size={12} />
+          </a>
+        </div>
+      )}
     </div>
   );
 }
