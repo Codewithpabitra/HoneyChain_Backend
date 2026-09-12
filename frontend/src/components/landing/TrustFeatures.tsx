@@ -5,10 +5,10 @@ import ScrollReveal from "@/components/ui/ScrollReveal";
 import FlightBeeDecor from "@/components/landing/FlightBeeDecor";
 
 const features = [
-  { icon: IconCpu, title: "Real sensor data", body: "Temperature, humidity, weight, and sound — an ESP32 node on every hive, feeding an AI model that flags stress before it becomes a crisis." },
-  { icon: IconFlask2, title: "Lab-verified quality", body: "Moisture, sugar profile, and pollen analysis — certified by an accredited lab, not self-reported by anyone in the chain." },
-  { icon: IconLink, title: "Tamper-evident custody", body: "Every handoff — beekeeper to processor to distributor — is a signed transaction. Change a record, and the mismatch is visible instantly." },
-  { icon: IconQrcode, title: "One scan, full story", body: "No app, no account. Scan the jar's QR and see the entire journey — origin, lab grade, custody — straight from Ethereum." },
+  { icon: IconCpu, title: "Real Sensor Data", body: "Temperature, humidity, weight, and sound — an ESP32 node on every hive, feeding an AI model that flags stress before it becomes a crisis." },
+  { icon: IconFlask2, title: "Lab-Verified Quality", body: "Moisture, sugar profile, and pollen analysis — certified by an accredited lab, not self-reported by anyone in the chain." },
+  { icon: IconLink, title: "Tamper-Evident Custody", body: "Every handoff — beekeeper to processor to distributor — is a signed transaction. Change a record, and the mismatch is visible instantly." },
+  { icon: IconQrcode, title: "One Scan, Full Story", body: "No app, no account. Scan the jar's QR and see the entire journey — origin, lab grade, custody — straight from Ethereum." },
 ];
 
 export default function TrustFeatures() {

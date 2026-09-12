@@ -8,9 +8,9 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { IconLogout } from "@tabler/icons-react";
 
 const navLinks = [
-  { label: "How it works", href: "/#how-it-works" },
+  { label: "How It Works", href: "/#how-it-works" },
   { label: "Features", href: "/#features" },
-  { label: "Verify a jar", href: "/verify" },
+  { label: "Verify A Jar", href: "/verify" },
   { label: "About", href: "/about" },
 ];
 

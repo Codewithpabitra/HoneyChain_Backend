@@ -7,27 +7,27 @@ import FlightBeeDecor from "@/components/landing/FlightBeeDecor";
 const steps = [
   {
     image: "/images/landing/hive-illustration.png",
-    title: "Harvest is registered",
+    title: "Harvest Is Registered",
     body: "The beekeeper logs quantity, floral origin, and apiary location. It's hashed and written to Ethereum — the instant a harvest happens, not after.",
   },
   {
     image: "/images/landing/honey-jar.png",
-    title: "A lab certifies it",
+    title: "A Lab Certifies It",
     body: "Moisture, sugar profile, and pollen analysis are recorded on-chain against the batch, before it ever reaches a processor.",
   },
   {
     image: "/images/landing/custody-illustration.png",
-    title: "Custody moves, on record",
+    title: "Custody Moves, On Record",
     body: "Processor, distributor, retailer — every handoff is a signed transaction with a location and timestamp, building an unbroken chain.",
   },
   {
     image: "/images/landing/qr-illustration.png",
-    title: "The jar gets a QR",
+    title: "The Jar Gets A QR",
     body: "Printed straight onto the label. It points to one thing: the full, tamper-evident history of that exact batch.",
   },
   {
     image: "/images/landing/consumer-illustration.png",
-    title: "Anyone can verify it",
+    title: "Anyone Can Verify It",
     body: "No app, no login. Scan the jar, and the buyer sees origin, lab grade, and custody — pulled live from Ethereum.",
   },
 ];

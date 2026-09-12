@@ -189,14 +189,14 @@ export default function Hero() {
           >
             <Link href="/verify">
               <Button size="lg">
-                Verify a jar
+                Verify A Jar
                 <IconArrowRight size={18} stroke={2} />
               </Button>
             </Link>
 
             <Link href="/register">
               <Button size="lg" variant="outline">
-                I&apos;m a beekeeper
+                I&apos;m A Beekeeper
               </Button>
             </Link>
           </motion.div>
