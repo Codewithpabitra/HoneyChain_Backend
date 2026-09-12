@@ -37,7 +37,7 @@ const columns = [
 ];
 
 const socials = [
-  { icon: IconBrandGithub, href: "https://github.com", label: "GitHub" },
+  { icon: IconBrandGithub, href: "https://github.com/Honey-Chain", label: "GitHub" },
   { icon: IconBrandLinkedin, href: "https://linkedin.com", label: "LinkedIn" },
   { icon: IconBrandX, href: "https://x.com", label: "X" },
   { icon: IconMail, href: "mailto:hello@honeychain.app", label: "Email" },

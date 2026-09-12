@@ -1,24 +1,94 @@
 "use client";
 
-import { motion } from "motion/react";
+import { useRef } from "react";
+import { motion, useMotionValue, useSpring } from "motion/react";
 import Link from "next/link";
 import Image from "next/image";
 import { IconArrowRight } from "@tabler/icons-react";
 import Button from "@/components/ui/Button";
 
+// Matches the original background-image tile exactly: 60x104 tile,
+// hex path 'M30 0L60 17.3V52L30 69.3L0 52V17.3Z' repeated on a straight grid.
+const TILE_W = 60;
+const TILE_H = 104;
+const BOX_SIZE = 288; // h-72 / w-72 → 18rem → 288px
+const COLS = Math.ceil(BOX_SIZE / TILE_W) + 1;
+const ROWS = Math.ceil(BOX_SIZE / TILE_H) + 1;
+
+function hexPath(x: number, y: number) {
+  return `M${x + 30},${y} L${x + 60},${y + 17.3} L${x + 60},${y + 52} L${x + 30},${y + 69.3} L${x},${y + 52} L${x},${y + 17.3} Z`;
+}
+
+const tiles = Array.from({ length: COLS }, (_, col) =>
+  Array.from({ length: ROWS }, (_, row) => hexPath(col * TILE_W, row * TILE_H))
+).flat();
+
 export default function Hero() {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const glowOpacity = useMotionValue(0);
+
+  const springX = useSpring(mouseX, { stiffness: 140, damping: 18, mass: 0.3 });
+  const springY = useSpring(mouseY, { stiffness: 140, damping: 18, mass: 0.3 });
+  const springOpacity = useSpring(glowOpacity, { stiffness: 200, damping: 26 });
+
+  const handleSvgMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const scaleX = BOX_SIZE / rect.width;
+    const scaleY = BOX_SIZE / rect.height;
+    mouseX.set((e.clientX - rect.left) * scaleX);
+    mouseY.set((e.clientY - rect.top) * scaleY);
+    glowOpacity.set(1);
+  };
+
+  const handleSvgLeave = () => {
+    glowOpacity.set(0);
+  };
+
   return (
     <section className="relative overflow-hidden px-4 pb-28 pt-24 md:px-6 md:pb-32 md:pt-32">
-      {/* Decorative honeycomb background */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-10 -top-16 h-72 w-72 opacity-[0.08] dark:opacity-[0.1]"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='104' viewBox='0 0 60 104'%3E%3Cpath d='M30 0L60 17.3V52L30 69.3L0 52V17.3Z' fill='none' stroke='%234A2E12' stroke-width='1'/%3E%3C/svg%3E\")",
-          backgroundSize: "60px 104px",
-        }}
-      />
+      {/* Honeycomb background + hover glow — single shared geometry, so they always line up */}
+      <svg
+        ref={svgRef}
+        onMouseMove={handleSvgMove}
+        onMouseLeave={handleSvgLeave}
+        viewBox={`0 0 ${BOX_SIZE} ${BOX_SIZE}`}
+        className="absolute -left-10 -top-16 h-72 w-72"
+      >
+        <defs>
+          <radialGradient id="hexGlowGradient">
+            <stop offset="0%" stopColor="white" />
+            <stop offset="100%" stopColor="black" />
+          </radialGradient>
+          <mask id="hexGlowMask">
+            <rect width="100%" height="100%" fill="black" />
+            <motion.circle cx={springX} cy={springY} r={70} fill="url(#hexGlowGradient)" />
+          </mask>
+          <filter id="hexGlowBlur" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1.4" />
+          </filter>
+        </defs>
+
+        {/* Dim base pattern — always visible, matches the original look */}
+        <g className="opacity-[0.08] dark:opacity-[0.1]">
+          {tiles.map((d, i) => (
+            <path key={`base-${i}`} d={d} fill="none" stroke="#4A2E12" strokeWidth={1} />
+          ))}
+        </g>
+
+        {/* Glow pass — identical paths, lit only where the cursor mask reveals them */}
+        <motion.g
+          mask="url(#hexGlowMask)"
+          filter="url(#hexGlowBlur)"
+          style={{ opacity: springOpacity }}
+        >
+          {tiles.map((d, i) => (
+            <path key={`glow-${i}`} d={d} fill="none" stroke="var(--color-honey)" strokeWidth={2} />
+          ))}
+        </motion.g>
+      </svg>
 
       {/* Soft honey glow */}
       <div
